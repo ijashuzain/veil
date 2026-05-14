@@ -1056,6 +1056,39 @@ void main() {
     expect(delegate.childAspectRatio, .58);
   });
 
+  testWidgets('reviews and alerts use diary segmented tab styling', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStorage.init();
+    final repository = SocialRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [socialRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: ReviewsView()),
+      ),
+    );
+    await tester.pump();
+
+    _expectDiarySegmentStyle(tester, find.text('Community'));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tmdbRepositoryProvider.overrideWithValue(_FakeTmdbRepository()),
+        ],
+        child: const MaterialApp(home: AlertsView(showBack: true)),
+      ),
+    );
+    await tester.pump();
+
+    _expectDiarySegmentStyle(tester, find.text('Alert'));
+  });
+
   testWidgets('diary swipes horizontally between tabs', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -1122,6 +1155,34 @@ void main() {
     expect(find.text('Genre'), findsOneWidget);
     expect(find.text('Minimum rating'), findsOneWidget);
     expect(find.text('Release year'), findsOneWidget);
+  });
+
+  testWidgets('modal bottom sheets blur the background barrier', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          socialLibraryViewModelProvider.overrideWithValue(
+            SocialLibraryViewState(
+              entries: [
+                _socialEntry(_wakanda, rating: 4),
+                _socialEntry(_arcane, rating: 3),
+              ],
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: DiaryView()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.tap(find.text('Filter'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.text('Filter & sort'), findsOneWidget);
   });
 
   testWidgets('diary applies minimum rating from filter sheet', (tester) async {
@@ -1972,6 +2033,17 @@ class _RecordingAuthRepository extends AuthRepository {
   Future<void> signOut() async {
     signedOut = true;
   }
+}
+
+void _expectDiarySegmentStyle(WidgetTester tester, Finder labelFinder) {
+  final segment = tester.widget<AnimatedContainer>(
+    find.ancestor(of: labelFinder, matching: find.byType(AnimatedContainer)),
+  );
+  final decoration = segment.decoration! as BoxDecoration;
+
+  expect(segment.constraints, BoxConstraints.tightFor(height: 34));
+  expect(decoration.color, VeilColors.panelRaised);
+  expect(decoration.borderRadius, BorderRadius.circular(7));
 }
 
 class _RankingTmdbRepository extends TmdbRepository {

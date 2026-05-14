@@ -1,5 +1,116 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
+
+Future<T?> showVeilBottomSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = false,
+  bool useRootNavigator = false,
+  bool isDismissible = true,
+  Color backgroundColor = Colors.transparent,
+  ShapeBorder? shape,
+  Clip clipBehavior = Clip.none,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    useRootNavigator: useRootNavigator,
+    barrierDismissible: false,
+    barrierColor: Colors.transparent,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (dialogContext, animation, _) {
+      return _VeilBlurredBottomSheetRoute<T>(
+        animation: animation,
+        builder: builder,
+        isScrollControlled: isScrollControlled,
+        isDismissible: isDismissible,
+        backgroundColor: backgroundColor,
+        shape: shape,
+        clipBehavior: clipBehavior,
+      );
+    },
+  );
+}
+
+class _VeilBlurredBottomSheetRoute<T> extends StatelessWidget {
+  const _VeilBlurredBottomSheetRoute({
+    required this.animation,
+    required this.builder,
+    required this.isScrollControlled,
+    required this.isDismissible,
+    required this.backgroundColor,
+    required this.shape,
+    required this.clipBehavior,
+  });
+
+  final Animation<double> animation;
+  final WidgetBuilder builder;
+  final bool isScrollControlled;
+  final bool isDismissible;
+  final Color backgroundColor;
+  final ShapeBorder? shape;
+  final Clip clipBehavior;
+
+  @override
+  Widget build(BuildContext context) {
+    final heightLimit = MediaQuery.sizeOf(context).height * 9 / 16;
+    Widget sheet = Material(
+      type: backgroundColor == Colors.transparent && shape == null
+          ? MaterialType.transparency
+          : MaterialType.canvas,
+      color: backgroundColor == Colors.transparent && shape == null
+          ? null
+          : backgroundColor,
+      shape: shape,
+      clipBehavior: clipBehavior,
+      child: builder(context),
+    );
+    if (!isScrollControlled) {
+      sheet = ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: heightLimit),
+        child: sheet,
+      );
+    }
+
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: isDismissible
+                ? () => Navigator.of(context).maybePop()
+                : null,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+              child: const ColoredBox(color: Color(0x8A000000)),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, .08),
+                end: Offset.zero,
+              ).animate(curved),
+              child: sheet,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class VeilSheetScaffold extends StatelessWidget {
   const VeilSheetScaffold({

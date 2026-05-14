@@ -8,6 +8,7 @@ import 'package:veil/src/features/letterboxd/view/letterboxd_import_export_sheet
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/components/veil_toast.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
@@ -165,13 +166,14 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   }
 
   void _openLetterboxdTools() {
-    showModalBottomSheet<void>(
+    showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: VeilColors.bg1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
+      clipBehavior: Clip.antiAlias,
       builder: (_) => const LetterboxdImportExportSheet(),
     );
   }
@@ -211,13 +213,14 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   }
 
   Future<void> _deleteAccount(AuthViewModel authVm) async {
-    final reason = await showModalBottomSheet<String>(
+    final reason = await showVeilBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: VeilColors.bg1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
+      clipBehavior: Clip.antiAlias,
       builder: (_) => const _DeleteAccountReasonSheet(),
     );
     if (!mounted || reason == null) return;

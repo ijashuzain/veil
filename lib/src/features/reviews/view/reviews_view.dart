@@ -6,6 +6,8 @@ import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
+import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
+import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 
@@ -50,8 +52,12 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
                     style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 14),
-                  _ReviewTabs(
-                    active: _tab,
+                  VeilSegmentedTabs<int>(
+                    selected: _tab,
+                    segments: const [
+                      VeilSegment(value: 0, label: 'Community'),
+                      VeilSegment(value: 1, label: 'My reviews'),
+                    ],
                     onChanged: (tab) => setState(() => _tab = tab),
                   ),
                   const SizedBox(height: 18),
@@ -87,13 +93,14 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
 
   void _openCommentSheet(SocialEntry review) {
     final controller = TextEditingController();
-    showModalBottomSheet<void>(
+    showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: VeilColors.bg1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
+      clipBehavior: Clip.antiAlias,
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -161,76 +168,6 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
         );
       },
     ).whenComplete(controller.dispose);
-  }
-}
-
-class _ReviewTabs extends StatelessWidget {
-  const _ReviewTabs({required this.active, required this.onChanged});
-
-  final int active;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: VeilColors.bg2,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: VeilColors.hairline),
-      ),
-      child: Row(
-        children: [
-          _TabChoice(
-            label: 'Community',
-            selected: active == 0,
-            onTap: () => onChanged(0),
-          ),
-          _TabChoice(
-            label: 'My reviews',
-            selected: active == 1,
-            onTap: () => onChanged(1),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabChoice extends StatelessWidget {
-  const _TabChoice({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? VeilColors.red : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: selected ? Colors.white : VeilColors.text3,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 

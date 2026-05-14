@@ -6,6 +6,8 @@ import 'package:veil/src/features/social/view_model/social_library_view_model/so
 import 'package:veil/src/features/social/widgets/diary_filter_sheet.dart';
 import 'package:veil/src/features/social/widgets/diary_poster_grid.dart';
 import 'package:veil/src/shared/components/veil_filter_chips.dart';
+import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
+import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 
 class DiaryView extends ConsumerStatefulWidget {
@@ -80,8 +82,12 @@ class _DiaryViewState extends ConsumerState<DiaryView> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(gutter, 14, gutter, 0),
-                  child: _DiaryTabs(
+                  child: VeilSegmentedTabs<_DiaryTab>(
                     selected: _selectedTab,
+                    segments: [
+                      for (final tab in _DiaryTab.values)
+                        VeilSegment(value: tab, label: tab.label),
+                    ],
                     onChanged: (tab) => _selectTab(tab, state),
                   ),
                 ),
@@ -238,10 +244,9 @@ class _DiaryViewState extends ConsumerState<DiaryView> {
 
   Future<void> _openFilters(SocialLibraryViewState state) async {
     final entries = _entriesForTab(state);
-    final result = await showModalBottomSheet<DiaryFilterState>(
+    final result = await showVeilBottomSheet<DiaryFilterState>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) => DiaryFilterSheet(
         initial: _filters,
         genres: _genresForTab(state),
@@ -344,81 +349,6 @@ class _StatValue extends StatelessWidget {
           style: const TextStyle(color: VeilColors.text4, fontSize: 10),
         ),
       ],
-    );
-  }
-}
-
-class _DiaryTabs extends StatelessWidget {
-  const _DiaryTabs({required this.selected, required this.onChanged});
-
-  final _DiaryTab selected;
-  final ValueChanged<_DiaryTab> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: VeilColors.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: VeilColors.hairline),
-      ),
-      child: Row(
-        children: [
-          for (final tab in _DiaryTab.values)
-            Expanded(
-              child: _DiaryTabButton(
-                label: tab.label,
-                selected: selected == tab,
-                onTap: () => onChanged(tab),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DiaryTabButton extends StatelessWidget {
-  const _DiaryTabButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(7),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 34,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? VeilColors.panelRaised : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-            color: selected
-                ? VeilColors.red.withValues(alpha: .48)
-                : Colors.transparent,
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: selected ? Colors.white : VeilColors.text2,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
     );
   }
 }

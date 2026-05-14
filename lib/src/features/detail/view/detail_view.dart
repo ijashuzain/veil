@@ -26,6 +26,7 @@ import 'package:veil/src/features/social/view_model/social_library_view_model/so
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
+import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/components/veil_toast.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
@@ -446,10 +447,9 @@ class _DetailViewState extends ConsumerState<DetailView> {
     required bool isInWatchlist,
     required double rating,
   }) {
-    showModalBottomSheet<void>(
+    showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         final vm = ref.read(socialLibraryViewModelProvider.notifier);
         return DetailSocialActionSheet(
@@ -489,10 +489,9 @@ class _DetailViewState extends ConsumerState<DetailView> {
   }
 
   void _openSuggestionSheet(ContentItem item) {
-    showModalBottomSheet<void>(
+    showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) {
         return DetailSuggestionSheet(
           item: item,
@@ -527,10 +526,9 @@ class _DetailViewState extends ConsumerState<DetailView> {
     double initialRating = 0,
     String initialWatchTag = 'first-time',
   }) {
-    showModalBottomSheet<void>(
+    showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) {
         return DetailReviewSheet(
           item: item,
@@ -550,13 +548,14 @@ class _DetailViewState extends ConsumerState<DetailView> {
 
   void _openReviewCommentSheet(SocialEntry review) {
     final controller = TextEditingController();
-    showModalBottomSheet<void>(
+    showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: VeilColors.bg1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
+      clipBehavior: Clip.antiAlias,
       builder: (sheetContext) {
         return SafeArea(
           top: false,

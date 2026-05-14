@@ -6,6 +6,7 @@ import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/alerts/view_model/alerts_view_model.dart';
 import 'package:veil/src/features/social/models/follow_request.dart';
 import 'package:veil/src/features/social/models/movie_suggestion.dart';
+import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/models/alert_item.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
@@ -98,8 +99,12 @@ class _AlertsViewState extends ConsumerState<AlertsView> {
                 ],
               ),
               const SizedBox(height: 16),
-              _AlertsTabs(
+              VeilSegmentedTabs<_AlertsTab>(
                 selected: _tab,
+                segments: [
+                  for (final tab in _AlertsTab.values)
+                    VeilSegment(value: tab, label: tab.label),
+                ],
                 onChanged: (tab) => setState(() => _tab = tab),
               ),
               const SizedBox(height: 14),
@@ -155,54 +160,6 @@ enum _AlertsTab {
   const _AlertsTab(this.label);
 
   final String label;
-}
-
-class _AlertsTabs extends StatelessWidget {
-  const _AlertsTabs({required this.selected, required this.onChanged});
-
-  final _AlertsTab selected;
-  final ValueChanged<_AlertsTab> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: VeilColors.bg2,
-        borderRadius: BorderRadius.circular(VeilTheme.controlRadius),
-        border: Border.all(color: VeilColors.hairline),
-      ),
-      child: Row(
-        children: [
-          for (final tab in _AlertsTab.values)
-            Expanded(
-              child: InkWell(
-                onTap: () => onChanged(tab),
-                borderRadius: BorderRadius.circular(VeilTheme.controlRadius),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  decoration: BoxDecoration(
-                    color: selected == tab ? VeilColors.panelRaised : null,
-                    borderRadius: BorderRadius.circular(
-                      VeilTheme.controlRadius,
-                    ),
-                  ),
-                  child: Text(
-                    tab.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selected == tab ? Colors.white : VeilColors.text3,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _FollowRequestTile extends ConsumerWidget {

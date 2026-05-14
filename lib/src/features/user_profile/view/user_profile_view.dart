@@ -5,6 +5,7 @@ import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/social/models/follow_request.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
+import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 
@@ -105,8 +106,12 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
                 maxWidth: contentWidth,
                 child: Padding(
                   padding: const EdgeInsets.only(top: 16),
-                  child: _ProfileTabs(
+                  child: VeilSegmentedTabs<_ProfileTab>(
                     selected: _tab,
+                    segments: [
+                      for (final tab in _ProfileTab.values)
+                        VeilSegment(value: tab, label: tab.label),
+                    ],
                     onChanged: (tab) => setState(() => _tab = tab),
                   ),
                 ),
@@ -362,54 +367,6 @@ class _UserProfileHeader extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ProfileTabs extends StatelessWidget {
-  const _ProfileTabs({required this.selected, required this.onChanged});
-
-  final _ProfileTab selected;
-  final ValueChanged<_ProfileTab> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: VeilColors.bg2,
-        borderRadius: BorderRadius.circular(VeilTheme.controlRadius),
-        border: Border.all(color: VeilColors.hairline),
-      ),
-      child: Row(
-        children: [
-          for (final tab in _ProfileTab.values)
-            Expanded(
-              child: InkWell(
-                onTap: () => onChanged(tab),
-                borderRadius: BorderRadius.circular(VeilTheme.controlRadius),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  decoration: BoxDecoration(
-                    color: selected == tab ? VeilColors.panelRaised : null,
-                    borderRadius: BorderRadius.circular(
-                      VeilTheme.controlRadius,
-                    ),
-                  ),
-                  child: Text(
-                    tab.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selected == tab ? Colors.white : VeilColors.text3,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
