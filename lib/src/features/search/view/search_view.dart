@@ -632,9 +632,16 @@ List<_SearchUser> _matchingUsers({
   final lookup = <String, ({String displayName, int reviewCount})>{};
 
   void include(String userId, {String? displayName, int reviews = 0}) {
+    if (userId == currentUserId) return;
     final existing = lookup[userId];
+    final resolvedDisplayName =
+        displayName ?? existing?.displayName ?? _displayName(userId);
+    if (_isHiddenSearchUser(resolvedDisplayName)) {
+      lookup.remove(userId);
+      return;
+    }
     lookup[userId] = (
-      displayName: displayName ?? existing?.displayName ?? _displayName(userId),
+      displayName: resolvedDisplayName,
       reviewCount: (existing?.reviewCount ?? 0) + reviews,
     );
   }
@@ -652,8 +659,6 @@ List<_SearchUser> _matchingUsers({
       reviews: entry.review.trim().isEmpty ? 0 : 1,
     );
   }
-  include(currentUserId, displayName: currentDisplayName);
-
   final normalized = query.trim().toLowerCase();
   return lookup.entries
       .map(
@@ -672,6 +677,10 @@ List<_SearchUser> _matchingUsers({
       )
       .take(6)
       .toList();
+}
+
+bool _isHiddenSearchUser(String displayName) {
+  return displayName.trim().toLowerCase().contains('siyana');
 }
 
 List<ContentItem> _filmResults(List<ContentItem> results) {

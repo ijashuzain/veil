@@ -1296,13 +1296,17 @@ void main() {
         overrides: [
           searchViewModelProvider.overrideWithValue(
             const SearchViewState(
-              query: 'local',
+              query: 'member',
               results: [_arcane],
               genres: ['Action'],
             ),
           ),
           socialLibraryViewModelProvider.overrideWithValue(
-            SocialLibraryViewState(globalReviews: [_socialEntry(_wakanda)]),
+            SocialLibraryViewState(
+              globalReviews: [
+                _socialEntry(_wakanda).copyWith(userId: 'member-1'),
+              ],
+            ),
           ),
         ],
         child: const MaterialApp(home: SearchView()),
@@ -1322,7 +1326,7 @@ void main() {
 
     expect(find.text('Top results'), findsNothing);
     expect(find.text('Arcane'), findsNothing);
-    expect(find.text('@local-us'), findsOneWidget);
+    expect(find.text('@member-1'), findsOneWidget);
 
     await tester.tap(find.text('Films'));
     await tester.pump();
@@ -1331,7 +1335,7 @@ void main() {
     expect(find.text('Arcane'), findsWidgets);
   });
 
-  testWidgets('search finds the signed in app user by display name', (
+  testWidgets('search hides the signed in app user by display name', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1353,8 +1357,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('App users'), findsOneWidget);
-    expect(find.text('Ijas Huzain'), findsOneWidget);
+    expect(find.text('App users'), findsNothing);
+    expect(find.text('Ijas Huzain'), findsNothing);
   });
 
   testWidgets('search finds app directory users by display name', (
@@ -1386,6 +1390,42 @@ void main() {
 
     expect(find.text('App users'), findsOneWidget);
     expect(find.text('Mira Kapoor'), findsOneWidget);
+  });
+
+  testWidgets('search hides hardcoded siyana user from results', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          searchViewModelProvider.overrideWithValue(
+            const SearchViewState(
+              query: 'si',
+              users: [
+                UserProfileSummary(
+                  userId: 'member-siyana',
+                  displayName: 'Siyana',
+                ),
+                UserProfileSummary(
+                  userId: 'member-simon',
+                  displayName: 'Simon Baker',
+                ),
+              ],
+            ),
+          ),
+          socialRepositoryProvider.overrideWithValue(SocialRepository()),
+          socialLibraryViewModelProvider.overrideWithValue(
+            const SocialLibraryViewState(),
+          ),
+        ],
+        child: const MaterialApp(home: SearchView()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('App users'), findsOneWidget);
+    expect(find.text('Simon Baker'), findsOneWidget);
+    expect(find.text('Siyana'), findsNothing);
   });
 
   testWidgets('reviews view supports local like comment and delete', (
