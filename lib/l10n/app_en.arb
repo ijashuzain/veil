@@ -1,0 +1,13 @@
+{
+  "@@locale": "en",
+  "appName": "Veil",
+  "onboardingTagline": "Movie diary - reimagined",
+  "onboardingCta": "Get started",
+  "homeTonight": "Tonight on Veil",
+  "homeGlobalTrending": "Global trending",
+  "searchTitle": "Search",
+  "detailPlayTrailer": "Play trailer",
+  "playerTrailer": "Trailer",
+  "alertsTitle": "Alerts",
+  "profileTitle": "Profile"
+}
