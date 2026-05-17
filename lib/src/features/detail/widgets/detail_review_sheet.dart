@@ -67,7 +67,7 @@ class _DetailReviewSheetState extends State<DetailReviewSheet> {
   @override
   Widget build(BuildContext context) {
     final canSave =
-        !_saving && _rating >= 1 && _reviewController.text.trim().isNotEmpty;
+        !_saving && _rating >= .5 && _reviewController.text.trim().isNotEmpty;
 
     return Padding(
       padding: EdgeInsets.only(
