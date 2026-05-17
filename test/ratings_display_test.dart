@@ -48,6 +48,32 @@ void main() {
     expect(selected, 3.5);
   });
 
+  testWidgets('visible star halves map to half and full ratings', (
+    tester,
+  ) async {
+    var selected = 0.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: DetailStarRatingSelector(
+              rating: selected,
+              onChanged: (value) => selected = value,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final fourthStar = tester.getRect(find.byIcon(Icons.star_rounded).at(3));
+    await tester.tapAt(fourthStar.centerLeft + const Offset(1, 0));
+    expect(selected, 3.5);
+
+    await tester.tapAt(fourthStar.centerRight - const Offset(1, 0));
+    expect(selected, 4);
+  });
+
   testWidgets('review sheet saves a half-star rating', (tester) async {
     double? savedRating;
 

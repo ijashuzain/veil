@@ -301,7 +301,7 @@ class DetailStarRatingSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final starWidth = size + 6;
+    final starWidth = size + 1;
     final halfWidth = starWidth / 2;
 
     return SizedBox(
