@@ -97,6 +97,36 @@ and bold",505642,tt9114286
     expect(row.entry.inWatchlist, isFalse);
   });
 
+  test('normalizes imported ratings to app half-star values', () {
+    const csv = '''
+Date,Name,Year,Rating
+2024-02-01,Heat,1995,4.2
+2024-02-02,Thief,1981,9
+''';
+
+    final preview = service.parseImportFiles([
+      LetterboxdImportFile(name: 'ratings.csv', bytes: utf8.encode(csv)),
+    ]);
+
+    expect(preview.rows.map((row) => row.entry.rating), [4, 4.5]);
+  });
+
+  test('exports non-half ratings as normalized half-star values', () {
+    final export = service.buildExport([
+      _entry(
+        title: 'Heat',
+        tmdbId: 949,
+        rating: 4.2,
+        watchedOn: DateTime(2024, 2, 1),
+      ),
+    ]);
+
+    final archive = ZipDecoder().decodeBytes(export.bytes);
+    final activity = _textFile(archive, 'veil-letterboxd-activity.csv');
+
+    expect(activity, contains('"Heat",2022,,949,,4,2024-02-01'));
+  });
+
   test(
     'parses Letterboxd export zip and keeps watchlist rows watchlist-only',
     () {

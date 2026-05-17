@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:veil/src/features/letterboxd/models/letterboxd_import_export.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
+import 'package:veil/src/shared/utils/veil_rating.dart';
 
 class LetterboxdImportExportService {
   const LetterboxdImportExportService();
@@ -310,8 +311,7 @@ String _exportTags(List<String> tags) {
 }
 
 String _formatRating(double rating) {
-  if (rating == rating.roundToDouble()) return rating.toInt().toString();
-  return rating.toStringAsFixed(1);
+  return formatVeilRating(rating);
 }
 
 String _formatDate(DateTime date) {
@@ -394,8 +394,8 @@ LetterboxdImportSource _sourceFor(
 double _parseRating(String raw) {
   final value = double.tryParse(raw.trim());
   if (value == null || value <= 0) return 0;
-  if (value > 5) return (value / 2).clamp(0, 5).toDouble();
-  return value.clamp(0, 5).toDouble();
+  final fiveStarValue = value > 5 ? value / 2 : value;
+  return normalizeVeilRating(fiveStarValue, allowUnrated: true);
 }
 
 int? _parseInt(String raw) {

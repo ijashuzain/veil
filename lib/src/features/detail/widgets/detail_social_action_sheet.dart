@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
 import 'package:veil/src/shared/models/content_item.dart';
+import 'package:veil/src/shared/utils/veil_rating.dart';
 
 typedef DetailSetWatched =
     Future<void> Function({required bool watched, required double rating});
@@ -55,7 +56,7 @@ class _DetailSocialActionSheetState extends State<DetailSocialActionSheet> {
     _watched = widget.isWatched;
     _favorite = widget.isFavorite;
     _watchlist = widget.isInWatchlist;
-    _selectedRating = widget.rating.roundToDouble();
+    _selectedRating = normalizeVeilRating(widget.rating, allowUnrated: true);
   }
 
   @override

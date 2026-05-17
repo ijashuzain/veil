@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
+import 'package:veil/src/shared/components/ratings_display.dart';
 import 'package:veil/src/shared/models/content_item.dart';
+import 'package:veil/src/shared/utils/veil_rating.dart';
 
 typedef DetailReviewSave =
     Future<void> Function({
@@ -299,23 +301,34 @@ class DetailStarRatingSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 2,
-      children: [
-        for (var value = 1; value <= 5; value++)
-          IconButton(
-            key: ValueKey('detail-star-$value'),
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: BoxConstraints.tightFor(width: size + 6, height: size),
-            onPressed: () => onChanged(value.toDouble()),
-            icon: Icon(
-              Icons.star_rounded,
-              size: size,
-              color: rating >= value ? VeilColors.gold : VeilColors.bg4,
-            ),
+    final starWidth = size + 6;
+    final halfWidth = starWidth / 2;
+
+    return SizedBox(
+      width: starWidth * 5,
+      height: size,
+      child: Stack(
+        children: [
+          Center(
+            child: VeilStarRating(rating: rating, size: size),
           ),
-      ],
+          Row(
+            children: [
+              for (final value in veilRatingValues)
+                Semantics(
+                  label: 'Rate ${formatVeilRating(value)} stars',
+                  button: true,
+                  child: GestureDetector(
+                    key: ValueKey('detail-star-${formatVeilRating(value)}'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onChanged(value),
+                    child: SizedBox(width: halfWidth, height: size),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

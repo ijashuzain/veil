@@ -81,15 +81,25 @@ void main() {
     expect(entries.single.review, 'Even better later.');
   });
 
-  test('rating a film uses one to five stars and marks it watched', () async {
+  test('rating a film uses half to five stars and marks it watched', () async {
     final repository = SocialRepository();
 
     final low = await repository.rate(item, rating: -1);
     final high = await repository.rate(item, rating: 9);
 
-    expect(low.rating, 1);
+    expect(low.rating, .5);
     expect(high.rating, 5);
     expect((await repository.diary()).single.watchedOn, isNotNull);
+  });
+
+  test('rating a film supports half-star steps', () async {
+    final repository = SocialRepository();
+
+    final half = await repository.rate(item, rating: .5);
+    final roundedHalf = await repository.rate(item, rating: 4.2);
+
+    expect(half.rating, .5);
+    expect(roundedHalf.rating, 4);
   });
 
   test('removing watched clears the saved rating', () async {

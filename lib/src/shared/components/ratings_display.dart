@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
+import 'package:veil/src/shared/utils/veil_rating.dart';
 
 class VeilStarRating extends StatelessWidget {
   const VeilStarRating({
@@ -17,6 +18,8 @@ class VeilStarRating extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedRating = normalizeVeilRating(rating, allowUnrated: true);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -28,10 +31,45 @@ class VeilStarRating extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: SizedBox.square(
               dimension: size + 1,
+              child: _FilledStar(
+                index: index,
+                fill: (normalizedRating - (index - 1)).clamp(0, 1).toDouble(),
+                size: size,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _FilledStar extends StatelessWidget {
+  const _FilledStar({
+    required this.index,
+    required this.fill,
+    required this.size,
+  });
+
+  final int index;
+  final double fill;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Icon(Icons.star_rounded, size: size, color: VeilColors.bg4),
+        if (fill > 0)
+          ClipRect(
+            child: Align(
+              key: ValueKey('veil-star-fill-$index'),
+              alignment: Alignment.centerLeft,
+              widthFactor: fill,
               child: Icon(
                 Icons.star_rounded,
                 size: size,
-                color: rating >= index ? VeilColors.gold : VeilColors.bg4,
+                color: VeilColors.gold,
               ),
             ),
           ),
@@ -54,7 +92,8 @@ class VeilRatingBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = (rating * 2).round().clamp(0, barCount);
+    final normalizedRating = normalizeVeilRating(rating, allowUnrated: true);
+    final active = (normalizedRating * 2).round().clamp(0, barCount);
 
     return SizedBox(
       height: height,

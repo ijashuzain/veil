@@ -9,6 +9,7 @@ import 'package:veil/src/features/social/models/movie_suggestion.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/models/user_profile_summary.dart';
 import 'package:veil/src/shared/models/content_item.dart';
+import 'package:veil/src/shared/utils/veil_rating.dart';
 
 part 'social_repository.g.dart';
 
@@ -1219,12 +1220,11 @@ class SocialImportResult {
 }
 
 double _normalizeOptionalRating(double rating) {
-  if (rating <= 0) return 0;
-  return _clampRating(rating);
+  return normalizeVeilRating(rating, allowUnrated: true);
 }
 
 double _clampRating(double rating) {
-  return rating.clamp(1, 5).toDouble();
+  return normalizeVeilRating(rating);
 }
 
 const _watchKindTags = {'first-time', 'rewatch'};

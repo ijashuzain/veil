@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/shared/components/ratings_display.dart';
+import 'package:veil/src/shared/utils/veil_rating.dart';
 
 class DetailRatingPanel extends StatelessWidget {
   const DetailRatingPanel({
@@ -43,7 +44,7 @@ class DetailRatingPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  rating > 0 ? rating.toStringAsFixed(0) : '-',
+                  rating > 0 ? formatVeilRating(rating) : '-',
                   style: const TextStyle(
                     color: VeilColors.text2,
                     fontSize: 22,
