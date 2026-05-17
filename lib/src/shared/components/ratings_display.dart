@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/shared/utils/veil_rating.dart';
 
@@ -20,60 +21,29 @@ class VeilStarRating extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalizedRating = normalizeVeilRating(rating, allowUnrated: true);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var index = 1; index <= max; index++)
-          GestureDetector(
-            onTap: onChanged == null
-                ? null
-                : () => onChanged!(index.toDouble()),
-            behavior: HitTestBehavior.opaque,
-            child: SizedBox.square(
-              dimension: size + 1,
-              child: _FilledStar(
-                index: index,
-                fill: (normalizedRating - (index - 1)).clamp(0, 1).toDouble(),
-                size: size,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
+    if (onChanged != null) {
+      return RatingBar.builder(
+        initialRating: normalizedRating,
+        minRating: .5,
+        maxRating: max.toDouble(),
+        allowHalfRating: true,
+        glow: false,
+        itemCount: max,
+        itemSize: size,
+        unratedColor: VeilColors.bg4,
+        itemBuilder: (context, _) =>
+            const Icon(Icons.star_rounded, color: VeilColors.gold),
+        onRatingUpdate: onChanged!,
+      );
+    }
 
-class _FilledStar extends StatelessWidget {
-  const _FilledStar({
-    required this.index,
-    required this.fill,
-    required this.size,
-  });
-
-  final int index;
-  final double fill;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Icon(Icons.star_rounded, size: size, color: VeilColors.bg4),
-        if (fill > 0)
-          ClipRect(
-            child: Align(
-              key: ValueKey('veil-star-fill-$index'),
-              alignment: Alignment.centerLeft,
-              widthFactor: fill,
-              child: Icon(
-                Icons.star_rounded,
-                size: size,
-                color: VeilColors.gold,
-              ),
-            ),
-          ),
-      ],
+    return RatingBarIndicator(
+      rating: normalizedRating,
+      itemCount: max,
+      itemSize: size,
+      unratedColor: VeilColors.bg4,
+      itemBuilder: (context, _) =>
+          const Icon(Icons.star_rounded, color: VeilColors.gold),
     );
   }
 }

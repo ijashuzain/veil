@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
-import 'package:veil/src/shared/components/ratings_display.dart';
 import 'package:veil/src/shared/models/content_item.dart';
 import 'package:veil/src/shared/utils/veil_rating.dart';
 
@@ -301,34 +301,18 @@ class DetailStarRatingSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final starWidth = size + 1;
-    final halfWidth = starWidth / 2;
-
-    return SizedBox(
-      width: starWidth * 5,
-      height: size,
-      child: Stack(
-        children: [
-          Center(
-            child: VeilStarRating(rating: rating, size: size),
-          ),
-          Row(
-            children: [
-              for (final value in veilRatingValues)
-                Semantics(
-                  label: 'Rate ${formatVeilRating(value)} stars',
-                  button: true,
-                  child: GestureDetector(
-                    key: ValueKey('detail-star-${formatVeilRating(value)}'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onChanged(value),
-                    child: SizedBox(width: halfWidth, height: size),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
+    return RatingBar.builder(
+      initialRating: normalizeVeilRating(rating, allowUnrated: true),
+      minRating: .5,
+      maxRating: 5,
+      allowHalfRating: true,
+      glow: false,
+      itemCount: 5,
+      itemSize: size,
+      unratedColor: VeilColors.bg4,
+      itemBuilder: (context, _) =>
+          const Icon(Icons.star_rounded, color: VeilColors.gold),
+      onRatingUpdate: onChanged,
     );
   }
 }

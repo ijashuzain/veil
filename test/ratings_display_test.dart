@@ -1,33 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
 import 'package:veil/src/shared/components/ratings_display.dart';
 import 'package:veil/src/shared/models/content_item.dart';
 
 void main() {
-  testWidgets('star display renders half-filled stars for half ratings', (
+  testWidgets('star display delegates fractional rendering to rating package', (
     tester,
   ) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: VeilStarRating(rating: 3.5))),
     );
 
-    final goldStars = find.byWidgetPredicate(
-      (widget) =>
-          widget is Icon &&
-          widget.icon == Icons.star_rounded &&
-          widget.color == VeilColors.gold,
-    );
-    final halfFill = tester.widget<Align>(
-      find.byKey(const ValueKey('veil-star-fill-4')),
+    final indicator = tester.widget<RatingBarIndicator>(
+      find.byType(RatingBarIndicator),
     );
 
-    expect(goldStars, findsNWidgets(4));
-    expect(halfFill.widthFactor, .5);
+    expect(indicator.rating, 3.5);
+    expect(indicator.itemCount, 5);
   });
 
-  testWidgets('detail rating selector emits half-star values', (tester) async {
+  testWidgets('detail rating selector enables package half-star mode', (
+    tester,
+  ) async {
     var selected = 0.0;
 
     await tester.pumpWidget(
@@ -41,11 +37,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey('detail-star-0.5')));
-    expect(selected, .5);
+    final ratingBar = tester.widget<RatingBar>(find.byType(RatingBar));
 
-    await tester.tap(find.byKey(const ValueKey('detail-star-3.5')));
-    expect(selected, 3.5);
+    expect(ratingBar.allowHalfRating, isTrue);
+    expect(ratingBar.minRating, .5);
   });
 
   testWidgets('visible star halves map to half and full ratings', (
@@ -96,7 +91,8 @@ void main() {
       find.widgetWithText(TextField, 'Add review...'),
       'Ok',
     );
-    await tester.tap(find.byKey(const ValueKey('detail-star-0.5')));
+    final firstStar = tester.getRect(find.byIcon(Icons.star_rounded).first);
+    await tester.tapAt(firstStar.centerLeft + const Offset(1, 0));
     await tester.pump();
 
     final save = tester.widget<TextButton>(
