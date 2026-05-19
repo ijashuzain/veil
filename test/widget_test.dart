@@ -417,6 +417,17 @@ void main() {
 
     await tester.tap(find.text('Play'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(
+      find.byKey(const ValueKey('detail-playback-server-panel')),
+      findsOneWidget,
+    );
+    expect(find.text('Server 1'), findsOneWidget);
+    expect(find.text('Server 2'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.byType(FullscreenLandscapeWebPlayer), findsOneWidget);
@@ -599,6 +610,12 @@ void main() {
 
     await tester.tap(find.text('Play'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Server 1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.pump();
 
     expect(find.text('Loading'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -636,8 +653,41 @@ void main() {
 
     await tester.tap(find.text('Play'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.pump();
 
     expect(requestedUrl, 'https://www.playimdb.com/title/tt16431404/');
+  });
+
+  testWidgets('detail server two opens plain vidsrc tv embed', (tester) async {
+    final enrichedItem = _arcane.copyWith(imdbId: 'tt0944947');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_arcane).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(enrichedItem)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(home: DetailView(item: _arcane)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final player = tester.widget<FullscreenLandscapeWebPlayer>(
+      find.byType(FullscreenLandscapeWebPlayer),
+    );
+    expect(player.url, 'https://vidsrc.to/embed/tv/tt0944947');
+    expect(player.fallbackUrls, isEmpty);
   });
 
   testWidgets(
@@ -673,6 +723,9 @@ void main() {
       await tester.pump();
 
       await tester.tap(find.text('Play'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.byKey(const ValueKey('playback-server-1')));
       await tester.pump();
 
       expect(launcherCalls, 1);
@@ -716,6 +769,17 @@ void main() {
     expect(
       playbackEntryUrl(imdbId: 'tt28650488', isWeb: false).toString(),
       'https://www.playimdb.com/title/tt28650488/',
+    );
+  });
+
+  test('vidsrc playback urls use plain movie and tv imdb embeds', () {
+    expect(
+      vidsrcPlaybackUrl(imdbId: 'tt33245761', contentType: 'Movie').toString(),
+      'https://vidsrc.to/embed/movie/tt33245761',
+    );
+    expect(
+      vidsrcPlaybackUrl(imdbId: 'tt0944947', contentType: 'TV Show').toString(),
+      'https://vidsrc.to/embed/tv/tt0944947',
     );
   });
 

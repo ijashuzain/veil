@@ -12,6 +12,7 @@ import 'package:veil/src/features/auth/view_model/premium_view_model/premium_vie
 import 'package:veil/src/features/catalog/models/content_detail/content_detail.dart';
 import 'package:veil/src/features/detail/utils/playback_entry_url.dart';
 import 'package:veil/src/features/detail/view_model/detail_view_model/detail_view_model.dart';
+import 'package:veil/src/features/detail/widgets/detail_playback_server_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_rating_panel.dart';
 import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_suggestion_sheet.dart';
@@ -270,7 +271,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
                           key: const ValueKey('premium-play-fab'),
                           onPressed: _isExtractingRedirectUrl
                               ? null
-                              : () => _openTrailerPlayer(item),
+                              : () => _openPlaybackServerSheet(item),
                           icon: _isExtractingRedirectUrl
                               ? const SizedBox.square(
                                   dimension: 18,
@@ -367,7 +368,39 @@ class _DetailViewState extends ConsumerState<DetailView> {
     );
   }
 
-  Future<void> _openTrailerPlayer(ContentItem item) async {
+  void _openPlaybackServerSheet(ContentItem item) {
+    if (_isExtractingRedirectUrl) return;
+
+    final imdbId = item.imdbId?.trim();
+    if (imdbId == null || imdbId.isEmpty) {
+      showVeilToast(context, 'IMDb id is not available for this title yet.');
+      debugPrint(
+        'Cannot open player because IMDb id is missing for ${item.id}',
+      );
+      return;
+    }
+
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return DetailPlaybackServerSheet(
+          title: item.title,
+          year: item.year,
+          onServerOne: () {
+            Navigator.of(sheetContext).pop();
+            _openServerOnePlayer(item);
+          },
+          onServerTwo: () {
+            Navigator.of(sheetContext).pop();
+            _openServerTwoPlayer(item);
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openServerOnePlayer(ContentItem item) async {
     if (_isExtractingRedirectUrl) return;
 
     final imdbId = item.imdbId?.trim();
@@ -402,30 +435,10 @@ class _DetailViewState extends ConsumerState<DetailView> {
       }
       if (!mounted) return;
 
-      final viewportWidth = MediaQuery.sizeOf(context).width;
-      if (widget.externalPlaybackPolicy(
-        isWeb: kIsWeb,
-        viewportWidth: viewportWidth,
-      )) {
-        final launchUrls = playbackLaunchUrls(
-          primaryUrl: embedUrl,
-          fallbackUrls: fallbackUrls,
-        );
-        debugPrint('Opening compact browser player URL for $imdbId');
-        final opened = await widget.externalPlayerLauncher(launchUrls);
-        if (!opened && mounted) {
-          showVeilToast(context, 'Player is not available right now.');
-        }
-        return;
-      }
-
-      Navigator.of(context, rootNavigator: true).push(
-        MaterialPageRoute(
-          builder: (_) => FullscreenLandscapeWebPlayer(
-            url: embedUrl.toString(),
-            fallbackUrls: fallbackUrls,
-          ),
-        ),
+      await _openResolvedPlayerUrl(
+        imdbId: imdbId,
+        embedUrl: embedUrl,
+        fallbackUrls: fallbackUrls,
       );
     } catch (error) {
       debugPrint('Cannot resolve player URL for $imdbId: $error');
@@ -438,6 +451,76 @@ class _DetailViewState extends ConsumerState<DetailView> {
         setState(() => _isExtractingRedirectUrl = false);
       }
     }
+  }
+
+  Future<void> _openServerTwoPlayer(ContentItem item) async {
+    if (_isExtractingRedirectUrl) return;
+
+    final imdbId = item.imdbId?.trim();
+    if (imdbId == null || imdbId.isEmpty) {
+      showVeilToast(context, 'IMDb id is not available for this title yet.');
+      debugPrint(
+        'Cannot open vidsrc player because IMDb id is missing for ${item.id}',
+      );
+      return;
+    }
+
+    setState(() => _isExtractingRedirectUrl = true);
+
+    try {
+      final embedUrl = vidsrcPlaybackUrl(
+        imdbId: imdbId,
+        contentType: item.type,
+      );
+      debugPrint('Opening vidsrc player URL for $imdbId');
+      await _openResolvedPlayerUrl(
+        imdbId: imdbId,
+        embedUrl: embedUrl,
+        fallbackUrls: const [],
+      );
+    } catch (error) {
+      debugPrint('Cannot open vidsrc player URL for $imdbId: $error');
+      if (mounted) {
+        showVeilToast(context, 'Player is not available right now.');
+      }
+      return;
+    } finally {
+      if (mounted) {
+        setState(() => _isExtractingRedirectUrl = false);
+      }
+    }
+  }
+
+  Future<void> _openResolvedPlayerUrl({
+    required String imdbId,
+    required Uri embedUrl,
+    required List<Uri> fallbackUrls,
+  }) async {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    if (widget.externalPlaybackPolicy(
+      isWeb: kIsWeb,
+      viewportWidth: viewportWidth,
+    )) {
+      final launchUrls = playbackLaunchUrls(
+        primaryUrl: embedUrl,
+        fallbackUrls: fallbackUrls,
+      );
+      debugPrint('Opening compact browser player URL for $imdbId');
+      final opened = await widget.externalPlayerLauncher(launchUrls);
+      if (!opened && mounted) {
+        showVeilToast(context, 'Player is not available right now.');
+      }
+      return;
+    }
+
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => FullscreenLandscapeWebPlayer(
+          url: embedUrl.toString(),
+          fallbackUrls: fallbackUrls,
+        ),
+      ),
+    );
   }
 
   void _openSocialActionSheet(

@@ -3,12 +3,13 @@ Uri playbackEntryUrl({
   required bool isWeb,
   String? contentType,
 }) {
+  final cleanImdbId = imdbId.trim();
   if (isWeb) {
-    final embedType = _isTvContent(contentType) ? 'tv' : 'movie';
-    return Uri.https('streamimdb.ru', '/embed/$embedType/$imdbId');
+    final embedType = isTvPlaybackContent(contentType) ? 'tv' : 'movie';
+    return Uri.https('streamimdb.ru', '/embed/$embedType/$cleanImdbId');
   }
 
-  return Uri.https('www.playimdb.com', '/title/$imdbId/');
+  return Uri.https('www.playimdb.com', '/title/$cleanImdbId/');
 }
 
 List<Uri> playbackFallbackUrls({
@@ -23,7 +24,7 @@ List<Uri> playbackFallbackUrls({
   final safeSeason = season < 1 ? 1 : season;
   final safeEpisode = episode < 1 ? 1 : episode;
 
-  if (_isTvContent(contentType)) {
+  if (isTvPlaybackContent(contentType)) {
     return [
       Uri.https('vsembed.ru', '/embed/tv', {
         'imdb': cleanImdbId,
@@ -36,6 +37,15 @@ List<Uri> playbackFallbackUrls({
   return [
     Uri.https('vsembed.ru', '/embed/movie', {'imdb': cleanImdbId}),
   ];
+}
+
+Uri vidsrcPlaybackUrl({required String imdbId, String? contentType}) {
+  final cleanImdbId = imdbId.trim();
+  if (isTvPlaybackContent(contentType)) {
+    return Uri.https('vidsrc.to', '/embed/tv/$cleanImdbId');
+  }
+
+  return Uri.https('vidsrc.to', '/embed/movie/$cleanImdbId');
 }
 
 Uri compactWebPlaybackLaunchUrl({
@@ -95,7 +105,7 @@ bool playbackResponseBodyLooksUnavailable(String? body) {
       normalized.contains('target url returned error 404');
 }
 
-bool _isTvContent(String? contentType) {
+bool isTvPlaybackContent(String? contentType) {
   final normalized = contentType?.trim().toLowerCase();
   return normalized == 'tv' ||
       normalized == 'tv show' ||
