@@ -87,7 +87,6 @@ class DetailPlaybackServerSheet extends StatelessWidget {
                   key: const ValueKey('playback-server-1'),
                   icon: Icons.play_circle_fill_rounded,
                   title: 'Server 1',
-                  subtitle: 'Current source',
                   onTap: onServerOne,
                 ),
                 const SizedBox(height: 10),
@@ -95,7 +94,6 @@ class DetailPlaybackServerSheet extends StatelessWidget {
                   key: const ValueKey('playback-server-2'),
                   icon: Icons.connected_tv_rounded,
                   title: 'Server 2',
-                  subtitle: 'vidsrc.to',
                   onTap: onServerTwo,
                 ),
               ],
@@ -112,13 +110,11 @@ class _ServerButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   @override
@@ -145,32 +141,15 @@ class _ServerButton extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: VeilColors.text3,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

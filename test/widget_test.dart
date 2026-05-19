@@ -425,6 +425,8 @@ void main() {
     );
     expect(find.text('Server 1'), findsOneWidget);
     expect(find.text('Server 2'), findsOneWidget);
+    expect(find.text('Current source'), findsNothing);
+    expect(find.text('vidsrc.to'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('playback-server-1')));
     await tester.pump();
