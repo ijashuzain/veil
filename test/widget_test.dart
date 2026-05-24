@@ -662,7 +662,7 @@ void main() {
     expect(requestedUrl, 'https://www.playimdb.com/title/tt16431404/');
   });
 
-  testWidgets('detail server two opens plain vidsrc tv embed', (tester) async {
+  testWidgets('detail server two opens cinesrc tv embed', (tester) async {
     final enrichedItem = _arcane.copyWith(imdbId: 'tt0944947');
 
     await tester.pumpWidget(
@@ -688,9 +688,54 @@ void main() {
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
       find.byType(FullscreenLandscapeWebPlayer),
     );
-    expect(player.url, 'https://vidsrc.to/embed/tv/tt0944947');
+    expect(player.url, 'https://cinesrc.st/embed/tv/94605?s=1&e=1');
     expect(player.fallbackUrls, isEmpty);
   });
+
+  testWidgets(
+    'detail server two stays embedded when compact web externalizes',
+    (tester) async {
+      final enrichedItem = _arcane.copyWith(imdbId: 'tt0944947');
+      var launcherCalls = 0;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            detailViewModelProvider(_arcane).overrideWithValue(
+              DetailViewState(detail: ContentDetail.fallback(enrichedItem)),
+            ),
+            currentUserIsPremiumProvider.overrideWith((ref) async => true),
+          ],
+          child: MaterialApp(
+            home: DetailView(
+              item: _arcane,
+              externalPlaybackPolicy:
+                  ({required isWeb, required viewportWidth}) => true,
+              externalPlayerLauncher: (_) async {
+                launcherCalls += 1;
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Play'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(launcherCalls, 0);
+      final player = tester.widget<FullscreenLandscapeWebPlayer>(
+        find.byType(FullscreenLandscapeWebPlayer),
+      );
+      expect(player.url, 'https://cinesrc.st/embed/tv/94605?s=1&e=1');
+      expect(player.fallbackUrls, isEmpty);
+    },
+  );
 
   testWidgets(
     'detail play button stays loading while external urls are checked',
@@ -774,14 +819,19 @@ void main() {
     );
   });
 
-  test('vidsrc playback urls use plain movie and tv imdb embeds', () {
+  test('cinesrc playback urls use movie and tv tmdb embeds', () {
     expect(
-      vidsrcPlaybackUrl(imdbId: 'tt33245761', contentType: 'Movie').toString(),
-      'https://vidsrc.to/embed/movie/tt33245761',
+      cinesrcPlaybackUrl(tmdbId: 505642, contentType: 'Movie').toString(),
+      'https://cinesrc.st/embed/movie/505642',
     );
     expect(
-      vidsrcPlaybackUrl(imdbId: 'tt0944947', contentType: 'TV Show').toString(),
-      'https://vidsrc.to/embed/tv/tt0944947',
+      cinesrcPlaybackUrl(
+        tmdbId: 94605,
+        contentType: 'TV Show',
+        season: 2,
+        episode: 3,
+      ).toString(),
+      'https://cinesrc.st/embed/tv/94605?s=2&e=3',
     );
   });
 

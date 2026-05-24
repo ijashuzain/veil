@@ -39,13 +39,23 @@ List<Uri> playbackFallbackUrls({
   ];
 }
 
-Uri vidsrcPlaybackUrl({required String imdbId, String? contentType}) {
-  final cleanImdbId = imdbId.trim();
+Uri cinesrcPlaybackUrl({
+  required int tmdbId,
+  String? contentType,
+  int season = 1,
+  int episode = 1,
+}) {
+  final safeSeason = season < 1 ? 1 : season;
+  final safeEpisode = episode < 1 ? 1 : episode;
+
   if (isTvPlaybackContent(contentType)) {
-    return Uri.https('vidsrc.to', '/embed/tv/$cleanImdbId');
+    return Uri.https('cinesrc.st', '/embed/tv/$tmdbId', {
+      's': '$safeSeason',
+      'e': '$safeEpisode',
+    });
   }
 
-  return Uri.https('vidsrc.to', '/embed/movie/$cleanImdbId');
+  return Uri.https('cinesrc.st', '/embed/movie/$tmdbId');
 }
 
 Uri compactWebPlaybackLaunchUrl({

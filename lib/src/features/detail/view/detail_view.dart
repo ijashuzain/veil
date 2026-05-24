@@ -371,11 +371,15 @@ class _DetailViewState extends ConsumerState<DetailView> {
   void _openPlaybackServerSheet(ContentItem item) {
     if (_isExtractingRedirectUrl) return;
 
-    final imdbId = item.imdbId?.trim();
-    if (imdbId == null || imdbId.isEmpty) {
-      showVeilToast(context, 'IMDb id is not available for this title yet.');
+    final hasImdbId = item.imdbId?.trim().isNotEmpty ?? false;
+    final hasTmdbId = item.remoteId != null && item.remoteId! > 0;
+    if (!hasImdbId && !hasTmdbId) {
+      showVeilToast(
+        context,
+        'Playback id is not available for this title yet.',
+      );
       debugPrint(
-        'Cannot open player because IMDb id is missing for ${item.id}',
+        'Cannot open player because playback ids are missing for ${item.id}',
       );
       return;
     }
@@ -436,7 +440,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
       if (!mounted) return;
 
       await _openResolvedPlayerUrl(
-        imdbId: imdbId,
+        contentId: imdbId,
         embedUrl: embedUrl,
         fallbackUrls: fallbackUrls,
       );
@@ -456,11 +460,11 @@ class _DetailViewState extends ConsumerState<DetailView> {
   Future<void> _openServerTwoPlayer(ContentItem item) async {
     if (_isExtractingRedirectUrl) return;
 
-    final imdbId = item.imdbId?.trim();
-    if (imdbId == null || imdbId.isEmpty) {
-      showVeilToast(context, 'IMDb id is not available for this title yet.');
+    final tmdbId = item.remoteId;
+    if (tmdbId == null || tmdbId <= 0) {
+      showVeilToast(context, 'TMDB id is not available for this title yet.');
       debugPrint(
-        'Cannot open vidsrc player because IMDb id is missing for ${item.id}',
+        'Cannot open cinesrc player because TMDB id is missing for ${item.id}',
       );
       return;
     }
@@ -468,18 +472,19 @@ class _DetailViewState extends ConsumerState<DetailView> {
     setState(() => _isExtractingRedirectUrl = true);
 
     try {
-      final embedUrl = vidsrcPlaybackUrl(
-        imdbId: imdbId,
+      final embedUrl = cinesrcPlaybackUrl(
+        tmdbId: tmdbId,
         contentType: item.type,
       );
-      debugPrint('Opening vidsrc player URL for $imdbId');
+      debugPrint('Opening cinesrc player URL for $tmdbId');
       await _openResolvedPlayerUrl(
-        imdbId: imdbId,
+        contentId: '$tmdbId',
         embedUrl: embedUrl,
         fallbackUrls: const [],
+        forceEmbedded: true,
       );
     } catch (error) {
-      debugPrint('Cannot open vidsrc player URL for $imdbId: $error');
+      debugPrint('Cannot open cinesrc player URL for $tmdbId: $error');
       if (mounted) {
         showVeilToast(context, 'Player is not available right now.');
       }
@@ -492,20 +497,22 @@ class _DetailViewState extends ConsumerState<DetailView> {
   }
 
   Future<void> _openResolvedPlayerUrl({
-    required String imdbId,
+    required String contentId,
     required Uri embedUrl,
     required List<Uri> fallbackUrls,
+    bool forceEmbedded = false,
   }) async {
     final viewportWidth = MediaQuery.sizeOf(context).width;
-    if (widget.externalPlaybackPolicy(
-      isWeb: kIsWeb,
-      viewportWidth: viewportWidth,
-    )) {
+    if (!forceEmbedded &&
+        widget.externalPlaybackPolicy(
+          isWeb: kIsWeb,
+          viewportWidth: viewportWidth,
+        )) {
       final launchUrls = playbackLaunchUrls(
         primaryUrl: embedUrl,
         fallbackUrls: fallbackUrls,
       );
-      debugPrint('Opening compact browser player URL for $imdbId');
+      debugPrint('Opening compact browser player URL for $contentId');
       final opened = await widget.externalPlayerLauncher(launchUrls);
       if (!opened && mounted) {
         showVeilToast(context, 'Player is not available right now.');
