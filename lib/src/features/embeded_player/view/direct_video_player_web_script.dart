@@ -49,10 +49,16 @@ String buildDirectWebPlayerBootstrapScript({
   }
 
   function start(video, status) {
+    const userAgent = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const isAppleTouchDevice =
+      /iPad|iPhone|iPod/.test(userAgent) ||
+      (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAppleMobileBrowser = isAppleTouchDevice;
     const nativeSupport =
       video.canPlayType('application/vnd.apple.mpegurl') ||
       video.canPlayType('application/x-mpegURL');
-    if (nativeSupport) {
+    if (isAppleMobileBrowser && nativeSupport) {
       video.__veilHlsBootstrapped = true;
       loadNative(video, status);
       return;

@@ -395,22 +395,22 @@ class _DetailViewState extends ConsumerState<DetailView> {
           year: item.year,
           onServerOne: () {
             Navigator.of(sheetContext).pop();
-            _openServerThreePlayerFromDetail(detail);
+            _openCineDirectServerPlayerFromDetail(detail);
           },
           onServerTwo: () {
             Navigator.of(sheetContext).pop();
-            _openServerOnePlayer(item);
+            _openPlayImdbServerPlayer(item);
           },
           onServerThree: () {
             Navigator.of(sheetContext).pop();
-            _openServerTwoPlayer(item);
+            _openCinesrcServerPlayer(item);
           },
         );
       },
     );
   }
 
-  Future<void> _openServerOnePlayer(ContentItem item) async {
+  Future<void> _openPlayImdbServerPlayer(ContentItem item) async {
     if (_isExtractingRedirectUrl) return;
 
     final imdbId = item.imdbId?.trim();
@@ -463,7 +463,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
     }
   }
 
-  Future<void> _openServerTwoPlayer(ContentItem item) async {
+  Future<void> _openCinesrcServerPlayer(ContentItem item) async {
     if (_isExtractingRedirectUrl) return;
 
     final tmdbId = item.remoteId;
@@ -502,20 +502,20 @@ class _DetailViewState extends ConsumerState<DetailView> {
     }
   }
 
-  void _openServerThreePlayerFromDetail(ContentDetail detail) {
+  void _openCineDirectServerPlayerFromDetail(ContentDetail detail) {
     final item = detail.item;
     if (!isTvPlaybackContent(item.type)) {
-      _openServerThreePlayer(item);
+      _openCineDirectServerPlayer(item);
       return;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _openServerThreeEpisodeSheet(detail);
+      _openCineDirectEpisodeSheet(detail);
     });
   }
 
-  void _openServerThreeEpisodeSheet(ContentDetail detail) {
+  void _openCineDirectEpisodeSheet(ContentDetail detail) {
     final item = detail.item;
     showVeilBottomSheet<void>(
       context: context,
@@ -528,14 +528,14 @@ class _DetailViewState extends ConsumerState<DetailView> {
           episodes: detail.episodes,
           onPlay: (season, episode) {
             Navigator.of(sheetContext).pop();
-            _openServerThreePlayer(item, season: season, episode: episode);
+            _openCineDirectServerPlayer(item, season: season, episode: episode);
           },
         );
       },
     );
   }
 
-  Future<void> _openServerThreePlayer(
+  Future<void> _openCineDirectServerPlayer(
     ContentItem item, {
     int season = 1,
     int episode = 1,

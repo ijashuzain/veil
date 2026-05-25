@@ -750,6 +750,53 @@ void main() {
     );
   });
 
+  testWidgets('detail server one opens movie cine proxy in the direct player', (
+    tester,
+  ) async {
+    var launcherCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _wakanda,
+            externalPlaybackPolicy:
+                ({required isWeb, required viewportWidth}) => true,
+            externalPlayerLauncher: (_) async {
+              launcherCalls += 1;
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(launcherCalls, 0);
+    expect(find.byType(FullscreenLandscapeWebPlayer), findsNothing);
+    final player = tester.widget<FullscreenLandscapeDirectVideoPlayer>(
+      find.byType(FullscreenLandscapeDirectVideoPlayer),
+    );
+    expect(
+      player.url,
+      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
+      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Fmovie%2F505642.m3u8',
+    );
+  });
+
   testWidgets(
     'detail server three stays embedded when compact web externalizes',
     (tester) async {
