@@ -20,6 +20,7 @@ import 'package:veil/src/features/detail/widgets/detail_social_action_sheet.dart
 import 'package:veil/src/features/embeded_player/utils/compact_web_player_policy.dart';
 import 'package:veil/src/features/embeded_player/utils/external_player_launcher.dart';
 import 'package:veil/src/features/embeded_player/utils/redirect_url_extractor.dart';
+import 'package:veil/src/features/embeded_player/view/direct_video_player.dart';
 import 'package:veil/src/features/embeded_player/view/player.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
@@ -271,7 +272,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
                           key: const ValueKey('premium-play-fab'),
                           onPressed: _isExtractingRedirectUrl
                               ? null
-                              : () => _openPlaybackServerSheet(item),
+                              : () => _openPlaybackServerSheet(detail),
                           icon: _isExtractingRedirectUrl
                               ? const SizedBox.square(
                                   dimension: 18,
@@ -368,9 +369,10 @@ class _DetailViewState extends ConsumerState<DetailView> {
     );
   }
 
-  void _openPlaybackServerSheet(ContentItem item) {
+  void _openPlaybackServerSheet(ContentDetail detail) {
     if (_isExtractingRedirectUrl) return;
 
+    final item = detail.item;
     final hasImdbId = item.imdbId?.trim().isNotEmpty ?? false;
     final hasTmdbId = item.remoteId != null && item.remoteId! > 0;
     if (!hasImdbId && !hasTmdbId) {
@@ -393,9 +395,13 @@ class _DetailViewState extends ConsumerState<DetailView> {
           year: item.year,
           onServerOne: () {
             Navigator.of(sheetContext).pop();
-            _openServerOnePlayer(item);
+            _openServerThreePlayerFromDetail(detail);
           },
           onServerTwo: () {
+            Navigator.of(sheetContext).pop();
+            _openServerOnePlayer(item);
+          },
+          onServerThree: () {
             Navigator.of(sheetContext).pop();
             _openServerTwoPlayer(item);
           },
@@ -494,6 +500,75 @@ class _DetailViewState extends ConsumerState<DetailView> {
         setState(() => _isExtractingRedirectUrl = false);
       }
     }
+  }
+
+  void _openServerThreePlayerFromDetail(ContentDetail detail) {
+    final item = detail.item;
+    if (!isTvPlaybackContent(item.type)) {
+      _openServerThreePlayer(item);
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _openServerThreeEpisodeSheet(detail);
+    });
+  }
+
+  void _openServerThreeEpisodeSheet(ContentDetail detail) {
+    final item = detail.item;
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return DetailEpisodeSelectionSheet(
+          title: item.title,
+          year: item.year,
+          seasons: detail.seasons,
+          episodes: detail.episodes,
+          onPlay: (season, episode) {
+            Navigator.of(sheetContext).pop();
+            _openServerThreePlayer(item, season: season, episode: episode);
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openServerThreePlayer(
+    ContentItem item, {
+    int season = 1,
+    int episode = 1,
+  }) async {
+    if (_isExtractingRedirectUrl) return;
+
+    final tmdbId = item.remoteId;
+    if (tmdbId == null || tmdbId <= 0) {
+      showVeilToast(context, 'TMDB id is not available for this title yet.');
+      debugPrint(
+        'Cannot open cine direct player because TMDB id is missing for '
+        '${item.id}',
+      );
+      return;
+    }
+
+    final streamUrl = cineDirectPlaybackUrl(
+      tmdbId: tmdbId,
+      contentType: item.type,
+      season: season,
+      episode: episode,
+    );
+    debugPrint(
+      'Opening cine direct stream URL for $tmdbId season=$season episode=$episode',
+    );
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => FullscreenLandscapeDirectVideoPlayer(
+          url: streamUrl.toString(),
+          title: item.title,
+        ),
+      ),
+    );
   }
 
   Future<void> _openResolvedPlayerUrl({

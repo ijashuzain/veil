@@ -1,3 +1,5 @@
+import 'package:veil/src/core/config/app_environment.dart';
+
 Uri playbackEntryUrl({
   required String imdbId,
   required bool isWeb,
@@ -56,6 +58,33 @@ Uri cinesrcPlaybackUrl({
   }
 
   return Uri.https('cinesrc.st', '/embed/movie/$tmdbId');
+}
+
+Uri cineDirectPlaybackUrl({
+  required int tmdbId,
+  String? contentType,
+  int season = 1,
+  int episode = 1,
+}) {
+  final safeSeason = season < 1 ? 1 : season;
+  final safeEpisode = episode < 1 ? 1 : episode;
+
+  String targetUrl;
+  if (isTvPlaybackContent(contentType)) {
+    targetUrl =
+        'https://cine.su/v1/stream/master/tv/$tmdbId/$safeSeason/$safeEpisode.m3u8';
+  } else {
+    targetUrl = 'https://cine.su/v1/stream/master/movie/$tmdbId.m3u8';
+  }
+
+  final supabaseUrl = AppEnvironment.supabaseUrl;
+  if (supabaseUrl.isNotEmpty) {
+    return Uri.parse(
+      '$supabaseUrl/functions/v1/proxy',
+    ).replace(queryParameters: {'url': targetUrl});
+  }
+
+  return Uri.parse(targetUrl);
 }
 
 Uri compactWebPlaybackLaunchUrl({

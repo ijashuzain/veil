@@ -22,6 +22,7 @@ import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
 import 'package:veil/src/features/detail/utils/playback_entry_url.dart';
 import 'package:veil/src/features/detail/view/detail_view.dart';
 import 'package:veil/src/features/detail/view_model/detail_view_model/detail_view_model.dart';
+import 'package:veil/src/features/embeded_player/view/direct_video_player.dart';
 import 'package:veil/src/features/embeded_player/view/player.dart';
 import 'package:veil/src/features/embeded_player/utils/redirect_url_extractor.dart';
 import 'package:veil/src/features/embeded_player/utils/compact_web_player_policy.dart';
@@ -425,10 +426,11 @@ void main() {
     );
     expect(find.text('Server 1'), findsOneWidget);
     expect(find.text('Server 2'), findsOneWidget);
+    expect(find.text('Server 3'), findsOneWidget);
     expect(find.text('Current source'), findsNothing);
     expect(find.text('vidsrc.to'), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
@@ -616,7 +618,7 @@ void main() {
 
     expect(find.text('Server 1'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
     await tester.pump();
 
     expect(find.text('Loading'), findsOneWidget);
@@ -656,13 +658,13 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
     await tester.pump();
 
     expect(requestedUrl, 'https://www.playimdb.com/title/tt16431404/');
   });
 
-  testWidgets('detail server two opens cinesrc tv embed', (tester) async {
+  testWidgets('detail server three opens cinesrc tv embed', (tester) async {
     final enrichedItem = _arcane.copyWith(imdbId: 'tt0944947');
 
     await tester.pumpWidget(
@@ -681,7 +683,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    await tester.tap(find.byKey(const ValueKey('playback-server-3')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -692,8 +694,64 @@ void main() {
     expect(player.fallbackUrls, isEmpty);
   });
 
+  testWidgets('detail server one asks for tv episode before direct stream', (
+    tester,
+  ) async {
+    const detail = ContentDetail(item: _arcane, seasons: 3, episodes: 24);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(
+            _arcane,
+          ).overrideWithValue(const DetailViewState(detail: detail)),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(home: DetailView(item: _arcane)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    expect(
+      find.byKey(const ValueKey('detail-season-episode-panel')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('playback-season-increment')));
+    await tester.tap(find.byKey(const ValueKey('playback-episode-increment')));
+    await tester.tap(find.byKey(const ValueKey('playback-episode-increment')));
+    await tester.pump();
+
+    expect(find.text('Season 2'), findsOneWidget);
+    expect(find.text('Episode 3'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('playback-season-episode-play')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(FullscreenLandscapeWebPlayer), findsNothing);
+    final player = tester.widget<FullscreenLandscapeDirectVideoPlayer>(
+      find.byType(FullscreenLandscapeDirectVideoPlayer),
+    );
+    expect(
+      player.url,
+      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
+      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Ftv%2F94605%2F2%2F3.m3u8',
+    );
+  });
+
   testWidgets(
-    'detail server two stays embedded when compact web externalizes',
+    'detail server three stays embedded when compact web externalizes',
     (tester) async {
       final enrichedItem = _arcane.copyWith(imdbId: 'tt0944947');
       var launcherCalls = 0;
@@ -724,7 +782,7 @@ void main() {
       await tester.tap(find.text('Play'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
-      await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+      await tester.tap(find.byKey(const ValueKey('playback-server-3')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
@@ -772,7 +830,7 @@ void main() {
       await tester.tap(find.text('Play'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
-      await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+      await tester.tap(find.byKey(const ValueKey('playback-server-2')));
       await tester.pump();
 
       expect(launcherCalls, 1);
@@ -832,6 +890,34 @@ void main() {
         episode: 3,
       ).toString(),
       'https://cinesrc.st/embed/tv/94605?s=2&e=3',
+    );
+  });
+
+  test('cine direct playback urls use movie and episode hls playlists', () {
+    expect(
+      cineDirectPlaybackUrl(tmdbId: 505642, contentType: 'Movie').toString(),
+      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
+      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Fmovie%2F505642.m3u8',
+    );
+    expect(
+      cineDirectPlaybackUrl(
+        tmdbId: 94605,
+        contentType: 'TV Show',
+        season: 2,
+        episode: 3,
+      ).toString(),
+      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
+      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Ftv%2F94605%2F2%2F3.m3u8',
+    );
+    expect(
+      cineDirectPlaybackUrl(
+        tmdbId: 94605,
+        contentType: 'Series',
+        season: 0,
+        episode: -1,
+      ).toString(),
+      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
+      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Ftv%2F94605%2F1%2F1.m3u8',
     );
   });
 
@@ -910,6 +996,34 @@ void main() {
     expect(
       platform.controller.htmlLoads.last,
       contains(htmlEscape.convert(fallbackUrl.toString())),
+    );
+  });
+
+  testWidgets('direct mobile player renders video html without an iframe', (
+    tester,
+  ) async {
+    final platform = _FakeWebViewPlatform();
+    WebViewPlatform.instance = platform;
+    final streamUrl = Uri.parse(
+      'https://cine.su/v1/stream/master/tv/94605/1/1.m3u8',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FullscreenLandscapeDirectVideoPlayer(
+          url: streamUrl.toString(),
+          showCloseButton: false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(platform.controller.htmlLoads, hasLength(1));
+    expect(platform.controller.htmlLoads.single, contains('<video'));
+    expect(platform.controller.htmlLoads.single, isNot(contains('<iframe')));
+    expect(
+      platform.controller.htmlLoads.single,
+      contains(htmlEscape.convert(streamUrl.toString())),
     );
   });
 
