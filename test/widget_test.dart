@@ -675,7 +675,12 @@ void main() {
           ),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
-        child: MaterialApp(home: DetailView(item: _arcane)),
+        child: MaterialApp(
+          home: DetailView(
+            item: _arcane,
+            directStreamAvailabilityChecker: (_) async => true,
+          ),
+        ),
       ),
     );
     await tester.pump();
@@ -707,7 +712,12 @@ void main() {
           ).overrideWithValue(const DetailViewState(detail: detail)),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
-        child: MaterialApp(home: DetailView(item: _arcane)),
+        child: MaterialApp(
+          home: DetailView(
+            item: _arcane,
+            directStreamAvailabilityChecker: (_) async => true,
+          ),
+        ),
       ),
     );
     await tester.pump();
@@ -772,6 +782,7 @@ void main() {
               launcherCalls += 1;
               return true;
             },
+            directStreamAvailabilityChecker: (_) async => true,
           ),
         ),
       ),
@@ -795,6 +806,48 @@ void main() {
       'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
       'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Fmovie%2F505642.m3u8',
     );
+  });
+
+  testWidgets('detail server one shows unavailable toast before player', (
+    tester,
+  ) async {
+    var checkedUrl = '';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _wakanda,
+            directStreamAvailabilityChecker: (url) async {
+              checkedUrl = url.toString();
+              return false;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(
+      checkedUrl,
+      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
+      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Fmovie%2F505642.m3u8',
+    );
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    expect(find.text('Video is not available right now.'), findsOneWidget);
   });
 
   testWidgets(

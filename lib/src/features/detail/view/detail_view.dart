@@ -18,6 +18,7 @@ import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_suggestion_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_social_action_sheet.dart';
 import 'package:veil/src/features/embeded_player/utils/compact_web_player_policy.dart';
+import 'package:veil/src/features/embeded_player/utils/direct_stream_availability.dart';
 import 'package:veil/src/features/embeded_player/utils/external_player_launcher.dart';
 import 'package:veil/src/features/embeded_player/utils/redirect_url_extractor.dart';
 import 'package:veil/src/features/embeded_player/view/direct_video_player.dart';
@@ -39,6 +40,7 @@ typedef ClipLauncher = Future<bool> Function(Uri url);
 typedef ExternalPlayerLauncher = Future<bool> Function(List<Uri> urls);
 typedef ExternalPlaybackPolicy =
     bool Function({required bool isWeb, required double viewportWidth});
+typedef DirectStreamAvailabilityChecker = Future<bool> Function(Uri url);
 
 class DetailView extends ConsumerStatefulWidget {
   const DetailView({
@@ -50,6 +52,7 @@ class DetailView extends ConsumerStatefulWidget {
     this.clipLauncher,
     this.externalPlayerLauncher = openExternalPlayerCandidates,
     this.externalPlaybackPolicy = shouldOpenPlayerExternally,
+    this.directStreamAvailabilityChecker = isDirectStreamAvailable,
   });
 
   final ContentItem item;
@@ -59,6 +62,7 @@ class DetailView extends ConsumerStatefulWidget {
   final ClipLauncher? clipLauncher;
   final ExternalPlayerLauncher externalPlayerLauncher;
   final ExternalPlaybackPolicy externalPlaybackPolicy;
+  final DirectStreamAvailabilityChecker directStreamAvailabilityChecker;
 
   @override
   ConsumerState<DetailView> createState() => _DetailViewState();
@@ -558,17 +562,37 @@ class _DetailViewState extends ConsumerState<DetailView> {
       season: season,
       episode: episode,
     );
-    debugPrint(
-      'Opening cine direct stream URL for $tmdbId',
-    );
-    Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
-        builder: (_) => FullscreenLandscapeDirectVideoPlayer(
-          url: streamUrl.toString(),
-          title: item.title,
+
+    setState(() => _isExtractingRedirectUrl = true);
+    try {
+      final isAvailable = await widget.directStreamAvailabilityChecker(
+        streamUrl,
+      );
+      if (!mounted) return;
+      if (!isAvailable) {
+        showVeilToast(context, 'Video is not available right now.');
+        return;
+      }
+
+      debugPrint('Opening cine direct stream URL for $tmdbId');
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(
+          builder: (_) => FullscreenLandscapeDirectVideoPlayer(
+            url: streamUrl.toString(),
+            title: item.title,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      debugPrint('Cannot check cine direct stream for $tmdbId: $error');
+      if (mounted) {
+        showVeilToast(context, 'Video is not available right now.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExtractingRedirectUrl = false);
+      }
+    }
   }
 
   Future<void> _openResolvedPlayerUrl({
