@@ -11,6 +11,8 @@ void main() {
       ).readAsStringSync();
 
       expect(source, isNot(contains('HtmlElementView')));
+      expect(source, isNot(contains('ButtonElement')));
+      expect(source, isNot(contains('maybePop')));
       expect(source, contains('document.body?.append'));
       expect(source, contains("position = 'fixed'"));
     },

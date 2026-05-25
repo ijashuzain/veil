@@ -29,7 +29,6 @@ class _FullscreenLandscapeDirectVideoPlayerState
   html.DivElement? _overlay;
   html.VideoElement? _videoElement;
   html.ScriptElement? _hlsScriptElement;
-  StreamSubscription<html.MouseEvent>? _closeButtonSubscription;
   String? _videoElementId;
 
   @override
@@ -98,14 +97,6 @@ class _FullscreenLandscapeDirectVideoPlayerState
     if (widget.title.isNotEmpty) {
       overlay.children.add(_buildTitleElement(widget.title));
     }
-    if (widget.showCloseButton) {
-      final closeButton = _buildCloseButton();
-      _closeButtonSubscription = closeButton.onClick.listen((_) {
-        if (!mounted) return;
-        Navigator.of(context).maybePop();
-      });
-      overlay.children.add(closeButton);
-    }
 
     _overlay = overlay;
     _videoElement = video;
@@ -130,25 +121,6 @@ class _FullscreenLandscapeDirectVideoPlayerState
       ..style.textOverflow = 'ellipsis'
       ..style.whiteSpace = 'nowrap'
       ..style.pointerEvents = 'none';
-  }
-
-  html.ButtonElement _buildCloseButton() {
-    return html.ButtonElement()
-      ..type = 'button'
-      ..text = 'X'
-      ..style.position = 'absolute'
-      ..style.left = '14px'
-      ..style.top = 'calc(env(safe-area-inset-top, 0px) + 14px)'
-      ..style.width = '44px'
-      ..style.height = '44px'
-      ..style.border = '1px solid rgba(255, 255, 255, .14)'
-      ..style.borderRadius = '999px'
-      ..style.backgroundColor = 'rgba(0, 0, 0, .62)'
-      ..style.color = 'white'
-      ..style.fontSize = '18px'
-      ..style.fontWeight = '800'
-      ..style.lineHeight = '1'
-      ..style.zIndex = '2';
   }
 
   void _attachSource({
@@ -188,8 +160,6 @@ class _FullscreenLandscapeDirectVideoPlayerState
 
   @override
   void dispose() {
-    _closeButtonSubscription?.cancel();
-
     final videoId = _videoElementId;
     if (videoId != null) {
       final disposeScript = html.ScriptElement()
