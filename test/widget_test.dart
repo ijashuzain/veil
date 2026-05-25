@@ -760,6 +760,66 @@ void main() {
     );
   });
 
+  testWidgets('detail server one falls back to vidnest for tv episode', (
+    tester,
+  ) async {
+    const detail = ContentDetail(item: _arcane, seasons: 3, episodes: 24);
+    var launcherCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(
+            _arcane,
+          ).overrideWithValue(const DetailViewState(detail: detail)),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _arcane,
+            externalPlaybackPolicy:
+                ({required isWeb, required viewportWidth}) => true,
+            externalPlayerLauncher: (_) async {
+              launcherCalls += 1;
+              return true;
+            },
+            directStreamAvailabilityChecker: (_) async => false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    await tester.tap(find.byKey(const ValueKey('playback-season-increment')));
+    await tester.tap(find.byKey(const ValueKey('playback-episode-increment')));
+    await tester.tap(find.byKey(const ValueKey('playback-episode-increment')));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('playback-season-episode-play')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(launcherCalls, 0);
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    final player = tester.widget<FullscreenLandscapeWebPlayer>(
+      find.byType(FullscreenLandscapeWebPlayer),
+    );
+    expect(
+      player.url,
+      'https://vidnest.fun/tv/94605/2/3?muted=0&mute=0&volume=100',
+    );
+    expect(player.fallbackUrls, isEmpty);
+  });
+
   testWidgets('detail server one opens movie cine proxy in the direct player', (
     tester,
   ) async {
@@ -808,10 +868,11 @@ void main() {
     );
   });
 
-  testWidgets('detail server one shows unavailable toast before player', (
+  testWidgets('detail server one falls back to vidnest when cine is missing', (
     tester,
   ) async {
     var checkedUrl = '';
+    var launcherCalls = 0;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -824,6 +885,12 @@ void main() {
         child: MaterialApp(
           home: DetailView(
             item: _wakanda,
+            externalPlaybackPolicy:
+                ({required isWeb, required viewportWidth}) => true,
+            externalPlayerLauncher: (_) async {
+              launcherCalls += 1;
+              return true;
+            },
             directStreamAvailabilityChecker: (url) async {
               checkedUrl = url.toString();
               return false;
@@ -846,8 +913,16 @@ void main() {
       'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
       'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Fmovie%2F505642.m3u8',
     );
+    expect(launcherCalls, 0);
     expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
-    expect(find.text('Video is not available right now.'), findsOneWidget);
+    final player = tester.widget<FullscreenLandscapeWebPlayer>(
+      find.byType(FullscreenLandscapeWebPlayer),
+    );
+    expect(
+      player.url,
+      'https://vidnest.fun/movie/505642?muted=0&mute=0&volume=100',
+    );
+    expect(player.fallbackUrls, isEmpty);
   });
 
   testWidgets(
@@ -1018,6 +1093,31 @@ void main() {
       ).toString(),
       'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
       'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Ftv%2F94605%2F1%2F1.m3u8',
+    );
+  });
+
+  test('vidnest playback urls use movie and episode embeds', () {
+    expect(
+      vidnestPlaybackUrl(tmdbId: 1336770, contentType: 'Movie').toString(),
+      'https://vidnest.fun/movie/1336770?muted=0&mute=0&volume=100',
+    );
+    expect(
+      vidnestPlaybackUrl(
+        tmdbId: 94605,
+        contentType: 'TV Show',
+        season: 2,
+        episode: 3,
+      ).toString(),
+      'https://vidnest.fun/tv/94605/2/3?muted=0&mute=0&volume=100',
+    );
+    expect(
+      vidnestPlaybackUrl(
+        tmdbId: 94605,
+        contentType: 'Series',
+        season: 0,
+        episode: -1,
+      ).toString(),
+      'https://vidnest.fun/tv/94605/1/1?muted=0&mute=0&volume=100',
     );
   });
 

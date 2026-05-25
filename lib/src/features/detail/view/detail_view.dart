@@ -570,7 +570,12 @@ class _DetailViewState extends ConsumerState<DetailView> {
       );
       if (!mounted) return;
       if (!isAvailable) {
-        showVeilToast(context, 'Video is not available right now.');
+        await _openVidnestFallbackPlayer(
+          item,
+          tmdbId: tmdbId,
+          season: season,
+          episode: episode,
+        );
         return;
       }
 
@@ -593,6 +598,28 @@ class _DetailViewState extends ConsumerState<DetailView> {
         setState(() => _isExtractingRedirectUrl = false);
       }
     }
+  }
+
+  Future<void> _openVidnestFallbackPlayer(
+    ContentItem item, {
+    required int tmdbId,
+    required int season,
+    required int episode,
+  }) async {
+    final embedUrl = vidnestPlaybackUrl(
+      tmdbId: tmdbId,
+      contentType: item.type,
+      season: season,
+      episode: episode,
+    );
+
+    debugPrint('Opening VidNest fallback URL for $tmdbId');
+    await _openResolvedPlayerUrl(
+      contentId: '$tmdbId',
+      embedUrl: embedUrl,
+      fallbackUrls: const [],
+      forceEmbedded: true,
+    );
   }
 
   Future<void> _openResolvedPlayerUrl({

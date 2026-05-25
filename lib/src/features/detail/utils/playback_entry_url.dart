@@ -87,6 +87,27 @@ Uri cineDirectPlaybackUrl({
   return Uri.parse(targetUrl);
 }
 
+Uri vidnestPlaybackUrl({
+  required int tmdbId,
+  String? contentType,
+  int season = 1,
+  int episode = 1,
+}) {
+  final safeSeason = season < 1 ? 1 : season;
+  final safeEpisode = episode < 1 ? 1 : episode;
+  final queryParameters = {'muted': '0', 'mute': '0', 'volume': '100'};
+
+  if (isTvPlaybackContent(contentType)) {
+    return Uri.https(
+      'vidnest.fun',
+      '/tv/$tmdbId/$safeSeason/$safeEpisode',
+      queryParameters,
+    );
+  }
+
+  return Uri.https('vidnest.fun', '/movie/$tmdbId', queryParameters);
+}
+
 Uri compactWebPlaybackLaunchUrl({
   required Uri primaryUrl,
   required List<Uri> fallbackUrls,
