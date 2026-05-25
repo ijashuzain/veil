@@ -1070,7 +1070,17 @@ void main() {
     expect(platform.controller.htmlLoads.single, isNot(contains('<iframe')));
     expect(
       platform.controller.htmlLoads.single,
-      contains(htmlEscape.convert(streamUrl.toString())),
+      contains('https://cdn.jsdelivr.net/npm/hls.js@latest'),
+    );
+    expect(
+      platform.controller.htmlLoads.single.indexOf('window.Hls.isSupported()'),
+      lessThan(
+        platform.controller.htmlLoads.single.indexOf('const nativeSupport'),
+      ),
+    );
+    expect(
+      platform.controller.htmlLoads.single,
+      contains('"${streamUrl.toString()}"'),
     );
   });
 

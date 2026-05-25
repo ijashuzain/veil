@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:veil/src/features/embeded_player/view/direct_video_player_script.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class FullscreenLandscapeDirectVideoPlayer extends StatefulWidget {
@@ -139,15 +139,18 @@ class _FullscreenLandscapeDirectVideoPlayerState
   }
 
   static String _buildDirectPlayerHtml(String url) {
-    final escapedUrl = htmlEscape.convert(url);
-    final encodedUrl = jsonEncode(url);
-    final summarizedUrl = jsonEncode(_summarizeUrl(url));
+    final bootstrapScript = buildDirectPlayerBootstrapScript(
+      url: url,
+      videoId: 'player',
+      statusId: 'status',
+    );
 
     return '''
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; media-src * data: blob:; connect-src * data: blob:; img-src * data: blob:;">
   <meta
     name="viewport"
     content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
@@ -209,163 +212,11 @@ class _FullscreenLandscapeDirectVideoPlayerState
     autoplay
     playsinline
     webkit-playsinline
-    preload="metadata">
-    <source src="$escapedUrl" type="application/vnd.apple.mpegurl">
-  </video>
+    preload="metadata"></video>
   <div id="status" class="status">Loading stream...</div>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script>
-    (function () {
-      const sourceUrl = $encodedUrl;
-      const video = document.getElementById('player');
-      const status = document.getElementById('status');
-      let hls = null;
-      let networkRecoveries = 0;
-
-      console.log('[direct] boot stream=' + $summarizedUrl);
-
-      function setStatus(message) {
-        status.textContent = message || '';
-        status.classList.toggle('visible', Boolean(message));
-      }
-
-      function requestPlay() {
-        const promise = video.play();
-        if (promise && typeof promise.catch === 'function') {
-          promise.catch(function (error) {
-            console.warn('[direct] autoplay paused ' + error);
-            setStatus('Tap play to start');
-          });
-        }
-      }
-
-      function loadNative() {
-        console.log('[direct] using native hls video source');
-        video.src = sourceUrl;
-        video.load();
-        requestPlay();
-      }
-
-      function recoverFatalHlsError(data) {
-        if (!hls) return;
-
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          networkRecoveries += 1;
-          if (networkRecoveries > 2) {
-            console.warn('[direct] hls network retry limit reached');
-            setStatus('Trying native playback...');
-            hls.destroy();
-            hls = null;
-            loadNative();
-            return;
-          }
-
-          console.warn('[direct] hls network error; retrying');
-          setStatus('Reconnecting stream...');
-          hls.startLoad();
-          return;
-        }
-
-        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          console.warn('[direct] hls media error; recovering');
-          setStatus('Recovering playback...');
-          hls.recoverMediaError();
-          return;
-        }
-
-        console.error('[direct] unrecoverable hls error');
-        setStatus('Stream could not start');
-        hls.destroy();
-        hls = null;
-        loadNative();
-      }
-
-      function loadWithHlsJs() {
-        if (!window.Hls || !window.Hls.isSupported()) {
-          loadNative();
-          return;
-        }
-
-        console.log('[direct] using hls.js');
-        setStatus('Loading stream...');
-        hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: false,
-          backBufferLength: 90
-        });
-        hls.loadSource(sourceUrl);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () {
-          console.log('[direct] manifest parsed');
-          setStatus('');
-          requestPlay();
-        });
-        hls.on(Hls.Events.ERROR, function (_, data) {
-          console.error(
-            '[direct] hls error type=' + data.type +
-            ' details=' + data.details +
-            ' fatal=' + data.fatal
-          );
-          if (data.fatal) recoverFatalHlsError(data);
-        });
-      }
-
-      function start() {
-        const nativeSupport =
-          video.canPlayType('application/vnd.apple.mpegurl') ||
-          video.canPlayType('application/x-mpegURL');
-        if (nativeSupport) {
-          loadNative();
-        } else {
-          loadWithHlsJs();
-        }
-      }
-
-      video.addEventListener('loadedmetadata', function () {
-        console.log(
-          '[direct] metadata width=' + video.videoWidth +
-          ' height=' + video.videoHeight +
-          ' duration=' + video.duration
-        );
-      });
-
-      video.addEventListener('playing', function () {
-        console.log('[direct] playing');
-        setStatus('');
-      });
-
-      video.addEventListener('waiting', function () {
-        console.log('[direct] waiting');
-        setStatus('Buffering...');
-      });
-
-      video.addEventListener('error', function () {
-        const error = video.error;
-        const code = error ? error.code : 'unknown';
-        console.error('[direct] video error code=' + code);
-        setStatus('Stream could not start');
-      });
-
-      window.addEventListener('error', function (event) {
-        console.error(
-          '[direct] error ' + event.message +
-          ' at ' + event.filename + ':' + event.lineno
-        );
-      });
-
-      window.addEventListener('unhandledrejection', function (event) {
-        const reason = event.reason && event.reason.message
-          ? event.reason.message
-          : String(event.reason);
-        console.error('[direct] unhandled rejection ' + reason);
-      });
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', start);
-      } else {
-        start();
-      }
-    })();
+    $bootstrapScript
   </script>
 </body>
 </html>

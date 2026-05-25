@@ -7,7 +7,7 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
-import 'package:veil/src/features/embeded_player/view/direct_video_player_web_script.dart';
+import 'package:veil/src/features/embeded_player/view/direct_video_player_script.dart';
 
 class FullscreenLandscapeDirectVideoPlayer extends StatefulWidget {
   const FullscreenLandscapeDirectVideoPlayer({
@@ -114,7 +114,7 @@ class _FullscreenLandscapeDirectVideoPlayerState
     _setStatus(status, 'Loading stream...');
     final script = html.ScriptElement()
       ..async = true
-      ..src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
+      ..src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
     _scriptElement = script;
     void bootstrap() {
       if (!mounted) return;
@@ -138,7 +138,7 @@ class _FullscreenLandscapeDirectVideoPlayerState
     required String statusId,
   }) {
     final script = html.ScriptElement()
-      ..text = buildDirectWebPlayerBootstrapScript(
+      ..text = buildDirectPlayerBootstrapScript(
         url: url,
         videoId: videoId,
         statusId: statusId,

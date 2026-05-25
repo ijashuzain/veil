@@ -559,7 +559,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
       episode: episode,
     );
     debugPrint(
-      'Opening cine direct stream URL for $tmdbId season=$season episode=$episode',
+      'Opening cine direct stream URL for $tmdbId',
     );
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
