@@ -3,10 +3,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
-import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
-import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/embeded_player/view/direct_video_player_script.dart';
 
 class FullscreenLandscapeDirectVideoPlayer extends StatefulWidget {
@@ -28,132 +26,170 @@ class FullscreenLandscapeDirectVideoPlayer extends StatefulWidget {
 
 class _FullscreenLandscapeDirectVideoPlayerState
     extends State<FullscreenLandscapeDirectVideoPlayer> {
-  late final String _viewType;
+  html.DivElement? _overlay;
   html.VideoElement? _videoElement;
-  html.ScriptElement? _scriptElement;
+  html.ScriptElement? _hlsScriptElement;
+  StreamSubscription<html.MouseEvent>? _closeButtonSubscription;
   String? _videoElementId;
 
   @override
   void initState() {
     super.initState();
-    _viewType = 'veil-direct-video-player-${identityHashCode(this)}';
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
-      final viewId = identityHashCode(this);
-      final videoId = 'veil-direct-video-$viewId';
-      final statusId = 'veil-direct-video-status-$viewId';
-      final container = html.DivElement()
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..style.position = 'relative'
-        ..style.backgroundColor = 'black'
-        ..style.overflow = 'hidden';
-      final video = html.VideoElement()
-        ..id = videoId
-        ..controls = true
-        ..autoplay = true
-        ..preload = 'metadata'
-        ..setAttribute('playsinline', 'true')
-        ..setAttribute('webkit-playsinline', 'true')
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..style.display = 'block'
-        ..style.backgroundColor = 'black'
-        ..style.objectFit = 'contain';
-      final status = html.DivElement()
-        ..id = statusId
-        ..text = 'Loading stream...'
-        ..style.position = 'absolute'
-        ..style.left = '50%'
-        ..style.bottom = '20px'
-        ..style.maxWidth = 'calc(100% - 32px)'
-        ..style.transform = 'translateX(-50%)'
-        ..style.padding = '8px 12px'
-        ..style.border = '1px solid rgba(255, 255, 255, .18)'
-        ..style.borderRadius = '999px'
-        ..style.backgroundColor = 'rgba(0, 0, 0, .62)'
-        ..style.color = 'rgba(255, 255, 255, .78)'
-        ..style.fontSize = '12px'
-        ..style.fontWeight = '700'
-        ..style.lineHeight = '1.3'
-        ..style.textAlign = 'center'
-        ..style.pointerEvents = 'none';
-
-      _videoElement = video;
-      _videoElementId = videoId;
-      container.children.add(video);
-      container.children.add(status);
-      _attachSource(
-        video: video,
-        status: status,
-        url: widget.url,
-        videoId: videoId,
-        statusId: statusId,
-      );
-      return container;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showPlayerOverlay();
     });
+  }
+
+  void _showPlayerOverlay() {
+    final viewId = identityHashCode(this);
+    final videoId = 'veil-direct-video-$viewId';
+    final statusId = 'veil-direct-video-status-$viewId';
+    final overlay = html.DivElement()
+      ..id = 'veil-direct-player-overlay-$viewId'
+      ..style.position = 'fixed'
+      ..style.left = '0'
+      ..style.top = '0'
+      ..style.width = '100vw'
+      ..style.height = '100vh'
+      ..style.backgroundColor = 'black'
+      ..style.zIndex = '2147483647'
+      ..style.display = 'flex'
+      ..style.alignItems = 'center'
+      ..style.justifyContent = 'center'
+      ..style.overflow = 'hidden';
+    overlay.style.setProperty('height', '100dvh');
+
+    final video = html.VideoElement()
+      ..id = videoId
+      ..controls = true
+      ..autoplay = true
+      ..preload = 'metadata'
+      ..setAttribute('playsinline', 'true')
+      ..setAttribute('webkit-playsinline', 'true')
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..style.display = 'block'
+      ..style.backgroundColor = 'black'
+      ..style.objectFit = 'contain';
+
+    final status = html.DivElement()
+      ..id = statusId
+      ..text = 'Loading stream...'
+      ..style.position = 'absolute'
+      ..style.left = '50%'
+      ..style.bottom = '20px'
+      ..style.maxWidth = 'calc(100% - 32px)'
+      ..style.transform = 'translateX(-50%)'
+      ..style.padding = '8px 12px'
+      ..style.border = '1px solid rgba(255, 255, 255, .18)'
+      ..style.borderRadius = '999px'
+      ..style.backgroundColor = 'rgba(0, 0, 0, .62)'
+      ..style.color = 'rgba(255, 255, 255, .78)'
+      ..style.fontSize = '12px'
+      ..style.fontWeight = '700'
+      ..style.lineHeight = '1.3'
+      ..style.textAlign = 'center'
+      ..style.pointerEvents = 'none';
+
+    overlay.children.add(video);
+    overlay.children.add(status);
+
+    if (widget.title.isNotEmpty) {
+      overlay.children.add(_buildTitleElement(widget.title));
+    }
+    if (widget.showCloseButton) {
+      final closeButton = _buildCloseButton();
+      _closeButtonSubscription = closeButton.onClick.listen((_) {
+        if (!mounted) return;
+        Navigator.of(context).maybePop();
+      });
+      overlay.children.add(closeButton);
+    }
+
+    _overlay = overlay;
+    _videoElement = video;
+    _videoElementId = videoId;
+    html.document.body?.append(overlay);
+    _attachSource(url: widget.url, videoId: videoId, statusId: statusId);
+  }
+
+  html.DivElement _buildTitleElement(String title) {
+    return html.DivElement()
+      ..text = title
+      ..style.position = 'absolute'
+      ..style.left = '50%'
+      ..style.top = 'calc(env(safe-area-inset-top, 0px) + 18px)'
+      ..style.maxWidth = 'calc(100% - 96px)'
+      ..style.transform = 'translateX(-50%)'
+      ..style.color = 'rgba(255, 255, 255, .62)'
+      ..style.fontSize = '11px'
+      ..style.fontWeight = '900'
+      ..style.letterSpacing = '1.2px'
+      ..style.overflow = 'hidden'
+      ..style.textOverflow = 'ellipsis'
+      ..style.whiteSpace = 'nowrap'
+      ..style.pointerEvents = 'none';
+  }
+
+  html.ButtonElement _buildCloseButton() {
+    return html.ButtonElement()
+      ..type = 'button'
+      ..text = 'X'
+      ..style.position = 'absolute'
+      ..style.left = '14px'
+      ..style.top = 'calc(env(safe-area-inset-top, 0px) + 14px)'
+      ..style.width = '44px'
+      ..style.height = '44px'
+      ..style.border = '1px solid rgba(255, 255, 255, .14)'
+      ..style.borderRadius = '999px'
+      ..style.backgroundColor = 'rgba(0, 0, 0, .62)'
+      ..style.color = 'white'
+      ..style.fontSize = '18px'
+      ..style.fontWeight = '800'
+      ..style.lineHeight = '1'
+      ..style.zIndex = '2';
   }
 
   void _attachSource({
-    required html.VideoElement video,
-    required html.DivElement status,
     required String url,
     required String videoId,
     required String statusId,
   }) {
-    void loadNative() {
-      _setStatus(status, '');
-      video.src = url;
-      video.load();
-      unawaited(
-        video.play().catchError((Object error) {
-          _setStatus(status, 'Tap play to start');
-        }),
-      );
-    }
-
-    _setStatus(status, 'Loading stream...');
-    final script = html.ScriptElement()
+    final hlsScript = html.ScriptElement()
       ..async = true
       ..src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
-    _scriptElement = script;
+    _hlsScriptElement = hlsScript;
+
     void bootstrap() {
       if (!mounted) return;
-
-      _bootstrapHls(url: url, videoId: videoId, statusId: statusId);
+      final script = html.ScriptElement()
+        ..text = buildDirectPlayerBootstrapScript(
+          url: url,
+          videoId: videoId,
+          statusId: statusId,
+        );
+      html.document.body?.append(script);
+      script.remove();
     }
 
-    script.onLoad.first.then((_) => bootstrap());
-    script.onError.first.then((_) {
+    hlsScript.onLoad.first.then((_) => bootstrap());
+    hlsScript.onError.first.then((_) {
       if (!mounted) return;
-
-      loadNative();
+      final video = _videoElement;
+      if (video == null) return;
+      video.src = url;
+      video.load();
+      unawaited(video.play());
     });
-    html.document.head?.append(script);
+    html.document.head?.append(hlsScript);
     Timer.run(bootstrap);
-  }
-
-  void _bootstrapHls({
-    required String url,
-    required String videoId,
-    required String statusId,
-  }) {
-    final script = html.ScriptElement()
-      ..text = buildDirectPlayerBootstrapScript(
-        url: url,
-        videoId: videoId,
-        statusId: statusId,
-      );
-    html.document.body?.append(script);
-    script.remove();
-  }
-
-  void _setStatus(html.DivElement status, String message) {
-    status.text = message;
-    status.style.opacity = message.isEmpty ? '0' : '1';
   }
 
   @override
   void dispose() {
+    _closeButtonSubscription?.cancel();
+
     final videoId = _videoElementId;
     if (videoId != null) {
       final disposeScript = html.ScriptElement()
@@ -170,63 +206,18 @@ class _FullscreenLandscapeDirectVideoPlayerState
       html.document.body?.append(disposeScript);
       disposeScript.remove();
     }
+
     _videoElement
       ?..pause()
       ..src = ''
       ..load();
-    _scriptElement?.remove();
+    _hlsScriptElement?.remove();
+    _overlay?.remove();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          HtmlElementView(viewType: _viewType),
-          if (widget.showCloseButton)
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: IconButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close_rounded),
-                    color: Colors.white,
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black.withValues(alpha: .62),
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: .14),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 18),
-                child: Text(
-                  widget.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: VeilColors.text3,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const Scaffold(backgroundColor: Colors.black);
   }
 }
