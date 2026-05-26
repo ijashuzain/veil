@@ -37,7 +37,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     final authVm = ref.read(authViewModelProvider.notifier);
 
     return Scaffold(
-      backgroundColor: VeilColors.bg1,
+      backgroundColor: VeilColors.bg0,
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           0,
@@ -299,9 +299,9 @@ class _ProfileHeader extends StatelessWidget {
         : displayName.substring(0, 1).toUpperCase();
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: VeilColors.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: VeilColors.hairline),
+        color: VeilColors.panel.withValues(alpha: .88),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: VeilColors.hairlineStrong),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -392,9 +392,9 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: VeilColors.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: VeilColors.hairline),
+        color: VeilColors.panel.withValues(alpha: .84),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: VeilColors.hairlineStrong),
       ),
       child: Column(
         children: [
@@ -428,7 +428,7 @@ class _SettingsRow extends StatelessWidget {
     final color = destructive ? VeilColors.red : Colors.white;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(

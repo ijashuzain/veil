@@ -86,7 +86,7 @@ class _SearchViewState extends ConsumerState<SearchView> {
     }
 
     return Scaffold(
-      backgroundColor: VeilColors.bg1,
+      backgroundColor: VeilColors.bg0,
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
           0,
@@ -155,17 +155,23 @@ class _SearchViewState extends ConsumerState<SearchView> {
                             ),
                           ),
                     filled: true,
-                    fillColor: VeilColors.bg2,
+                    fillColor: VeilColors.panelRaised,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(
+                        VeilTheme.controlRadius,
+                      ),
                       borderSide: const BorderSide(color: VeilColors.hairline),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(
+                        VeilTheme.controlRadius,
+                      ),
                       borderSide: const BorderSide(color: VeilColors.hairline),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(
+                        VeilTheme.controlRadius,
+                      ),
                       borderSide: const BorderSide(color: VeilColors.red),
                     ),
                   ),

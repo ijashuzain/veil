@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/home/view/home_view.dart';
@@ -21,6 +23,7 @@ class _VeilShellViewState extends State<VeilShellView> {
   Widget build(BuildContext context) {
     final breakpoint = VeilBreakpoint.of(context);
     return Scaffold(
+      extendBody: breakpoint.isMobile,
       body: breakpoint.usesRail
           ? Row(
               children: [
@@ -41,32 +44,44 @@ class _VeilShellViewState extends State<VeilShellView> {
             )
           : _TabStack(activeIndex: _activeIndex),
       bottomNavigationBar: breakpoint.isMobile
-          ? Container(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 22),
-              decoration: BoxDecoration(
-                color: VeilColors.bg1.withValues(alpha: .96),
-                border: const Border(
-                  top: BorderSide(color: VeilColors.hairline),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: .40),
-                    blurRadius: 24,
-                    offset: const Offset(0, -10),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (var index = 0; index < _tabs.length; index++)
-                    _TabButton(
-                      selected: _activeIndex == index,
-                      icon: _tabs[index].icon,
-                      label: _tabs[index].label,
-                      onTap: () => _selectTab(index),
+          ? SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
                     ),
-                ],
+                    decoration: BoxDecoration(
+                      color: VeilColors.panel.withValues(alpha: .86),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: VeilColors.hairlineStrong),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .50),
+                          blurRadius: 30,
+                          offset: const Offset(0, 18),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        for (var index = 0; index < _tabs.length; index++)
+                          _TabButton(
+                            selected: _activeIndex == index,
+                            icon: _tabs[index].icon,
+                            label: _tabs[index].label,
+                            onTap: () => _selectTab(index),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             )
           : null,
@@ -119,12 +134,12 @@ class _ShellNavigationRail extends StatelessWidget {
     return NavigationRail(
       selectedIndex: activeIndex,
       onDestinationSelected: onDestinationSelected,
-      backgroundColor: VeilColors.bg1,
-      indicatorColor: VeilColors.redSoft,
-      selectedIconTheme: const IconThemeData(color: Colors.white),
+      backgroundColor: VeilColors.bg0,
+      indicatorColor: VeilColors.red,
+      selectedIconTheme: const IconThemeData(color: Colors.black),
       unselectedIconTheme: const IconThemeData(color: VeilColors.text3),
       selectedLabelTextStyle: const TextStyle(
-        color: Colors.white,
+        color: VeilColors.gold,
         fontSize: 12,
         fontWeight: FontWeight.w900,
       ),
@@ -189,24 +204,33 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.white : VeilColors.text3;
+    final color = selected ? Colors.black : VeilColors.text3;
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: EdgeInsets.symmetric(
-          horizontal: selected ? 10 : 8,
-          vertical: 10,
+          horizontal: selected ? 14 : 12,
+          vertical: 11,
         ),
         decoration: BoxDecoration(
-          color: selected ? VeilColors.redSoft : Colors.transparent,
+          color: selected ? VeilColors.red : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: selected
-                ? VeilColors.red.withValues(alpha: .38)
+                ? VeilColors.gold.withValues(alpha: .45)
                 : Colors.transparent,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: VeilColors.red.withValues(alpha: .30),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -217,9 +241,9 @@ class _TabButton extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black,
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],

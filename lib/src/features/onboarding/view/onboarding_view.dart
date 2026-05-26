@@ -148,9 +148,9 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                       ),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: VeilColors.bg2.withValues(alpha: .80),
+                          color: VeilColors.panel.withValues(alpha: .88),
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: VeilColors.hairline),
+                          border: Border.all(color: VeilColors.hairlineStrong),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: .42),
@@ -304,7 +304,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                                         ),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: VeilColors.red,
-                                    foregroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 16,
                                     ),
@@ -498,7 +498,7 @@ class _AuthField extends StatelessWidget {
         hintStyle: const TextStyle(color: VeilColors.text3),
         prefixIcon: Icon(icon, color: VeilColors.text3, size: 19),
         filled: true,
-        fillColor: VeilColors.bg1,
+        fillColor: VeilColors.panelRaised,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: VeilColors.hairline),

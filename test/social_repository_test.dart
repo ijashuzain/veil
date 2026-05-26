@@ -304,10 +304,34 @@ void main() {
     expect(liked.liked, isTrue);
     expect(liked.likeCount, 1);
 
-    final commented = await repository.addReviewComment(liked, 'Same here');
+    final helpful = await repository.toggleReviewHelpful(liked);
+    expect(helpful.helpful, isTrue);
+    expect(helpful.helpfulCount, 1);
+
+    final commented = await repository.addReviewComment(
+      helpful,
+      'Same here',
+      isSpoiler: true,
+    );
     expect(commented.commentCount, 1);
 
-    final deleted = await repository.deleteReview(commented);
+    final comments = await repository.reviewComments(commented);
+    expect(comments, hasLength(1));
+    expect(comments.single.body, 'Same here');
+    expect(comments.single.isSpoiler, isTrue);
+
+    final replied = await repository.addReviewComment(
+      commented,
+      'Replying to this',
+      parentCommentId: comments.single.id,
+    );
+    expect(replied.commentCount, 2);
+
+    final thread = await repository.reviewComments(replied);
+    expect(thread, hasLength(2));
+    expect(thread.last.parentCommentId, comments.single.id);
+
+    final deleted = await repository.deleteReview(replied);
     expect(deleted.review, isEmpty);
     expect(deleted.rating, 4);
     expect(deleted.watchedOn, isNotNull);

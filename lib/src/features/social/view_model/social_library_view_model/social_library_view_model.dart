@@ -185,10 +185,27 @@ class SocialLibraryViewModel extends _$SocialLibraryViewModel {
     _replaceReview(updated);
   }
 
-  Future<void> addReviewComment(SocialEntry review, String body) async {
+  Future<void> toggleReviewHelpful(SocialEntry review) async {
     final updated = await ref
         .read(socialRepositoryProvider)
-        .addReviewComment(review, body);
+        .toggleReviewHelpful(review);
+    _replaceReview(updated);
+  }
+
+  Future<void> addReviewComment(
+    SocialEntry review,
+    String body, {
+    String? parentCommentId,
+    bool isSpoiler = false,
+  }) async {
+    final updated = await ref
+        .read(socialRepositoryProvider)
+        .addReviewComment(
+          review,
+          body,
+          parentCommentId: parentCommentId,
+          isSpoiler: isSpoiler,
+        );
     _replaceReview(updated);
   }
 

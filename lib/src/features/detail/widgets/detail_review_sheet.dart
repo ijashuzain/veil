@@ -47,6 +47,7 @@ class _DetailReviewSheetState extends State<DetailReviewSheet> {
   late double _rating;
   late String _watchTag;
   var _saving = false;
+  var _containsSpoilers = false;
 
   @override
   void initState() {
@@ -179,6 +180,22 @@ class _DetailReviewSheetState extends State<DetailReviewSheet> {
                   onChanged: (value) => setState(() => _watchTag = value),
                 ),
                 const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _containsSpoilers,
+                  onChanged: (value) =>
+                      setState(() => _containsSpoilers = value),
+                  activeThumbColor: VeilColors.gold,
+                  title: const Text(
+                    'Contains spoilers',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text(
+                    'Hide this review behind a reveal prompt in social feeds.',
+                    style: TextStyle(color: VeilColors.text3, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _tagController,
                   onChanged: (_) => setState(() {}),
@@ -225,10 +242,12 @@ class _DetailReviewSheetState extends State<DetailReviewSheet> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
+    final tags = buildDetailReviewTags(_watchTag, _tagController.text);
+    if (_containsSpoilers && !tags.contains('spoiler')) tags.add('spoiler');
     await widget.onSave(
       rating: _rating,
       review: _reviewController.text.trim(),
-      tags: buildDetailReviewTags(_watchTag, _tagController.text),
+      tags: tags,
     );
     if (!mounted) return;
     Navigator.of(context).pop();

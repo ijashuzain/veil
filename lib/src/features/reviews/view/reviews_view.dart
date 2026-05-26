@@ -5,6 +5,7 @@ import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/features/social/widgets/review_thread_sheet.dart';
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
@@ -29,7 +30,7 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
     final reviews = _tab == 0 ? state.globalReviews : state.reviews;
 
     return Scaffold(
-      backgroundColor: VeilColors.bg1,
+      backgroundColor: VeilColors.bg0,
       body: RefreshIndicator(
         color: VeilColors.red,
         backgroundColor: VeilColors.bg2,
@@ -77,7 +78,8 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
                           displayName: _reviewDisplayName(review),
                         ).push(context),
                         onLike: () => vm.toggleReviewLike(review),
-                        onComment: () => _openCommentSheet(review),
+                        onHelpful: () => vm.toggleReviewHelpful(review),
+                        onComment: () => _openCommentThread(review),
                         onDelete: review.userId == currentUserId
                             ? () => vm.deleteReview(review)
                             : null,
@@ -91,83 +93,15 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
     );
   }
 
-  void _openCommentSheet(SocialEntry review) {
-    final controller = TextEditingController();
+  void _openCommentThread(SocialEntry review) {
     showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: VeilColors.bg1,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      builder: (_) => ReviewThreadSheet(
+        review: review,
+        displayName: _reviewDisplayName(review),
       ),
-      clipBehavior: Clip.antiAlias,
-      builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * .86,
-            ),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                MediaQuery.viewInsetsOf(sheetContext).bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Add a comment',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    minLines: 3,
-                    maxLines: 5,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Join the conversation',
-                      hintStyle: const TextStyle(color: VeilColors.text3),
-                      filled: true,
-                      fillColor: VeilColors.bg2,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: VeilColors.hairline,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () async {
-                        await ref
-                            .read(socialLibraryViewModelProvider.notifier)
-                            .addReviewComment(review, controller.text);
-                        if (sheetContext.mounted) {
-                          Navigator.of(sheetContext).pop();
-                        }
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: VeilColors.red,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Post comment'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    ).whenComplete(controller.dispose);
+    );
   }
 }
 

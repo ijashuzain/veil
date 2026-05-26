@@ -19,9 +19,9 @@ class VeilChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected ? Colors.white : VeilColors.text2;
+    final foreground = selected ? VeilColors.gold : VeilColors.text2;
     final borderColor = selected
-        ? VeilColors.red.withValues(alpha: .46)
+        ? VeilColors.red.withValues(alpha: .58)
         : VeilColors.hairline;
 
     return Semantics(
@@ -39,9 +39,18 @@ class VeilChoiceChip extends StatelessWidget {
               vertical: compact ? 7 : 9,
             ),
             decoration: BoxDecoration(
-              color: selected ? VeilColors.redSoft : VeilColors.panel,
+              color: selected ? VeilColors.redSoft : VeilColors.panelRaised,
               borderRadius: BorderRadius.circular(VeilTheme.controlRadius),
               border: Border.all(color: borderColor),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: VeilColors.red.withValues(alpha: .12),
+                        blurRadius: 14,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -49,7 +58,7 @@ class VeilChoiceChip extends StatelessWidget {
                 if (leadingIcon != null || selected) ...[
                   Icon(
                     leadingIcon ?? Icons.check_rounded,
-                    color: selected ? VeilColors.red : VeilColors.text3,
+                    color: selected ? VeilColors.gold : VeilColors.text3,
                     size: compact ? 14 : 16,
                   ),
                   const SizedBox(width: 6),

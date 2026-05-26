@@ -29,22 +29,45 @@ class PosterCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            PosterArt(
-              item: item,
-              width: width,
-              height: height,
-              showTitle: false,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .34),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  PosterArt(
+                    item: item,
+                    width: width,
+                    height: height,
+                    radius: 14,
+                    showTitle: false,
+                  ),
+                  if (showMeta)
+                    Positioned(
+                      left: 7,
+                      top: 7,
+                      child: _PosterRatingChip(rating: item.rating),
+                    ),
+                ],
+              ),
             ),
             if (showMeta) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 3),
@@ -56,15 +79,16 @@ class PosterCard extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.star_rounded,
-                      color: Color(0xFFFBBF24),
+                      color: VeilColors.gold,
                       size: 12,
                     ),
                     const SizedBox(width: 3),
                     Text(
                       item.rating.toStringAsFixed(1),
                       style: const TextStyle(
-                        color: VeilColors.text3,
+                        color: VeilColors.text2,
                         fontSize: 10,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const Text(
@@ -168,8 +192,9 @@ class MetaPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .11),
-        borderRadius: BorderRadius.circular(5),
+        color: VeilColors.panelRaised.withValues(alpha: .82),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: VeilColors.hairlineStrong),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -179,7 +204,7 @@ class MetaPill extends StatelessWidget {
               icon,
               size: 12,
               color: icon == Icons.star_rounded
-                  ? const Color(0xFFFBBF24)
+                  ? VeilColors.gold
                   : Colors.white,
             ),
             const SizedBox(width: 4),
@@ -221,8 +246,10 @@ class ActionCircle extends StatelessWidget {
           icon: Icon(icon, size: 20),
           color: Colors.white,
           style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withValues(alpha: .06),
-            side: const BorderSide(color: VeilColors.hairline),
+            backgroundColor: VeilColors.panelRaised.withValues(alpha: .74),
+            side: BorderSide(
+              color: badge ? VeilColors.redSoft : VeilColors.hairlineStrong,
+            ),
           ),
         ),
         if (badge)
@@ -240,6 +267,41 @@ class ActionCircle extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _PosterRatingChip extends StatelessWidget {
+  const _PosterRatingChip({required this.rating});
+
+  final double rating;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .68),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: .18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star_rounded, color: VeilColors.gold, size: 11),
+            const SizedBox(width: 3),
+            Text(
+              rating.toStringAsFixed(1),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
