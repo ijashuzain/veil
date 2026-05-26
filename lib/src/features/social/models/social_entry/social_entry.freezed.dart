@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SocialEntry {
 
- String get id; String get userId; int? get tmdbId; String? get imdbId; String get mediaType; String get title; String get subtitle; int get year; String get genre; String get type; double get tmdbRating; String? get posterUrl; String? get backdropUrl; String get description; double get rating; String get review; List<String> get tags; DateTime? get watchedOn; bool get isFavorite; bool get inWatchlist; bool get liked; int get likeCount; int get commentCount; String get authorDisplayName; DateTime get createdAt; DateTime get updatedAt;
+ String get id; String get userId; int? get tmdbId; String? get imdbId; String get mediaType; String get title; String get subtitle; int get year; String get genre; String get type; double get tmdbRating; String? get posterUrl; String? get backdropUrl; String get description; double get rating; String get review; List<String> get tags; DateTime? get watchedOn; bool get isFavorite; bool get inWatchlist; bool get liked; int get likeCount; bool get helpful; int get helpfulCount; int get commentCount; String get authorDisplayName; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of SocialEntry
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $SocialEntryCopyWith<SocialEntry> get copyWith => _$SocialEntryCopyWithImpl<Soci
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SocialEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.tmdbId, tmdbId) || other.tmdbId == tmdbId)&&(identical(other.imdbId, imdbId) || other.imdbId == imdbId)&&(identical(other.mediaType, mediaType) || other.mediaType == mediaType)&&(identical(other.title, title) || other.title == title)&&(identical(other.subtitle, subtitle) || other.subtitle == subtitle)&&(identical(other.year, year) || other.year == year)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.type, type) || other.type == type)&&(identical(other.tmdbRating, tmdbRating) || other.tmdbRating == tmdbRating)&&(identical(other.posterUrl, posterUrl) || other.posterUrl == posterUrl)&&(identical(other.backdropUrl, backdropUrl) || other.backdropUrl == backdropUrl)&&(identical(other.description, description) || other.description == description)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.review, review) || other.review == review)&&const DeepCollectionEquality().equals(other.tags, tags)&&(identical(other.watchedOn, watchedOn) || other.watchedOn == watchedOn)&&(identical(other.isFavorite, isFavorite) || other.isFavorite == isFavorite)&&(identical(other.inWatchlist, inWatchlist) || other.inWatchlist == inWatchlist)&&(identical(other.liked, liked) || other.liked == liked)&&(identical(other.likeCount, likeCount) || other.likeCount == likeCount)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.authorDisplayName, authorDisplayName) || other.authorDisplayName == authorDisplayName)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SocialEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.tmdbId, tmdbId) || other.tmdbId == tmdbId)&&(identical(other.imdbId, imdbId) || other.imdbId == imdbId)&&(identical(other.mediaType, mediaType) || other.mediaType == mediaType)&&(identical(other.title, title) || other.title == title)&&(identical(other.subtitle, subtitle) || other.subtitle == subtitle)&&(identical(other.year, year) || other.year == year)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.type, type) || other.type == type)&&(identical(other.tmdbRating, tmdbRating) || other.tmdbRating == tmdbRating)&&(identical(other.posterUrl, posterUrl) || other.posterUrl == posterUrl)&&(identical(other.backdropUrl, backdropUrl) || other.backdropUrl == backdropUrl)&&(identical(other.description, description) || other.description == description)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.review, review) || other.review == review)&&const DeepCollectionEquality().equals(other.tags, tags)&&(identical(other.watchedOn, watchedOn) || other.watchedOn == watchedOn)&&(identical(other.isFavorite, isFavorite) || other.isFavorite == isFavorite)&&(identical(other.inWatchlist, inWatchlist) || other.inWatchlist == inWatchlist)&&(identical(other.liked, liked) || other.liked == liked)&&(identical(other.likeCount, likeCount) || other.likeCount == likeCount)&&(identical(other.helpful, helpful) || other.helpful == helpful)&&(identical(other.helpfulCount, helpfulCount) || other.helpfulCount == helpfulCount)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.authorDisplayName, authorDisplayName) || other.authorDisplayName == authorDisplayName)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,userId,tmdbId,imdbId,mediaType,title,subtitle,year,genre,type,tmdbRating,posterUrl,backdropUrl,description,rating,review,const DeepCollectionEquality().hash(tags),watchedOn,isFavorite,inWatchlist,liked,likeCount,commentCount,authorDisplayName,createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,userId,tmdbId,imdbId,mediaType,title,subtitle,year,genre,type,tmdbRating,posterUrl,backdropUrl,description,rating,review,const DeepCollectionEquality().hash(tags),watchedOn,isFavorite,inWatchlist,liked,likeCount,helpful,helpfulCount,commentCount,authorDisplayName,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'SocialEntry(id: $id, userId: $userId, tmdbId: $tmdbId, imdbId: $imdbId, mediaType: $mediaType, title: $title, subtitle: $subtitle, year: $year, genre: $genre, type: $type, tmdbRating: $tmdbRating, posterUrl: $posterUrl, backdropUrl: $backdropUrl, description: $description, rating: $rating, review: $review, tags: $tags, watchedOn: $watchedOn, isFavorite: $isFavorite, inWatchlist: $inWatchlist, liked: $liked, likeCount: $likeCount, commentCount: $commentCount, authorDisplayName: $authorDisplayName, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'SocialEntry(id: $id, userId: $userId, tmdbId: $tmdbId, imdbId: $imdbId, mediaType: $mediaType, title: $title, subtitle: $subtitle, year: $year, genre: $genre, type: $type, tmdbRating: $tmdbRating, posterUrl: $posterUrl, backdropUrl: $backdropUrl, description: $description, rating: $rating, review: $review, tags: $tags, watchedOn: $watchedOn, isFavorite: $isFavorite, inWatchlist: $inWatchlist, liked: $liked, likeCount: $likeCount, helpful: $helpful, helpfulCount: $helpfulCount, commentCount: $commentCount, authorDisplayName: $authorDisplayName, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $SocialEntryCopyWith<$Res>  {
   factory $SocialEntryCopyWith(SocialEntry value, $Res Function(SocialEntry) _then) = _$SocialEntryCopyWithImpl;
 @useResult
 $Res call({
- String id, String userId, int? tmdbId, String? imdbId, String mediaType, String title, String subtitle, int year, String genre, String type, double tmdbRating, String? posterUrl, String? backdropUrl, String description, double rating, String review, List<String> tags, DateTime? watchedOn, bool isFavorite, bool inWatchlist, bool liked, int likeCount, int commentCount, String authorDisplayName, DateTime createdAt, DateTime updatedAt
+ String id, String userId, int? tmdbId, String? imdbId, String mediaType, String title, String subtitle, int year, String genre, String type, double tmdbRating, String? posterUrl, String? backdropUrl, String description, double rating, String review, List<String> tags, DateTime? watchedOn, bool isFavorite, bool inWatchlist, bool liked, int likeCount, bool helpful, int helpfulCount, int commentCount, String authorDisplayName, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -65,7 +65,7 @@ class _$SocialEntryCopyWithImpl<$Res>
 
 /// Create a copy of SocialEntry
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? userId = null,Object? tmdbId = freezed,Object? imdbId = freezed,Object? mediaType = null,Object? title = null,Object? subtitle = null,Object? year = null,Object? genre = null,Object? type = null,Object? tmdbRating = null,Object? posterUrl = freezed,Object? backdropUrl = freezed,Object? description = null,Object? rating = null,Object? review = null,Object? tags = null,Object? watchedOn = freezed,Object? isFavorite = null,Object? inWatchlist = null,Object? liked = null,Object? likeCount = null,Object? commentCount = null,Object? authorDisplayName = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? userId = null,Object? tmdbId = freezed,Object? imdbId = freezed,Object? mediaType = null,Object? title = null,Object? subtitle = null,Object? year = null,Object? genre = null,Object? type = null,Object? tmdbRating = null,Object? posterUrl = freezed,Object? backdropUrl = freezed,Object? description = null,Object? rating = null,Object? review = null,Object? tags = null,Object? watchedOn = freezed,Object? isFavorite = null,Object? inWatchlist = null,Object? liked = null,Object? likeCount = null,Object? helpful = null,Object? helpfulCount = null,Object? commentCount = null,Object? authorDisplayName = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,userId: null == userId ? _self.userId : userId // ignore: cast_nullable_to_non_nullable
@@ -89,6 +89,8 @@ as DateTime?,isFavorite: null == isFavorite ? _self.isFavorite : isFavorite // i
 as bool,inWatchlist: null == inWatchlist ? _self.inWatchlist : inWatchlist // ignore: cast_nullable_to_non_nullable
 as bool,liked: null == liked ? _self.liked : liked // ignore: cast_nullable_to_non_nullable
 as bool,likeCount: null == likeCount ? _self.likeCount : likeCount // ignore: cast_nullable_to_non_nullable
+as int,helpful: null == helpful ? _self.helpful : helpful // ignore: cast_nullable_to_non_nullable
+as bool,helpfulCount: null == helpfulCount ? _self.helpfulCount : helpfulCount // ignore: cast_nullable_to_non_nullable
 as int,commentCount: null == commentCount ? _self.commentCount : commentCount // ignore: cast_nullable_to_non_nullable
 as int,authorDisplayName: null == authorDisplayName ? _self.authorDisplayName : authorDisplayName // ignore: cast_nullable_to_non_nullable
 as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
@@ -178,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String userId,  int? tmdbId,  String? imdbId,  String mediaType,  String title,  String subtitle,  int year,  String genre,  String type,  double tmdbRating,  String? posterUrl,  String? backdropUrl,  String description,  double rating,  String review,  List<String> tags,  DateTime? watchedOn,  bool isFavorite,  bool inWatchlist,  bool liked,  int likeCount,  int commentCount,  String authorDisplayName,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String userId,  int? tmdbId,  String? imdbId,  String mediaType,  String title,  String subtitle,  int year,  String genre,  String type,  double tmdbRating,  String? posterUrl,  String? backdropUrl,  String description,  double rating,  String review,  List<String> tags,  DateTime? watchedOn,  bool isFavorite,  bool inWatchlist,  bool liked,  int likeCount,  bool helpful,  int helpfulCount,  int commentCount,  String authorDisplayName,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SocialEntry() when $default != null:
-return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,_that.title,_that.subtitle,_that.year,_that.genre,_that.type,_that.tmdbRating,_that.posterUrl,_that.backdropUrl,_that.description,_that.rating,_that.review,_that.tags,_that.watchedOn,_that.isFavorite,_that.inWatchlist,_that.liked,_that.likeCount,_that.commentCount,_that.authorDisplayName,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,_that.title,_that.subtitle,_that.year,_that.genre,_that.type,_that.tmdbRating,_that.posterUrl,_that.backdropUrl,_that.description,_that.rating,_that.review,_that.tags,_that.watchedOn,_that.isFavorite,_that.inWatchlist,_that.liked,_that.likeCount,_that.helpful,_that.helpfulCount,_that.commentCount,_that.authorDisplayName,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -199,10 +201,10 @@ return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String userId,  int? tmdbId,  String? imdbId,  String mediaType,  String title,  String subtitle,  int year,  String genre,  String type,  double tmdbRating,  String? posterUrl,  String? backdropUrl,  String description,  double rating,  String review,  List<String> tags,  DateTime? watchedOn,  bool isFavorite,  bool inWatchlist,  bool liked,  int likeCount,  int commentCount,  String authorDisplayName,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String userId,  int? tmdbId,  String? imdbId,  String mediaType,  String title,  String subtitle,  int year,  String genre,  String type,  double tmdbRating,  String? posterUrl,  String? backdropUrl,  String description,  double rating,  String review,  List<String> tags,  DateTime? watchedOn,  bool isFavorite,  bool inWatchlist,  bool liked,  int likeCount,  bool helpful,  int helpfulCount,  int commentCount,  String authorDisplayName,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _SocialEntry():
-return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,_that.title,_that.subtitle,_that.year,_that.genre,_that.type,_that.tmdbRating,_that.posterUrl,_that.backdropUrl,_that.description,_that.rating,_that.review,_that.tags,_that.watchedOn,_that.isFavorite,_that.inWatchlist,_that.liked,_that.likeCount,_that.commentCount,_that.authorDisplayName,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,_that.title,_that.subtitle,_that.year,_that.genre,_that.type,_that.tmdbRating,_that.posterUrl,_that.backdropUrl,_that.description,_that.rating,_that.review,_that.tags,_that.watchedOn,_that.isFavorite,_that.inWatchlist,_that.liked,_that.likeCount,_that.helpful,_that.helpfulCount,_that.commentCount,_that.authorDisplayName,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -219,10 +221,10 @@ return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String userId,  int? tmdbId,  String? imdbId,  String mediaType,  String title,  String subtitle,  int year,  String genre,  String type,  double tmdbRating,  String? posterUrl,  String? backdropUrl,  String description,  double rating,  String review,  List<String> tags,  DateTime? watchedOn,  bool isFavorite,  bool inWatchlist,  bool liked,  int likeCount,  int commentCount,  String authorDisplayName,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String userId,  int? tmdbId,  String? imdbId,  String mediaType,  String title,  String subtitle,  int year,  String genre,  String type,  double tmdbRating,  String? posterUrl,  String? backdropUrl,  String description,  double rating,  String review,  List<String> tags,  DateTime? watchedOn,  bool isFavorite,  bool inWatchlist,  bool liked,  int likeCount,  bool helpful,  int helpfulCount,  int commentCount,  String authorDisplayName,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _SocialEntry() when $default != null:
-return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,_that.title,_that.subtitle,_that.year,_that.genre,_that.type,_that.tmdbRating,_that.posterUrl,_that.backdropUrl,_that.description,_that.rating,_that.review,_that.tags,_that.watchedOn,_that.isFavorite,_that.inWatchlist,_that.liked,_that.likeCount,_that.commentCount,_that.authorDisplayName,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,_that.title,_that.subtitle,_that.year,_that.genre,_that.type,_that.tmdbRating,_that.posterUrl,_that.backdropUrl,_that.description,_that.rating,_that.review,_that.tags,_that.watchedOn,_that.isFavorite,_that.inWatchlist,_that.liked,_that.likeCount,_that.helpful,_that.helpfulCount,_that.commentCount,_that.authorDisplayName,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -234,7 +236,7 @@ return $default(_that.id,_that.userId,_that.tmdbId,_that.imdbId,_that.mediaType,
 @JsonSerializable()
 
 class _SocialEntry extends SocialEntry {
-  const _SocialEntry({required this.id, this.userId = 'local-user', this.tmdbId, this.imdbId, this.mediaType = 'movie', required this.title, this.subtitle = '', this.year = 0, this.genre = '', this.type = 'Movie', this.tmdbRating = 0, this.posterUrl, this.backdropUrl, this.description = '', this.rating = 0, this.review = '', final  List<String> tags = const [], this.watchedOn, this.isFavorite = false, this.inWatchlist = false, this.liked = false, this.likeCount = 0, this.commentCount = 0, this.authorDisplayName = '', required this.createdAt, required this.updatedAt}): _tags = tags,super._();
+  const _SocialEntry({required this.id, this.userId = 'local-user', this.tmdbId, this.imdbId, this.mediaType = 'movie', required this.title, this.subtitle = '', this.year = 0, this.genre = '', this.type = 'Movie', this.tmdbRating = 0, this.posterUrl, this.backdropUrl, this.description = '', this.rating = 0, this.review = '', final  List<String> tags = const [], this.watchedOn, this.isFavorite = false, this.inWatchlist = false, this.liked = false, this.likeCount = 0, this.helpful = false, this.helpfulCount = 0, this.commentCount = 0, this.authorDisplayName = '', required this.createdAt, required this.updatedAt}): _tags = tags,super._();
   factory _SocialEntry.fromJson(Map<String, dynamic> json) => _$SocialEntryFromJson(json);
 
 @override final  String id;
@@ -265,6 +267,8 @@ class _SocialEntry extends SocialEntry {
 @override@JsonKey() final  bool inWatchlist;
 @override@JsonKey() final  bool liked;
 @override@JsonKey() final  int likeCount;
+@override@JsonKey() final  bool helpful;
+@override@JsonKey() final  int helpfulCount;
 @override@JsonKey() final  int commentCount;
 @override@JsonKey() final  String authorDisplayName;
 @override final  DateTime createdAt;
@@ -283,16 +287,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SocialEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.tmdbId, tmdbId) || other.tmdbId == tmdbId)&&(identical(other.imdbId, imdbId) || other.imdbId == imdbId)&&(identical(other.mediaType, mediaType) || other.mediaType == mediaType)&&(identical(other.title, title) || other.title == title)&&(identical(other.subtitle, subtitle) || other.subtitle == subtitle)&&(identical(other.year, year) || other.year == year)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.type, type) || other.type == type)&&(identical(other.tmdbRating, tmdbRating) || other.tmdbRating == tmdbRating)&&(identical(other.posterUrl, posterUrl) || other.posterUrl == posterUrl)&&(identical(other.backdropUrl, backdropUrl) || other.backdropUrl == backdropUrl)&&(identical(other.description, description) || other.description == description)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.review, review) || other.review == review)&&const DeepCollectionEquality().equals(other._tags, _tags)&&(identical(other.watchedOn, watchedOn) || other.watchedOn == watchedOn)&&(identical(other.isFavorite, isFavorite) || other.isFavorite == isFavorite)&&(identical(other.inWatchlist, inWatchlist) || other.inWatchlist == inWatchlist)&&(identical(other.liked, liked) || other.liked == liked)&&(identical(other.likeCount, likeCount) || other.likeCount == likeCount)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.authorDisplayName, authorDisplayName) || other.authorDisplayName == authorDisplayName)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SocialEntry&&(identical(other.id, id) || other.id == id)&&(identical(other.userId, userId) || other.userId == userId)&&(identical(other.tmdbId, tmdbId) || other.tmdbId == tmdbId)&&(identical(other.imdbId, imdbId) || other.imdbId == imdbId)&&(identical(other.mediaType, mediaType) || other.mediaType == mediaType)&&(identical(other.title, title) || other.title == title)&&(identical(other.subtitle, subtitle) || other.subtitle == subtitle)&&(identical(other.year, year) || other.year == year)&&(identical(other.genre, genre) || other.genre == genre)&&(identical(other.type, type) || other.type == type)&&(identical(other.tmdbRating, tmdbRating) || other.tmdbRating == tmdbRating)&&(identical(other.posterUrl, posterUrl) || other.posterUrl == posterUrl)&&(identical(other.backdropUrl, backdropUrl) || other.backdropUrl == backdropUrl)&&(identical(other.description, description) || other.description == description)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.review, review) || other.review == review)&&const DeepCollectionEquality().equals(other._tags, _tags)&&(identical(other.watchedOn, watchedOn) || other.watchedOn == watchedOn)&&(identical(other.isFavorite, isFavorite) || other.isFavorite == isFavorite)&&(identical(other.inWatchlist, inWatchlist) || other.inWatchlist == inWatchlist)&&(identical(other.liked, liked) || other.liked == liked)&&(identical(other.likeCount, likeCount) || other.likeCount == likeCount)&&(identical(other.helpful, helpful) || other.helpful == helpful)&&(identical(other.helpfulCount, helpfulCount) || other.helpfulCount == helpfulCount)&&(identical(other.commentCount, commentCount) || other.commentCount == commentCount)&&(identical(other.authorDisplayName, authorDisplayName) || other.authorDisplayName == authorDisplayName)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,userId,tmdbId,imdbId,mediaType,title,subtitle,year,genre,type,tmdbRating,posterUrl,backdropUrl,description,rating,review,const DeepCollectionEquality().hash(_tags),watchedOn,isFavorite,inWatchlist,liked,likeCount,commentCount,authorDisplayName,createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,userId,tmdbId,imdbId,mediaType,title,subtitle,year,genre,type,tmdbRating,posterUrl,backdropUrl,description,rating,review,const DeepCollectionEquality().hash(_tags),watchedOn,isFavorite,inWatchlist,liked,likeCount,helpful,helpfulCount,commentCount,authorDisplayName,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'SocialEntry(id: $id, userId: $userId, tmdbId: $tmdbId, imdbId: $imdbId, mediaType: $mediaType, title: $title, subtitle: $subtitle, year: $year, genre: $genre, type: $type, tmdbRating: $tmdbRating, posterUrl: $posterUrl, backdropUrl: $backdropUrl, description: $description, rating: $rating, review: $review, tags: $tags, watchedOn: $watchedOn, isFavorite: $isFavorite, inWatchlist: $inWatchlist, liked: $liked, likeCount: $likeCount, commentCount: $commentCount, authorDisplayName: $authorDisplayName, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'SocialEntry(id: $id, userId: $userId, tmdbId: $tmdbId, imdbId: $imdbId, mediaType: $mediaType, title: $title, subtitle: $subtitle, year: $year, genre: $genre, type: $type, tmdbRating: $tmdbRating, posterUrl: $posterUrl, backdropUrl: $backdropUrl, description: $description, rating: $rating, review: $review, tags: $tags, watchedOn: $watchedOn, isFavorite: $isFavorite, inWatchlist: $inWatchlist, liked: $liked, likeCount: $likeCount, helpful: $helpful, helpfulCount: $helpfulCount, commentCount: $commentCount, authorDisplayName: $authorDisplayName, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -303,7 +307,7 @@ abstract mixin class _$SocialEntryCopyWith<$Res> implements $SocialEntryCopyWith
   factory _$SocialEntryCopyWith(_SocialEntry value, $Res Function(_SocialEntry) _then) = __$SocialEntryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String userId, int? tmdbId, String? imdbId, String mediaType, String title, String subtitle, int year, String genre, String type, double tmdbRating, String? posterUrl, String? backdropUrl, String description, double rating, String review, List<String> tags, DateTime? watchedOn, bool isFavorite, bool inWatchlist, bool liked, int likeCount, int commentCount, String authorDisplayName, DateTime createdAt, DateTime updatedAt
+ String id, String userId, int? tmdbId, String? imdbId, String mediaType, String title, String subtitle, int year, String genre, String type, double tmdbRating, String? posterUrl, String? backdropUrl, String description, double rating, String review, List<String> tags, DateTime? watchedOn, bool isFavorite, bool inWatchlist, bool liked, int likeCount, bool helpful, int helpfulCount, int commentCount, String authorDisplayName, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -320,7 +324,7 @@ class __$SocialEntryCopyWithImpl<$Res>
 
 /// Create a copy of SocialEntry
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? userId = null,Object? tmdbId = freezed,Object? imdbId = freezed,Object? mediaType = null,Object? title = null,Object? subtitle = null,Object? year = null,Object? genre = null,Object? type = null,Object? tmdbRating = null,Object? posterUrl = freezed,Object? backdropUrl = freezed,Object? description = null,Object? rating = null,Object? review = null,Object? tags = null,Object? watchedOn = freezed,Object? isFavorite = null,Object? inWatchlist = null,Object? liked = null,Object? likeCount = null,Object? commentCount = null,Object? authorDisplayName = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? userId = null,Object? tmdbId = freezed,Object? imdbId = freezed,Object? mediaType = null,Object? title = null,Object? subtitle = null,Object? year = null,Object? genre = null,Object? type = null,Object? tmdbRating = null,Object? posterUrl = freezed,Object? backdropUrl = freezed,Object? description = null,Object? rating = null,Object? review = null,Object? tags = null,Object? watchedOn = freezed,Object? isFavorite = null,Object? inWatchlist = null,Object? liked = null,Object? likeCount = null,Object? helpful = null,Object? helpfulCount = null,Object? commentCount = null,Object? authorDisplayName = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_SocialEntry(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,userId: null == userId ? _self.userId : userId // ignore: cast_nullable_to_non_nullable
@@ -344,6 +348,8 @@ as DateTime?,isFavorite: null == isFavorite ? _self.isFavorite : isFavorite // i
 as bool,inWatchlist: null == inWatchlist ? _self.inWatchlist : inWatchlist // ignore: cast_nullable_to_non_nullable
 as bool,liked: null == liked ? _self.liked : liked // ignore: cast_nullable_to_non_nullable
 as bool,likeCount: null == likeCount ? _self.likeCount : likeCount // ignore: cast_nullable_to_non_nullable
+as int,helpful: null == helpful ? _self.helpful : helpful // ignore: cast_nullable_to_non_nullable
+as bool,helpfulCount: null == helpfulCount ? _self.helpfulCount : helpfulCount // ignore: cast_nullable_to_non_nullable
 as int,commentCount: null == commentCount ? _self.commentCount : commentCount // ignore: cast_nullable_to_non_nullable
 as int,authorDisplayName: null == authorDisplayName ? _self.authorDisplayName : authorDisplayName // ignore: cast_nullable_to_non_nullable
 as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable

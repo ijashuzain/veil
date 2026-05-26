@@ -31,7 +31,7 @@ class _DiaryViewState extends ConsumerState<DiaryView> {
     final gutter = VeilLayout.pageGutter(context);
 
     return Scaffold(
-      backgroundColor: VeilColors.bg1,
+      backgroundColor: VeilColors.bg0,
       body: RefreshIndicator(
         color: VeilColors.red,
         backgroundColor: VeilColors.bg2,
@@ -309,9 +309,9 @@ class _StatsStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: VeilColors.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: VeilColors.hairline),
+        color: VeilColors.panel.withValues(alpha: .86),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: VeilColors.hairlineStrong),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),

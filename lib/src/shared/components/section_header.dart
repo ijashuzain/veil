@@ -26,14 +26,25 @@ class SectionHeader extends StatelessWidget {
               onTap: onTap,
               borderRadius: BorderRadius.circular(999),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Text(
-                  trailing!,
-                  style: const TextStyle(
-                    color: VeilColors.red,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      trailing!,
+                      style: const TextStyle(
+                        color: VeilColors.gold,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: VeilColors.gold,
+                      size: 17,
+                    ),
+                  ],
                 ),
               ),
             ),

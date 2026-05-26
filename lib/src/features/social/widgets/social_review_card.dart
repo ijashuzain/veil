@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
+import 'package:veil/src/features/social/widgets/spoiler_text.dart';
 
 class SocialReviewCard extends StatelessWidget {
   const SocialReviewCard({
@@ -8,6 +9,7 @@ class SocialReviewCard extends StatelessWidget {
     required this.review,
     required this.displayName,
     required this.onLike,
+    required this.onHelpful,
     required this.onComment,
     this.onMovie,
     this.onUser,
@@ -18,6 +20,7 @@ class SocialReviewCard extends StatelessWidget {
   final SocialEntry review;
   final String displayName;
   final VoidCallback onLike;
+  final VoidCallback onHelpful;
   final VoidCallback onComment;
   final VoidCallback? onMovie;
   final VoidCallback? onUser;
@@ -99,12 +102,19 @@ class SocialReviewCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
-          Text(
-            review.review,
+          SpoilerText(
+            text: review.review,
+            isSpoiler: review.hasSpoilers,
             style: const TextStyle(color: VeilColors.text2, height: 1.42),
           ),
+          if (review.hasSpoilers) ...[
+            const SizedBox(height: 8),
+            const _SpoilerBadge(),
+          ],
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
             children: [
               _ReviewAction(
                 icon: review.liked
@@ -114,7 +124,16 @@ class SocialReviewCard extends StatelessWidget {
                 selected: review.liked,
                 onTap: onLike,
               ),
-              const SizedBox(width: 10),
+              _ReviewAction(
+                icon: review.helpful
+                    ? Icons.verified_rounded
+                    : Icons.verified_outlined,
+                label: review.helpful
+                    ? 'Helpful'
+                    : _helpfulLabel(review.helpfulCount),
+                selected: review.helpful,
+                onTap: onHelpful,
+              ),
               _ReviewAction(
                 icon: Icons.mode_comment_outlined,
                 label: _commentLabel(review.commentCount),
@@ -123,6 +142,39 @@ class SocialReviewCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SpoilerBadge extends StatelessWidget {
+  const _SpoilerBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: VeilColors.panelRaised,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: VeilColors.hairline),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.warning_amber_rounded, color: VeilColors.gold, size: 13),
+            SizedBox(width: 5),
+            Text(
+              'Spoilers',
+              style: TextStyle(
+                color: VeilColors.gold,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -168,4 +220,10 @@ String _commentLabel(int count) {
   if (count <= 0) return 'Comment';
   if (count == 1) return '1 comment';
   return '$count comments';
+}
+
+String _helpfulLabel(int count) {
+  if (count <= 0) return 'Helpful';
+  if (count == 1) return '1 helpful';
+  return '$count helpful';
 }

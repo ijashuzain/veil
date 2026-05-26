@@ -42,7 +42,7 @@ final class SocialLibraryViewModelProvider
 }
 
 String _$socialLibraryViewModelHash() =>
-    r'fe17474edac37664a090c609ff0f0664604600eb';
+    r'9ec2ee07e6051d937d938eea8a9a145287dedb8d';
 
 abstract class _$SocialLibraryViewModel
     extends $Notifier<SocialLibraryViewState> {

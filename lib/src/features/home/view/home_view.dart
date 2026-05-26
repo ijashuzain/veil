@@ -40,257 +40,317 @@ class _HomeViewState extends ConsumerState<HomeView> {
     );
 
     return Scaffold(
-      backgroundColor: VeilColors.bg1,
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(gutter, topInset + 14, gutter, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Gap(8),
-                          const Text(
-                            'Tonight on Veil',
-                            style: TextStyle(
-                              color: VeilColors.text3,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: .7,
+      backgroundColor: VeilColors.bg0,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [VeilColors.bg0, VeilColors.bg1, VeilColors.bg0],
+            stops: [0, .46, 1],
+          ),
+        ),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    gutter,
+                    topInset + 14,
+                    gutter,
+                    8,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Gap(8),
+                            const Text(
+                              'Tonight on Veil',
+                              style: TextStyle(
+                                color: VeilColors.gold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.4,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Hello, $name',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 21,
-                              fontWeight: FontWeight.w900,
+                            const SizedBox(height: 4),
+                            Text(
+                              'Hello, $name',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -.4,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    ActionCircle(
-                      icon: Icons.search_rounded,
-                      onTap: () => const SearchRoute().push(context),
-                    ),
-                    const SizedBox(width: 8),
-                    ActionCircle(
-                      icon: Icons.notifications_none_rounded,
-                      badge: unreadAlerts > 0,
-                      onTap: () => const AlertsRoute().push(context),
-                    ),
-                  ],
+                      ActionCircle(
+                        icon: Icons.search_rounded,
+                        onTap: () => const SearchRoute().push(context),
+                      ),
+                      const SizedBox(width: 8),
+                      ActionCircle(
+                        icon: Icons.notifications_none_rounded,
+                        badge: unreadAlerts > 0,
+                        onTap: () => const AlertsRoute().push(context),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(gutter, 4, gutter, 0),
-                child: featured == null
-                    ? const _HeroSkeleton()
-                    : GestureDetector(
-                        onTap: () => DetailRoute(
-                          id: featured.id,
-                          $extra: featured,
-                        ).push(context),
-                        child: BackdropArt(
-                          item: featured,
-                          width: double.infinity,
-                          height: heroHeight,
-                          radius: 22,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _HeroBadge(),
-                                const Spacer(),
-                                Text(
-                                  featured.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w900,
-                                    height: .98,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(gutter, 4, gutter, 0),
+                  child: featured == null
+                      ? const _HeroSkeleton()
+                      : GestureDetector(
+                          onTap: () => DetailRoute(
+                            id: featured.id,
+                            $extra: featured,
+                          ).push(context),
+                          child: BackdropArt(
+                            item: featured,
+                            width: double.infinity,
+                            height: heroHeight,
+                            radius: 28,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _HeroBadge(),
+                                  const Spacer(),
+                                  Text(
+                                    featured.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 31,
+                                      fontWeight: FontWeight.w900,
+                                      height: .98,
+                                      letterSpacing: -.7,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  featured.subtitle.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: VeilColors.text2,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 3.8,
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    featured.subtitle.toUpperCase(),
+                                    style: const TextStyle(
+                                      color: VeilColors.text2,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 2.8,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 9),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 5,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.star_rounded,
-                                      color: Color(0xFFFBBF24),
-                                      size: 14,
-                                    ),
-                                    Text(
-                                      featured.rating.toStringAsFixed(1),
-                                      style: const TextStyle(
-                                        color: VeilColors.text2,
-                                        fontSize: 12,
+                                  const SizedBox(height: 9),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 5,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        color: VeilColors.gold,
+                                        size: 14,
                                       ),
-                                    ),
-                                    const Text(
-                                      '·',
-                                      style: TextStyle(color: VeilColors.text4),
-                                    ),
-                                    Text(
-                                      '${featured.year}',
-                                      style: const TextStyle(
-                                        color: VeilColors.text2,
-                                        fontSize: 12,
+                                      Text(
+                                        featured.rating.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          color: VeilColors.text2,
+                                          fontSize: 12,
+                                        ),
                                       ),
-                                    ),
-                                    const Text(
-                                      '·',
-                                      style: TextStyle(color: VeilColors.text4),
-                                    ),
-                                    Text(
-                                      featured.genre.split('/').first.trim(),
-                                      style: const TextStyle(
-                                        color: VeilColors.text2,
-                                        fontSize: 12,
+                                      const Text(
+                                        '·',
+                                        style: TextStyle(
+                                          color: VeilColors.text4,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                const _HeroDots(),
-                              ],
+                                      Text(
+                                        '${featured.year}',
+                                        style: const TextStyle(
+                                          color: VeilColors.text2,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const Text(
+                                        '·',
+                                        style: TextStyle(
+                                          color: VeilColors.text4,
+                                        ),
+                                      ),
+                                      Text(
+                                        featured.genre.split('/').first.trim(),
+                                        style: const TextStyle(
+                                          color: VeilColors.text2,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      const _HeroDots(),
+                                      const Spacer(),
+                                      DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: VeilColors.red,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 7,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.play_arrow_rounded,
+                                                color: Colors.black,
+                                                size: 15,
+                                              ),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'View',
+                                                style: TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-              ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _CategoryHeaderDelegate(
-                topInset: topInset,
-                child: _CategoryTabs(
-                  genres: state.genres,
-                  selected: selectedGenre,
-                  onChanged: (genre) => ref
-                      .read(homeViewModelProvider.notifier)
-                      .selectGenre(genre),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 22)),
-            if (selectedGenre != null) ...[
-              SliverToBoxAdapter(
-                child: _SelectedGenreSeeAll(
-                  title: selectedGenre.name,
-                  genreId: selectedGenre.id,
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              if (state.genreResults.isEmpty &&
-                  state.genreStatus is StatusLoading)
-                const _GenreListSkeleton()
-              else if (state.genreResults.isEmpty)
-                SliverToBoxAdapter(
-                  child: _GenreEmptyState(
-                    message: state.genreStatus.errorMessage.isEmpty
-                        ? 'No titles found here yet.'
-                        : state.genreStatus.errorMessage,
-                    onRetry: () => ref
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _CategoryHeaderDelegate(
+                  topInset: topInset,
+                  child: _CategoryTabs(
+                    genres: state.genres,
+                    selected: selectedGenre,
+                    onChanged: (genre) => ref
                         .read(homeViewModelProvider.notifier)
-                        .selectGenre(selectedGenre),
+                        .selectGenre(genre),
                   ),
-                )
-              else
-                _GenreResultList(items: state.genreResults),
-              SliverToBoxAdapter(
-                child: _GenrePaginationFooter(
-                  loading: state.genreLoadingMore,
-                  canLoadMore: state.genreCanLoadMore,
-                  onLoadMore: () => ref
-                      .read(homeViewModelProvider.notifier)
-                      .loadMoreSelectedGenre(),
                 ),
               ),
-            ] else ...[
-              SliverToBoxAdapter(
-                child: _LazyPosterRail(
-                  title: 'Global trending',
-                  section: 'trending',
-                  items: state.globalTrending,
-                  loading: isLoading,
-                  ranked: true,
+              const SliverToBoxAdapter(child: SizedBox(height: 22)),
+              if (selectedGenre != null) ...[
+                SliverToBoxAdapter(
+                  child: _SelectedGenreSeeAll(
+                    title: selectedGenre.name,
+                    genreId: selectedGenre.id,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 26)),
-              SliverToBoxAdapter(
-                child: _LazyPosterRail(
-                  title: 'New this week',
-                  section: 'upcoming',
-                  items: state.newThisWeek,
-                  loading: isLoading,
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                if (state.genreResults.isEmpty &&
+                    state.genreStatus is StatusLoading)
+                  const _GenreListSkeleton()
+                else if (state.genreResults.isEmpty)
+                  SliverToBoxAdapter(
+                    child: _GenreEmptyState(
+                      message: state.genreStatus.errorMessage.isEmpty
+                          ? 'No titles found here yet.'
+                          : state.genreStatus.errorMessage,
+                      onRetry: () => ref
+                          .read(homeViewModelProvider.notifier)
+                          .selectGenre(selectedGenre),
+                    ),
+                  )
+                else
+                  _GenreResultList(items: state.genreResults),
+                SliverToBoxAdapter(
+                  child: _GenrePaginationFooter(
+                    loading: state.genreLoadingMore,
+                    canLoadMore: state.genreCanLoadMore,
+                    onLoadMore: () => ref
+                        .read(homeViewModelProvider.notifier)
+                        .loadMoreSelectedGenre(),
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 26)),
-              SliverToBoxAdapter(
-                child: _LazyPosterRail(
-                  title: 'Popular movies',
-                  section: 'popular_movies',
-                  items: state.popularMovies,
-                  loading: isLoading,
+              ] else ...[
+                SliverToBoxAdapter(
+                  child: _LazyPosterRail(
+                    title: 'Global trending',
+                    section: 'trending',
+                    items: state.globalTrending,
+                    loading: isLoading,
+                    ranked: true,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 26)),
-              SliverToBoxAdapter(
-                child: _LazyPosterRail(
-                  title: 'Top rated movies',
-                  section: 'top_rated_movies',
-                  items: state.topRatedMovies,
-                  loading: isLoading,
+                const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                SliverToBoxAdapter(
+                  child: _LazyPosterRail(
+                    title: 'New this week',
+                    section: 'upcoming',
+                    items: state.newThisWeek,
+                    loading: isLoading,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 26)),
-              SliverToBoxAdapter(
-                child: _LazyPosterRail(
-                  title: 'Top rated TV',
-                  section: 'top_rated_tv',
-                  items: state.topRatedTv,
-                  loading: isLoading,
+                const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                SliverToBoxAdapter(
+                  child: _LazyPosterRail(
+                    title: 'Popular movies',
+                    section: 'popular_movies',
+                    items: state.popularMovies,
+                    loading: isLoading,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 26)),
-              SliverToBoxAdapter(
-                child: _LazyPosterRail(
-                  title: 'Airing today',
-                  section: 'airing_today',
-                  items: state.airingToday,
-                  loading: isLoading,
+                const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                SliverToBoxAdapter(
+                  child: _LazyPosterRail(
+                    title: 'Top rated movies',
+                    section: 'top_rated_movies',
+                    items: state.topRatedMovies,
+                    loading: isLoading,
+                  ),
                 ),
-              ),
+                const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                SliverToBoxAdapter(
+                  child: _LazyPosterRail(
+                    title: 'Top rated TV',
+                    section: 'top_rated_tv',
+                    items: state.topRatedTv,
+                    loading: isLoading,
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                SliverToBoxAdapter(
+                  child: _LazyPosterRail(
+                    title: 'Airing today',
+                    section: 'airing_today',
+                    items: state.airingToday,
+                    loading: isLoading,
+                  ),
+                ),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
+          ),
         ),
       ),
     );
@@ -324,18 +384,25 @@ class _HeroBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: VeilColors.red,
         borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: VeilColors.red.withValues(alpha: .24),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.circle, color: Colors.white, size: 6),
+            Icon(Icons.circle, color: Colors.black, size: 6),
             SizedBox(width: 6),
             Text(
               'Featured',
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.black,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -360,7 +427,7 @@ class _HeroDots extends StatelessWidget {
             width: index == 0 ? 18 : 6,
             height: 6,
             decoration: BoxDecoration(
-              color: index == 0 ? Colors.white : Colors.white24,
+              color: index == 0 ? VeilColors.gold : Colors.white24,
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -406,7 +473,7 @@ class _SelectedGenreSeeAll extends StatelessWidget {
           icon: const Icon(Icons.arrow_forward_rounded, size: 18),
           label: const Text('See all'),
           style: TextButton.styleFrom(
-            foregroundColor: Colors.white,
+            foregroundColor: VeilColors.gold,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             textStyle: const TextStyle(
               fontSize: 13,
@@ -472,11 +539,13 @@ class _GenreResultTile extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: VeilColors.hairline)),
+        decoration: BoxDecoration(
+          color: VeilColors.panel.withValues(alpha: .62),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: VeilColors.hairline),
         ),
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -519,7 +588,7 @@ class _GenreResultTile extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.star_rounded,
-                          color: Color(0xFFFBBF24),
+                          color: VeilColors.gold,
                           size: 15,
                         ),
                         const SizedBox(width: 4),
@@ -713,7 +782,7 @@ class _LazyPosterRail extends StatelessWidget {
           const _SkeletonRail(width: 124, height: 206)
         else
           SizedBox(
-            height: ranked ? 188 : 226,
+            height: ranked ? 192 : 230,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(
@@ -744,7 +813,7 @@ class _LazyPosterRail extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                           shadows: [
                             Shadow(
-                              color: VeilColors.red.withValues(alpha: .90),
+                              color: VeilColors.gold.withValues(alpha: .92),
                               blurRadius: 1,
                             ),
                           ],
@@ -806,8 +875,9 @@ class _CategoryTabs extends StatelessWidget {
         children: [
           for (final genre in items)
             Padding(
-              padding: const EdgeInsets.only(right: 22),
+              padding: const EdgeInsets.only(right: 10),
               child: InkWell(
+                borderRadius: BorderRadius.circular(999),
                 onTap: () => onChanged(genre.id == -1 ? null : genre),
                 child: _GenreTabLabel(
                   label: genre.name,
@@ -832,24 +902,25 @@ class _GenreTabLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : VeilColors.text3,
-            fontSize: 15,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 10),
         AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          width: selected ? 22 : 0,
-          height: 3,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: VeilColors.red,
+            color: selected ? Colors.white : VeilColors.panelRaised,
             borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? Colors.white : VeilColors.hairline,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.black : VeilColors.text2,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+            ),
           ),
         ),
       ],
@@ -877,7 +948,7 @@ class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   ) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: VeilColors.bg1.withValues(alpha: .97),
+        color: VeilColors.bg0.withValues(alpha: .92),
         border: Border(
           bottom: BorderSide(
             color: overlapsContent ? VeilColors.hairline : Colors.transparent,

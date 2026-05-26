@@ -26,6 +26,7 @@ import 'package:veil/src/features/embeded_player/view/player.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/features/social/widgets/review_thread_sheet.dart';
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
@@ -105,269 +106,283 @@ class _DetailViewState extends ConsumerState<DetailView> {
     final heroHeight = VeilLayout.detailHeroHeight(context);
     final gutter = VeilLayout.pageGutter(context);
     return Scaffold(
-      backgroundColor: VeilColors.bg1,
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: heroHeight,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  PosterArt(
-                    item: item,
-                    width: double.infinity,
-                    height: heroHeight,
-                    radius: 0,
-                    showTitle: false,
-                  ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0x55000000),
-                          Color(0x00000000),
-                          VeilColors.bg1,
-                        ],
-                        stops: [0, .42, 1],
+      backgroundColor: VeilColors.bg0,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [VeilColors.bg0, VeilColors.bg1, VeilColors.bg0],
+            stops: [0, .52, 1],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: heroHeight,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PosterArt(
+                      item: item,
+                      width: double.infinity,
+                      height: heroHeight,
+                      radius: 0,
+                      showTitle: false,
+                    ),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0x55000000),
+                            Color(0x00000000),
+                            VeilColors.bg0,
+                          ],
+                          stops: [0, .42, 1],
+                        ),
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      (gutter - 6).clamp(14, gutter).toDouble(),
-                      48,
-                      gutter,
-                      0,
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        (gutter - 6).clamp(14, gutter).toDouble(),
+                        48,
+                        gutter,
+                        0,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _GlassButton(
+                            icon: Icons.chevron_left_rounded,
+                            onTap: widget.onBack ?? () => context.pop(),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _GlassButton(
-                          icon: Icons.chevron_left_rounded,
-                          onTap: widget.onBack ?? () => context.pop(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    left: gutter,
-                    right: gutter,
-                    bottom: 24,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (state.trendingRank != null) ...[
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: VeilColors.red,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
+                    Positioned(
+                      left: gutter,
+                      right: gutter,
+                      bottom: 24,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (state.trendingRank != null) ...[
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: VeilColors.red,
+                                borderRadius: BorderRadius.circular(999),
                               ),
-                              child: Text(
-                                'ON TRENDING #${state.trendingRank}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: .7,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  'ON TRENDING #${state.trendingRank}',
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: .7,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 11),
-                        ],
-                        Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            height: .95,
-                          ),
-                        ),
-                        if (item.subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 5),
+                            const SizedBox(height: 11),
+                          ],
                           Text(
-                            item.subtitle,
-                            maxLines: 1,
+                            item.title,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: VeilColors.text2,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: .6,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Text('${item.year}', style: _metaStyle),
-                            const Text(
-                              '·',
-                              style: TextStyle(color: VeilColors.text4),
-                            ),
-                            Text(item.genre, style: _metaStyle),
-                            const Text(
-                              '·',
-                              style: TextStyle(color: VeilColors.text4),
-                            ),
-                            Text(
-                              item.type == 'TV Show'
-                                  ? detail.seasons > 0
-                                        ? '${detail.seasons} Season${detail.seasons == 1 ? '' : 's'}'
-                                        : item.runtime
-                                  : item.runtime,
-                              style: _metaStyle,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            const MetaPill(label: '4K'),
-                            const MetaPill(label: 'HDR'),
-                            MetaPill(
-                              label: item.rating.toStringAsFixed(1),
-                              icon: Icons.star_rounded,
-                            ),
-                            if (detail.certification.isNotEmpty)
-                              MetaPill(label: detail.certification),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (state.loadStatus is StatusLoading)
-              const LinearProgressIndicator(
-                minHeight: 2,
-                color: VeilColors.red,
-                backgroundColor: VeilColors.bg2,
-              ),
-            AdaptiveContent(
-              maxWidth: VeilLayout.readableMaxWidth(context),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 30),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isPremium)
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          key: const ValueKey('premium-play-fab'),
-                          onPressed: _isExtractingRedirectUrl
-                              ? null
-                              : () => _openPlaybackServerSheet(detail),
-                          icon: _isExtractingRedirectUrl
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.play_arrow_rounded),
-                          label: Text(
-                            _isExtractingRedirectUrl ? 'Loading' : 'Play',
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: VeilColors.red,
-                            disabledBackgroundColor: VeilColors.redDeep,
-                            disabledForegroundColor: Colors.white,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 14),
-                    DetailRatingPanel(
-                      rating: userRating,
-                      isFavorite: isFavorite,
-                      isInWatchlist: isInWatchlist,
-                      isWatched: isWatched,
-                      onTap: () => _openSocialActionSheet(
-                        item,
-                        isWatched: isWatched,
-                        isFavorite: isFavorite,
-                        isInWatchlist: isInWatchlist,
-                        rating: userRating,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text.rich(
-                      TextSpan(
-                        text: item.description,
-                        children: const [
-                          TextSpan(
-                            text: ' Read more',
-                            style: TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              height: .95,
+                              letterSpacing: -.8,
                             ),
+                          ),
+                          if (item.subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              item.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: VeilColors.text2,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .6,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text('${item.year}', style: _metaStyle),
+                              const Text(
+                                '·',
+                                style: TextStyle(color: VeilColors.text4),
+                              ),
+                              Text(item.genre, style: _metaStyle),
+                              const Text(
+                                '·',
+                                style: TextStyle(color: VeilColors.text4),
+                              ),
+                              Text(
+                                item.type == 'TV Show'
+                                    ? detail.seasons > 0
+                                          ? '${detail.seasons} Season${detail.seasons == 1 ? '' : 's'}'
+                                          : item.runtime
+                                    : item.runtime,
+                                style: _metaStyle,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              const MetaPill(label: '4K'),
+                              const MetaPill(label: 'HDR'),
+                              MetaPill(
+                                label: item.rating.toStringAsFixed(1),
+                                icon: Icons.star_rounded,
+                              ),
+                              if (detail.certification.isNotEmpty)
+                                MetaPill(label: detail.certification),
+                            ],
                           ),
                         ],
                       ),
-                      style: const TextStyle(
-                        color: VeilColors.text2,
-                        fontSize: 14,
-                        height: 1.55,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _Tabs(
-                      active: _tab,
-                      onChanged: (tab) => setState(() => _tab = tab),
-                    ),
-                    const SizedBox(height: 16),
-                    _TabContent(
-                      tab: _tab,
-                      detail: detail,
-                      appReviews: appReviews,
-                      currentUserId: currentUserId,
-                      onLikeReview: (review) => ref
-                          .read(socialLibraryViewModelProvider.notifier)
-                          .toggleReviewLike(review),
-                      onCommentReview: _openReviewCommentSheet,
-                      onDeleteReview: (review) async {
-                        await ref
-                            .read(socialLibraryViewModelProvider.notifier)
-                            .deleteReview(review);
-                        if (!context.mounted) return;
-                        showVeilToast(context, 'Review deleted');
-                      },
-                      onOpenClip: _openClip,
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+              if (state.loadStatus is StatusLoading)
+                const LinearProgressIndicator(
+                  minHeight: 2,
+                  color: VeilColors.red,
+                  backgroundColor: VeilColors.bg2,
+                ),
+              AdaptiveContent(
+                maxWidth: VeilLayout.readableMaxWidth(context),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isPremium)
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            key: const ValueKey('premium-play-fab'),
+                            onPressed: _isExtractingRedirectUrl
+                                ? null
+                                : () => _openPlaybackServerSheet(detail),
+                            icon: _isExtractingRedirectUrl
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.play_arrow_rounded),
+                            label: Text(
+                              _isExtractingRedirectUrl ? 'Loading' : 'Play',
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: VeilColors.red,
+                              disabledBackgroundColor: VeilColors.redDeep,
+                              disabledForegroundColor: Colors.white70,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 14),
+                      DetailRatingPanel(
+                        rating: userRating,
+                        isFavorite: isFavorite,
+                        isInWatchlist: isInWatchlist,
+                        isWatched: isWatched,
+                        onTap: () => _openSocialActionSheet(
+                          item,
+                          isWatched: isWatched,
+                          isFavorite: isFavorite,
+                          isInWatchlist: isInWatchlist,
+                          rating: userRating,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text.rich(
+                        TextSpan(
+                          text: item.description,
+                          children: const [
+                            TextSpan(
+                              text: ' Read more',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        style: const TextStyle(
+                          color: VeilColors.text2,
+                          fontSize: 14,
+                          height: 1.55,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _Tabs(
+                        active: _tab,
+                        onChanged: (tab) => setState(() => _tab = tab),
+                      ),
+                      const SizedBox(height: 16),
+                      _TabContent(
+                        tab: _tab,
+                        detail: detail,
+                        appReviews: appReviews,
+                        currentUserId: currentUserId,
+                        onLikeReview: (review) => ref
+                            .read(socialLibraryViewModelProvider.notifier)
+                            .toggleReviewLike(review),
+                        onHelpfulReview: (review) => ref
+                            .read(socialLibraryViewModelProvider.notifier)
+                            .toggleReviewHelpful(review),
+                        onCommentReview: _openReviewCommentSheet,
+                        onDeleteReview: (review) async {
+                          await ref
+                              .read(socialLibraryViewModelProvider.notifier)
+                              .deleteReview(review);
+                          if (!context.mounted) return;
+                          showVeilToast(context, 'Review deleted');
+                        },
+                        onOpenClip: _openClip,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -763,82 +778,14 @@ class _DetailViewState extends ConsumerState<DetailView> {
   }
 
   void _openReviewCommentSheet(SocialEntry review) {
-    final controller = TextEditingController();
     showVeilBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: VeilColors.bg1,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      builder: (_) => ReviewThreadSheet(
+        review: review,
+        displayName: _reviewDisplayName(review),
       ),
-      clipBehavior: Clip.antiAlias,
-      builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * .86,
-            ),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                MediaQuery.viewInsetsOf(sheetContext).bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Add a comment',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    minLines: 3,
-                    maxLines: 5,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Join the conversation',
-                      hintStyle: const TextStyle(color: VeilColors.text3),
-                      filled: true,
-                      fillColor: VeilColors.bg2,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: VeilColors.hairline,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () async {
-                        await ref
-                            .read(socialLibraryViewModelProvider.notifier)
-                            .addReviewComment(review, controller.text);
-                        if (sheetContext.mounted) {
-                          Navigator.of(sheetContext).pop();
-                        }
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: VeilColors.red,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Post comment'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    ).whenComplete(controller.dispose);
+    );
   }
 
   Future<void> _openClip(ContentVideo video) async {
@@ -909,8 +856,9 @@ class _GlassButton extends StatelessWidget {
       onPressed: onTap,
       icon: Icon(icon, color: Colors.white),
       style: IconButton.styleFrom(
-        backgroundColor: Colors.black.withValues(alpha: .42),
-        side: BorderSide(color: Colors.white.withValues(alpha: .16)),
+        backgroundColor: VeilColors.panel.withValues(alpha: .72),
+        side: BorderSide(color: Colors.white.withValues(alpha: .20)),
+        shadowColor: Colors.black.withValues(alpha: .40),
       ),
     );
   }
@@ -925,40 +873,46 @@ class _Tabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const tabs = ['Clips', 'Cast', 'Reviews', 'Detail'];
-    return Row(
-      children: [
-        for (final tab in tabs)
-          Padding(
-            padding: const EdgeInsets.only(right: 23),
-            child: InkWell(
-              onTap: () => onChanged(tab),
-              child: Column(
-                children: [
-                  Text(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final tab in tabs)
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: InkWell(
+                onTap: () => onChanged(tab),
+                borderRadius: BorderRadius.circular(999),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: active == tab
+                        ? Colors.white
+                        : VeilColors.panelRaised,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: active == tab ? Colors.white : VeilColors.hairline,
+                    ),
+                  ),
+                  child: Text(
                     tab,
                     style: TextStyle(
-                      color: active == tab ? Colors.white : VeilColors.text3,
-                      fontSize: 14,
+                      color: active == tab ? Colors.black : VeilColors.text2,
+                      fontSize: 13,
                       fontWeight: active == tab
-                          ? FontWeight.w800
-                          : FontWeight.w600,
+                          ? FontWeight.w900
+                          : FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    width: active == tab ? 28 : 0,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: VeilColors.red,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -970,6 +924,7 @@ class _TabContent extends StatelessWidget {
     required this.appReviews,
     required this.currentUserId,
     required this.onLikeReview,
+    required this.onHelpfulReview,
     required this.onCommentReview,
     required this.onDeleteReview,
     required this.onOpenClip,
@@ -980,6 +935,7 @@ class _TabContent extends StatelessWidget {
   final List<SocialEntry> appReviews;
   final String currentUserId;
   final ValueChanged<SocialEntry> onLikeReview;
+  final ValueChanged<SocialEntry> onHelpfulReview;
   final ValueChanged<SocialEntry> onCommentReview;
   final ValueChanged<SocialEntry> onDeleteReview;
   final ValueChanged<ContentVideo> onOpenClip;
@@ -992,6 +948,7 @@ class _TabContent extends StatelessWidget {
         reviews: appReviews,
         currentUserId: currentUserId,
         onLikeReview: onLikeReview,
+        onHelpfulReview: onHelpfulReview,
         onCommentReview: onCommentReview,
         onDeleteReview: onDeleteReview,
       );
@@ -1176,6 +1133,7 @@ class _Reviews extends StatelessWidget {
     required this.reviews,
     required this.currentUserId,
     required this.onLikeReview,
+    required this.onHelpfulReview,
     required this.onCommentReview,
     required this.onDeleteReview,
   });
@@ -1183,6 +1141,7 @@ class _Reviews extends StatelessWidget {
   final List<SocialEntry> reviews;
   final String currentUserId;
   final ValueChanged<SocialEntry> onLikeReview;
+  final ValueChanged<SocialEntry> onHelpfulReview;
   final ValueChanged<SocialEntry> onCommentReview;
   final ValueChanged<SocialEntry> onDeleteReview;
 
@@ -1200,6 +1159,7 @@ class _Reviews extends StatelessWidget {
             displayName: _reviewDisplayName(review),
             showMovieTitle: false,
             onLike: () => onLikeReview(review),
+            onHelpful: () => onHelpfulReview(review),
             onComment: () => onCommentReview(review),
             onDelete: review.userId == currentUserId
                 ? () => onDeleteReview(review)

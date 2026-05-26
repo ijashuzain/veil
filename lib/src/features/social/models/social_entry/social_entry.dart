@@ -32,6 +32,8 @@ abstract class SocialEntry with _$SocialEntry {
     @Default(false) bool inWatchlist,
     @Default(false) bool liked,
     @Default(0) int likeCount,
+    @Default(false) bool helpful,
+    @Default(0) int helpfulCount,
     @Default(0) int commentCount,
     @Default('') String authorDisplayName,
     required DateTime createdAt,
@@ -108,6 +110,8 @@ abstract class SocialEntry with _$SocialEntry {
       inWatchlist: json['in_watchlist'] == true,
       liked: json['liked'] == true,
       likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
+      helpful: json['helpful'] == true,
+      helpfulCount: (json['helpful_count'] as num?)?.toInt() ?? 0,
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       authorDisplayName: json['author_display_name'] as String? ?? '',
       createdAt: _parseDate(json['created_at']) ?? DateTime.now(),
@@ -163,6 +167,10 @@ abstract class SocialEntry with _$SocialEntry {
       posterUrl: posterUrl,
       backdropUrl: backdropUrl,
     );
+  }
+
+  bool get hasSpoilers {
+    return tags.any((tag) => tag.toLowerCase().trim() == 'spoiler');
   }
 }
 

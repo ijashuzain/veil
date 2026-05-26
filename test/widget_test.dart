@@ -1963,15 +1963,23 @@ void main() {
     await tester.pump();
     expect(find.text('Liked'), findsOneWidget);
 
+    await tester.tap(find.text('Helpful'));
+    await tester.pump();
+    expect((await repository.reviews()).single.helpful, isTrue);
+
     await tester.tap(find.text('Comment'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Comments'), findsOneWidget);
     await tester.enterText(find.byType(TextField).last, 'Great take');
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pump();
-    final postComment = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Post comment'),
-    );
-    postComment.onPressed!();
+    await tester.tap(find.widgetWithText(FilledButton, 'Post'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Great take'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.text('1 comment'), findsOneWidget);
@@ -1982,6 +1990,73 @@ void main() {
 
     expect(find.text('My local review.'), findsNothing);
     expect(await repository.reviews(), isEmpty);
+  });
+
+  testWidgets('review thread supports spoiler comments and replies', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    SharedPreferences.setMockInitialValues({});
+    await LocalStorage.init();
+    final repository = SocialRepository();
+    await repository.rateReview(
+      _wakanda,
+      rating: 4,
+      review: 'Spoiler friendly discussion.',
+      tags: const ['first-time'],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [socialRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: ReviewsView()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.tap(find.text('My reviews'));
+    await tester.pump();
+    await tester.tap(find.text('Comment'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.enterText(find.byType(TextField).last, 'Secret ending');
+    await tester.tap(find.text('Spoiler'));
+    await tester.pump();
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'Post'))
+        .onPressed!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Spoiler hidden - tap to reveal'), findsOneWidget);
+    expect(find.text('Secret ending'), findsNothing);
+
+    await tester.tap(find.text('Spoiler hidden - tap to reveal'));
+    await tester.pump();
+    expect(find.text('Secret ending'), findsOneWidget);
+
+    await tester.tap(find.text('Reply'));
+    await tester.pump();
+    expect(find.textContaining('Replying to'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'Reply body');
+    await tester.pump();
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'Post'))
+        .onPressed!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Reply body'), findsOneWidget);
+    final review = (await repository.reviews()).single;
+    final comments = await repository.reviewComments(review);
+    expect(comments, hasLength(2));
+    expect(comments.first.isSpoiler, isTrue);
+    expect(comments.last.parentCommentId, comments.first.id);
   });
 
   testWidgets('mobile secondary pages use home-like top spacing', (

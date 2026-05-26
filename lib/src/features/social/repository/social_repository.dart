@@ -6,6 +6,7 @@ import 'package:veil/app/services/local_storage_services/local_storage_services.
 import 'package:veil/app/services/supabase_services/supabase_service.dart';
 import 'package:veil/src/features/social/models/follow_request.dart';
 import 'package:veil/src/features/social/models/movie_suggestion.dart';
+import 'package:veil/src/features/social/models/review_comment.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/models/user_profile_summary.dart';
 import 'package:veil/src/shared/models/content_item.dart';
@@ -28,9 +29,11 @@ class SocialRepository {
   static const _followRequestStorageKey = 'veil_follow_requests_v1';
   static const _suggestionStorageKey = 'veil_movie_suggestions_v1';
   static const _profileStorageKey = 'veil_user_profiles_v1';
+  static const _reviewCommentStorageKey = 'veil_review_comments_v1';
   static const _table = 'film_entries';
   static const _likesTable = 'review_likes';
   static const _commentsTable = 'review_comments';
+  static const _reactionsTable = 'review_reactions';
   static const _followsTable = 'user_follows';
   static const _followRequestsTable = 'follow_requests';
   static const _suggestionsTable = 'movie_suggestions';
@@ -84,7 +87,7 @@ class SocialRepository {
           .whereType<Map<String, dynamic>>()
           .map(SocialEntry.fromSupabaseJson)
           .toList();
-      return _withAuthorDisplayNames(reviews);
+      return _withReviewInteractions(await _withAuthorDisplayNames(reviews));
     }
     return reviews();
   }
@@ -370,6 +373,7 @@ class SocialRepository {
             isFavorite: false,
             inWatchlist: false,
             liked: false,
+            helpful: false,
             authorDisplayName: deletedUserDisplayName,
             updatedAt: now,
           ),
@@ -452,9 +456,100 @@ class SocialRepository {
     );
   }
 
-  Future<SocialEntry> addReviewComment(SocialEntry review, String body) async {
+  Future<SocialEntry> toggleReviewHelpful(SocialEntry review) async {
+    if (!_hasAuthenticatedSupabaseUser) {
+      final base = await _localReviewInteractionBase(review);
+      final helpful = !base.helpful;
+      final helpfulCount = (base.helpfulCount + (helpful ? 1 : -1)).clamp(
+        0,
+        1 << 31,
+      );
+      final next = base.copyWith(
+        helpful: helpful,
+        helpfulCount: helpfulCount,
+        updatedAt: DateTime.now(),
+      );
+      await _saveLocalInteraction(next);
+      return next;
+    }
+
+    final client = _client!;
+    final existing = await client
+        .from(_reactionsTable)
+        .select()
+        .eq('review_user_id', review.userId)
+        .eq('review_id', review.id)
+        .eq('user_id', _userId)
+        .eq('reaction_type', 'helpful')
+        .maybeSingle();
+    if (existing == null) {
+      await client.from(_reactionsTable).insert({
+        'review_user_id': review.userId,
+        'review_id': review.id,
+        'user_id': _userId,
+        'reaction_type': 'helpful',
+      });
+    } else {
+      await client
+          .from(_reactionsTable)
+          .delete()
+          .eq('review_user_id', review.userId)
+          .eq('review_id', review.id)
+          .eq('user_id', _userId)
+          .eq('reaction_type', 'helpful');
+    }
+    return review.copyWith(
+      helpful: existing == null,
+      helpfulCount: await reviewHelpfulCount(review),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  Future<List<ReviewComment>> reviewComments(SocialEntry review) async {
+    if (!_hasAuthenticatedSupabaseUser) {
+      final comments = await _localReviewComments();
+      return comments
+          .where(
+            (comment) =>
+                comment.reviewUserId == review.userId &&
+                comment.reviewId == review.id,
+          )
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    }
+
+    final rows = await _client!
+        .from(_commentsTable)
+        .select()
+        .eq('review_user_id', review.userId)
+        .eq('review_id', review.id)
+        .order('created_at', ascending: true);
+    final comments = rows
+        .whereType<Map<String, dynamic>>()
+        .map(ReviewComment.fromSupabaseJson)
+        .toList();
+    return _withCommentAuthorDisplayNames(comments);
+  }
+
+  Future<SocialEntry> addReviewComment(
+    SocialEntry review,
+    String body, {
+    String? parentCommentId,
+    bool isSpoiler = false,
+  }) async {
     if (body.trim().isEmpty) return review;
     if (!_hasAuthenticatedSupabaseUser) {
+      final comment = ReviewComment.create(
+        reviewUserId: review.userId,
+        reviewId: review.id,
+        userId: _userId,
+        body: body,
+        parentCommentId: parentCommentId,
+        isSpoiler: isSpoiler,
+        authorDisplayName: _displayName(_userId),
+      );
+      final comments = await _localReviewComments();
+      await _saveLocalReviewComments([...comments, comment]);
       final base = await _localReviewInteractionBase(review);
       final next = base.copyWith(
         commentCount: base.commentCount + 1,
@@ -468,6 +563,8 @@ class SocialRepository {
       'review_id': review.id,
       'user_id': _userId,
       'body': body.trim(),
+      'parent_comment_id': parentCommentId,
+      'is_spoiler': isSpoiler,
     });
     return review.copyWith(
       commentCount: await reviewCommentCount(review),
@@ -476,7 +573,9 @@ class SocialRepository {
   }
 
   Future<int> reviewLikeCount(SocialEntry review) async {
-    if (!_hasAuthenticatedSupabaseUser) return 0;
+    if (!_hasAuthenticatedSupabaseUser) {
+      return (await _localReviewInteractionBase(review)).likeCount;
+    }
     final rows = await _client!
         .from(_likesTable)
         .select('user_id')
@@ -486,13 +585,97 @@ class SocialRepository {
   }
 
   Future<int> reviewCommentCount(SocialEntry review) async {
-    if (!_hasAuthenticatedSupabaseUser) return 0;
+    if (!_hasAuthenticatedSupabaseUser) {
+      return (await _localReviewInteractionBase(review)).commentCount;
+    }
     final rows = await _client!
         .from(_commentsTable)
         .select('id')
         .eq('review_user_id', review.userId)
         .eq('review_id', review.id);
     return rows.length;
+  }
+
+  Future<int> reviewHelpfulCount(SocialEntry review) async {
+    if (!_hasAuthenticatedSupabaseUser) {
+      return (await _localReviewInteractionBase(review)).helpfulCount;
+    }
+    final rows = await _client!
+        .from(_reactionsTable)
+        .select('user_id')
+        .eq('review_user_id', review.userId)
+        .eq('review_id', review.id)
+        .eq('reaction_type', 'helpful');
+    return rows.length;
+  }
+
+  Future<List<SocialEntry>> _withReviewInteractions(
+    List<SocialEntry> reviews,
+  ) async {
+    if (!_hasAuthenticatedSupabaseUser || reviews.isEmpty) return reviews;
+    return Future.wait(
+      reviews.map((review) async {
+        return review.copyWith(
+          liked: await _hasReviewLike(review),
+          likeCount: await reviewLikeCount(review),
+          helpful: await _hasReviewReaction(review, 'helpful'),
+          helpfulCount: await reviewHelpfulCount(review),
+          commentCount: await reviewCommentCount(review),
+        );
+      }),
+    );
+  }
+
+  Future<bool> _hasReviewLike(SocialEntry review) async {
+    if (!_hasAuthenticatedSupabaseUser) {
+      return (await _localReviewInteractionBase(review)).liked;
+    }
+    final row = await _client!
+        .from(_likesTable)
+        .select('user_id')
+        .eq('review_user_id', review.userId)
+        .eq('review_id', review.id)
+        .eq('user_id', _userId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<bool> _hasReviewReaction(
+    SocialEntry review,
+    String reactionType,
+  ) async {
+    if (!_hasAuthenticatedSupabaseUser) {
+      final base = await _localReviewInteractionBase(review);
+      return reactionType == 'helpful' && base.helpful;
+    }
+    final row = await _client!
+        .from(_reactionsTable)
+        .select('user_id')
+        .eq('review_user_id', review.userId)
+        .eq('review_id', review.id)
+        .eq('user_id', _userId)
+        .eq('reaction_type', reactionType)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<List<ReviewComment>> _withCommentAuthorDisplayNames(
+    List<ReviewComment> comments,
+  ) async {
+    if (comments.isEmpty) return comments;
+    final profiles = await userProfilesForIds(
+      comments.map((comment) => comment.userId).toSet().toList(),
+    );
+    final namesById = {
+      for (final profile in profiles) profile.userId: profile.displayName,
+    };
+    return [
+      for (final comment in comments)
+        comment.copyWith(
+          authorDisplayName:
+              namesById[comment.userId] ?? _displayName(comment.userId),
+        ),
+    ];
   }
 
   Future<List<SocialEntry>> _withAuthorDisplayNames(
@@ -1122,6 +1305,25 @@ class SocialRepository {
     final updated = [...all];
     updated[index] = next;
     await _saveLocalEntries(updated);
+  }
+
+  Future<List<ReviewComment>> _localReviewComments() async {
+    final raw = LocalStorage.getString(_reviewCommentStorageKey);
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(ReviewComment.fromJson)
+        .where((comment) => comment.id.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _saveLocalReviewComments(List<ReviewComment> comments) async {
+    final encoded = jsonEncode(
+      comments.map((comment) => comment.toJson()).toList(),
+    );
+    await LocalStorage.setString(_reviewCommentStorageKey, encoded);
   }
 
   Future<List<_UserFollow>> _localFollows() async {
