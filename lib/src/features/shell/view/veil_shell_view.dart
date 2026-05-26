@@ -16,6 +16,9 @@ class VeilShellView extends StatefulWidget {
 }
 
 class _VeilShellViewState extends State<VeilShellView> {
+  static const _desktopRailWidth = 88.0;
+  static const _desktopRailGap = 24.0;
+
   var _activeIndex = 0;
   final _loadedTabs = <int>{0};
 
@@ -23,23 +26,23 @@ class _VeilShellViewState extends State<VeilShellView> {
   Widget build(BuildContext context) {
     final breakpoint = VeilBreakpoint.of(context);
     return Scaffold(
-      extendBody: breakpoint.isMobile,
+      extendBody: true,
       body: breakpoint.usesRail
-          ? Row(
+          ? Stack(
               children: [
-                SafeArea(
-                  right: false,
-                  child: _ShellNavigationRail(
+                Positioned.fill(
+                  left: _desktopRailWidth + _desktopRailGap,
+                  child: _TabStack(activeIndex: _activeIndex),
+                ),
+                Positioned(
+                  top: 12,
+                  bottom: 12,
+                  left: 12,
+                  child: _DesktopGlassRail(
                     activeIndex: _activeIndex,
                     onDestinationSelected: _selectTab,
                   ),
                 ),
-                const VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: VeilColors.hairline,
-                ),
-                Expanded(child: _TabStack(activeIndex: _activeIndex)),
               ],
             )
           : _TabStack(activeIndex: _activeIndex),
@@ -134,7 +137,7 @@ class _ShellNavigationRail extends StatelessWidget {
     return NavigationRail(
       selectedIndex: activeIndex,
       onDestinationSelected: onDestinationSelected,
-      backgroundColor: VeilColors.bg0,
+      backgroundColor: Colors.transparent,
       indicatorColor: VeilColors.red,
       selectedIconTheme: const IconThemeData(color: Colors.black),
       unselectedIconTheme: const IconThemeData(color: VeilColors.text3),
@@ -149,7 +152,7 @@ class _ShellNavigationRail extends StatelessWidget {
         fontWeight: FontWeight.w700,
       ),
       labelType: NavigationRailLabelType.all,
-      minWidth: 86,
+      minWidth: 74,
       groupAlignment: -0.82,
       destinations: [
         for (final tab in _tabs)
@@ -159,6 +162,88 @@ class _ShellNavigationRail extends StatelessWidget {
             label: Text(tab.label),
           ),
       ],
+    );
+  }
+}
+
+class _DesktopGlassRail extends StatelessWidget {
+  const _DesktopGlassRail({
+    required this.activeIndex,
+    required this.onDestinationSelected,
+  });
+
+  final int activeIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      right: false,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+          child: Container(
+            width: 76,
+            decoration: BoxDecoration(
+              color: VeilColors.panel.withValues(alpha: .55),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Colors.white.withValues(alpha: .16)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: .16),
+                  VeilColors.panel.withValues(alpha: .58),
+                  Colors.black.withValues(alpha: .26),
+                ],
+                stops: const [0, .46, 1],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .42),
+                  blurRadius: 34,
+                  offset: const Offset(14, 20),
+                ),
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: .08),
+                  blurRadius: 10,
+                  offset: const Offset(-2, -2),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 1,
+                  top: 1,
+                  right: 1,
+                  height: 92,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(29),
+                      ),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: .20),
+                          Colors.white.withValues(alpha: .02),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                _ShellNavigationRail(
+                  activeIndex: activeIndex,
+                  onDestinationSelected: onDestinationSelected,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
