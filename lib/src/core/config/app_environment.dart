@@ -1,6 +1,15 @@
 class AppEnvironment {
   const AppEnvironment._();
 
+  static const privacyPolicyUrl =
+      'https://www.vexellab.com/veil/privacy-policy.html';
+
+  static const termsAndConditionsUrl =
+      'https://www.vexellab.com/veil/terms-and-conditions.html';
+
+  static const accountDeletionUrl =
+      'https://www.vexellab.com/veil/account-deletion.html';
+
   static const _tmdbReadAccessTokenFromEnv = String.fromEnvironment(
     'TMDB_READ_ACCESS_TOKEN',
   );

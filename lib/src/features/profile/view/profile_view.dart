@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/auth/utils/auth_display_name.dart';
@@ -96,20 +98,14 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                   _SettingsRow(
                     icon: Icons.privacy_tip_outlined,
                     label: 'Privacy Policy',
-                    onTap: () => _openLegalPage(
-                      title: 'Privacy Policy',
-                      body:
-                          'Veil stores your account, watch activity, follows, reviews, likes, and comments so the app can sync your library and social activity.',
-                    ),
+                    onTap: () =>
+                        _openExternalUrl(AppEnvironment.privacyPolicyUrl),
                   ),
                   _SettingsRow(
                     icon: Icons.description_outlined,
-                    label: 'Terms and Condition',
-                    onTap: () => _openLegalPage(
-                      title: 'Terms and Condition',
-                      body:
-                          'Use Veil for personal movie and series discovery, logging, and reviews. Keep reviews and comments respectful.',
-                    ),
+                    label: 'Terms and Conditions',
+                    onTap: () =>
+                        _openExternalUrl(AppEnvironment.termsAndConditionsUrl),
                   ),
                   _SettingsRow(
                     key: const ValueKey('delete-account-row'),
@@ -204,12 +200,18 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     );
   }
 
-  void _openLegalPage({required String title, required String body}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _ProfileLegalPage(title: title, body: body),
-      ),
-    );
+  Future<void> _openExternalUrl(String url) async {
+    try {
+      final opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!mounted || opened) return;
+      showVeilToast(context, 'Could not open that page right now.');
+    } catch (_) {
+      if (!mounted) return;
+      showVeilToast(context, 'Could not open that page right now.');
+    }
   }
 
   Future<void> _deleteAccount(AuthViewModel authVm) async {
@@ -221,7 +223,10 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       clipBehavior: Clip.antiAlias,
-      builder: (_) => const _DeleteAccountReasonSheet(),
+      builder: (_) => _DeleteAccountReasonSheet(
+        onLearnMoreTap: () =>
+            _openExternalUrl(AppEnvironment.accountDeletionUrl),
+      ),
     );
     if (!mounted || reason == null) return;
 
@@ -232,7 +237,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           backgroundColor: VeilColors.panel,
           title: const Text('Delete account?'),
           content: const Text(
-            'Your profile will be anonymized and private library activity will be removed. Reviews, likes, and comments stay visible as Deleted user.',
+            'Your profile will be removed from discovery and your private library activity will be deleted. Public reviews, comments, and reactions may stay visible as Deleted user.',
           ),
           actions: [
             TextButton(
@@ -535,46 +540,6 @@ class _ProfileActivityPage extends StatelessWidget {
   }
 }
 
-class _ProfileLegalPage extends StatelessWidget {
-  const _ProfileLegalPage({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: VeilColors.bg1,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          0,
-          VeilLayout.pageTopPadding(context),
-          0,
-          28,
-        ),
-        child: AdaptiveContent(
-          maxWidth: VeilLayout.readableMaxWidth(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PageHeader(title: title),
-              const SizedBox(height: 18),
-              Text(
-                body,
-                style: const TextStyle(
-                  color: VeilColors.text2,
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PageHeader extends StatelessWidget {
   const _PageHeader({required this.title, this.subtitle});
 
@@ -627,7 +592,9 @@ class _PageHeader extends StatelessWidget {
 }
 
 class _DeleteAccountReasonSheet extends StatefulWidget {
-  const _DeleteAccountReasonSheet();
+  const _DeleteAccountReasonSheet({required this.onLearnMoreTap});
+
+  final VoidCallback onLearnMoreTap;
 
   @override
   State<_DeleteAccountReasonSheet> createState() =>
@@ -677,6 +644,18 @@ class _DeleteAccountReasonSheetState extends State<_DeleteAccountReasonSheet> {
             const Text(
               'Tell us why you are leaving.',
               style: TextStyle(color: VeilColors.text3, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: widget.onLearnMoreTap,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                alignment: Alignment.centerLeft,
+              ),
+              child: const Text(
+                'See what happens when you delete your account',
+              ),
             ),
             const SizedBox(height: 12),
             TextField(

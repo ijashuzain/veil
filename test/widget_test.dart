@@ -2210,7 +2210,7 @@ void main() {
     expect(find.text('My Activity'), findsOneWidget);
     expect(find.text('Import/Export'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
-    expect(find.text('Terms and Condition'), findsOneWidget);
+    expect(find.text('Terms and Conditions'), findsOneWidget);
     expect(find.text('Delete Account'), findsOneWidget);
     expect(find.byIcon(Icons.settings_rounded), findsNothing);
     expect(find.text('@member-2'), findsNothing);

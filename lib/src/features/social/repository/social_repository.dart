@@ -663,6 +663,9 @@ class SocialRepository {
     List<ReviewComment> comments,
   ) async {
     if (comments.isEmpty) return comments;
+    final deletedUserIds = await _deletedUserIdsFor(
+      comments.map((comment) => comment.userId),
+    );
     final profiles = await userProfilesForIds(
       comments.map((comment) => comment.userId).toSet().toList(),
     );
@@ -672,8 +675,9 @@ class SocialRepository {
     return [
       for (final comment in comments)
         comment.copyWith(
-          authorDisplayName:
-              namesById[comment.userId] ?? _displayName(comment.userId),
+          authorDisplayName: deletedUserIds.contains(comment.userId)
+              ? deletedUserDisplayName
+              : namesById[comment.userId] ?? _displayName(comment.userId),
         ),
     ];
   }
@@ -682,8 +686,22 @@ class SocialRepository {
     List<SocialEntry> entries,
   ) async {
     if (!_hasAuthenticatedSupabaseUser || entries.isEmpty) return entries;
+    final deletedUserIds = await _deletedUserIdsFor(
+      entries.map((entry) => entry.userId),
+    );
+    if (deletedUserIds.isEmpty) return entries;
+    return [
+      for (final entry in entries)
+        deletedUserIds.contains(entry.userId)
+            ? entry.copyWith(authorDisplayName: deletedUserDisplayName)
+            : entry,
+    ];
+  }
+
+  Future<Set<String>> _deletedUserIdsFor(Iterable<String> userIds) async {
+    if (!_hasAuthenticatedSupabaseUser) return const <String>{};
     final deletedUserIds = <String>{};
-    for (final userId in entries.map((entry) => entry.userId).toSet()) {
+    for (final userId in userIds.toSet()) {
       try {
         final row = await _client!
             .from(_profilesTable)
@@ -694,16 +712,10 @@ class SocialRepository {
           deletedUserIds.add(userId);
         }
       } catch (_) {
-        return entries;
+        return const <String>{};
       }
     }
-    if (deletedUserIds.isEmpty) return entries;
-    return [
-      for (final entry in entries)
-        deletedUserIds.contains(entry.userId)
-            ? entry.copyWith(authorDisplayName: deletedUserDisplayName)
-            : entry,
-    ];
+    return deletedUserIds;
   }
 
   Future<void> cacheUserProfile(UserProfileSummary profile) async {
