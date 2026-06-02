@@ -19,16 +19,16 @@
         android:scaleX="0.82"
         android:scaleY="0.82">
         <path
-            android:fillColor="#F23B4D"
+            android:fillColor="#F5C84B"
             android:pathData="M28,32h15l11,42l11,-42h15l-19,57h-14z" />
         <path
-            android:fillColor="#B9152A"
+            android:fillColor="#B58A13"
             android:pathData="M43,32h-15l19,57h7z" />
         <path
-            android:fillColor="#E4273E"
+            android:fillColor="#DDB032"
             android:pathData="M65,32h15l-19,57h-7z" />
         <path
-            android:fillColor="#FF6A76"
+            android:fillColor="#FFE08A"
             android:fillAlpha="0.78"
             android:pathData="M41,38l13,44l13,-44h6l-15,46c-1,4 -7,4 -8,0l-15,-46z" />
     </group>
