@@ -10,21 +10,41 @@ class AppEnvironment {
   static const accountDeletionUrl =
       'https://www.vexellab.com/veil/account-deletion/';
 
+  static const supportUrl = 'https://www.vexellab.com/veil/support/';
+
+  static const tmdbAttributionUrl = 'https://www.themoviedb.org/';
+
   static const _tmdbReadAccessTokenFromEnv = String.fromEnvironment(
     'TMDB_READ_ACCESS_TOKEN',
   );
 
-  static const _plainTmdbApiKey = 'f71c94e31ad09d907b58754459926ecf';
-
   static const _tmdbApiKeyFromEnv = String.fromEnvironment('TMDB_API_KEY');
+
+  static const _tmdbBaseUrlFromEnv = String.fromEnvironment('TMDB_BASE_URL');
+
+  static const tmdbDirectBaseUrl = 'https://api.themoviedb.org/3';
 
   static String get tmdbReadAccessToken => _tmdbReadAccessTokenFromEnv;
 
-  static String get tmdbApiKey =>
-      _tmdbApiKeyFromEnv.isNotEmpty ? _tmdbApiKeyFromEnv : _plainTmdbApiKey;
+  static String get tmdbApiKey => _tmdbApiKeyFromEnv;
+
+  static String get tmdbBaseUrl {
+    if (_tmdbBaseUrlFromEnv.trim().isNotEmpty) {
+      return _withoutTrailingSlash(_tmdbBaseUrlFromEnv.trim());
+    }
+    if (supabaseUrl.trim().isNotEmpty) {
+      return '${_withoutTrailingSlash(supabaseUrl)}/functions/v1/tmdb/3';
+    }
+    return tmdbDirectBaseUrl;
+  }
+
+  static bool get usesTmdbProxy {
+    final host = Uri.tryParse(tmdbBaseUrl)?.host.toLowerCase();
+    return host != null && host != 'api.themoviedb.org';
+  }
 
   static bool get hasTmdbCredentials =>
-      tmdbReadAccessToken.isNotEmpty || tmdbApiKey.isNotEmpty;
+      usesTmdbProxy || tmdbReadAccessToken.isNotEmpty || tmdbApiKey.isNotEmpty;
 
   static const _plainSupabaseUrl = 'https://verlsbmdqggejpfmvzue.supabase.co';
 
@@ -77,4 +97,12 @@ class AppEnvironment {
 
   static bool get hasSupabaseCredentials =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  static String _withoutTrailingSlash(String value) {
+    var result = value;
+    while (result.endsWith('/')) {
+      result = result.substring(0, result.length - 1);
+    }
+    return result;
+  }
 }

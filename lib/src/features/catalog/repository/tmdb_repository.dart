@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:veil/app/services/api_services/api_service.dart';
 import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/constants/endpoints.dart';
+import 'package:veil/src/features/auth/view_model/auth_view_model/auth_view_model.dart';
 import 'package:veil/src/features/catalog/models/content_detail/content_detail.dart';
 import 'package:veil/src/features/catalog/models/tmdb_media/tmdb_media.dart';
 import 'package:veil/src/shared/models/content_item.dart';
@@ -15,6 +16,8 @@ TmdbRepository tmdbRepository(Ref ref) {
     api: ref.watch(apiProvider),
     readAccessToken: AppEnvironment.tmdbReadAccessToken,
     apiKey: AppEnvironment.tmdbApiKey,
+    usesServerProxy: AppEnvironment.usesTmdbProxy,
+    currentUserEmail: ref.watch(authViewModelProvider).user?.email ?? '',
   );
 }
 
@@ -23,20 +26,27 @@ class MissingTmdbCredentialsException implements Exception {
 
   @override
   String toString() {
-    return 'Missing TMDB credentials. Pass TMDB_READ_ACCESS_TOKEN or TMDB_API_KEY with --dart-define.';
+    return 'Missing TMDB credentials. Configure the Supabase TMDB proxy or pass TMDB_READ_ACCESS_TOKEN/TMDB_API_KEY with --dart-define.';
   }
 }
 
 class TmdbRepository {
-  const TmdbRepository({
+  TmdbRepository({
     required this.api,
     this.readAccessToken = '',
     this.apiKey = '',
-  });
+    bool? usesServerProxy,
+    this.currentUserEmail = '',
+  }) : usesServerProxy = usesServerProxy ?? AppEnvironment.usesTmdbProxy;
+
+  static const _testerRestrictedEmail = 'tester@vexellab.com';
 
   final Api api;
   final String readAccessToken;
   final String apiKey;
+  final bool usesServerProxy;
+  final String currentUserEmail;
+  final Map<String, Future<bool>> _hiddenStudioMatches = {};
 
   static const genreLookup = <int, String>{
     12: 'Adventure',
@@ -70,7 +80,16 @@ class TmdbRepository {
     10770: 'TV Movie',
   };
 
-  bool get hasCredentials => readAccessToken.isNotEmpty || apiKey.isNotEmpty;
+  bool get hasCredentials =>
+      usesServerProxy || readAccessToken.isNotEmpty || apiKey.isNotEmpty;
+
+  bool get _shouldHideDisneyPixarContent {
+    return currentUserEmail.trim().toLowerCase() == _testerRestrictedEmail;
+  }
+
+  Future<bool> shouldHideForCurrentUser(ContentItem item) {
+    return _shouldHideItem(item);
+  }
 
   Future<List<ContentItem>> trending() {
     return _getMediaList(Endpoints.trendingAllWeek);
@@ -187,7 +206,8 @@ class TmdbRepository {
         () =>
             _movieDetailItem(tmdbId, fallbackTitle: title, fallbackYear: year),
       );
-      if (item != null) return item;
+      final visibleItem = await _visibleItemOrNull(item);
+      if (visibleItem != null) return visibleItem;
     }
 
     final cleanImdbId = imdbId?.trim();
@@ -195,12 +215,15 @@ class TmdbRepository {
       final item = await _tryResolve(
         () => _movieFromExternalId(cleanImdbId, title: title, year: year),
       );
-      if (item != null) return item;
+      final visibleItem = await _visibleItemOrNull(item);
+      if (visibleItem != null) return visibleItem;
     }
 
     final cleanTitle = title.trim();
     if (cleanTitle.isNotEmpty) {
-      return _tryResolve(() => _movieFromTitle(cleanTitle, year: year));
+      return _visibleItemOrNull(
+        await _tryResolve(() => _movieFromTitle(cleanTitle, year: year)),
+      );
     }
 
     return null;
@@ -267,12 +290,9 @@ class TmdbRepository {
     if (remoteId == null) return ContentDetail.fallback(item);
 
     _ensureCredentials();
-    final mediaType = item.mediaType == 'tv' ? 'tv' : 'movie';
-    final endpoint = mediaType == 'tv'
-        ? Endpoints.tvDetail(remoteId)
-        : Endpoints.movieDetail(remoteId);
+    final mediaType = _mediaType(item);
     final response = await api.general.get<Map<String, dynamic>>(
-      endpoint,
+      _detailEndpoint(mediaType, remoteId),
       queryParameters: _query({
         'append_to_response': mediaType == 'tv'
             ? 'videos,credits,images,recommendations,similar,reviews,watch/providers,external_ids,content_ratings'
@@ -285,7 +305,12 @@ class TmdbRepository {
 
     final data = response.data;
     if (data == null) return ContentDetail.fallback(item);
-    return _detailFromJson(item: item, json: data, mediaType: mediaType);
+    final detail = _detailFromJson(
+      item: item,
+      json: data,
+      mediaType: mediaType,
+    );
+    return _filterDetailForCurrentUser(detail);
   }
 
   Future<List<ContentItem>> _getMediaList(
@@ -302,7 +327,7 @@ class TmdbRepository {
     final results = response.data?['results'];
     if (results is! List) return const [];
 
-    return results
+    final items = results
         .whereType<Map<String, dynamic>>()
         .map((json) {
           final normalized = mediaType == null
@@ -314,6 +339,7 @@ class TmdbRepository {
         })
         .where((item) => item.remoteId != null)
         .toList();
+    return _filterItemsForCurrentUser(items);
   }
 
   Future<ContentItem?> _tryResolve(
@@ -324,6 +350,95 @@ class TmdbRepository {
     } on DioException {
       return null;
     }
+  }
+
+  Future<ContentDetail> _filterDetailForCurrentUser(
+    ContentDetail detail,
+  ) async {
+    if (!_shouldHideDisneyPixarContent) return detail;
+
+    return detail.copyWith(
+      recommendations: await _filterItemsForCurrentUser(detail.recommendations),
+      similar: await _filterItemsForCurrentUser(detail.similar),
+    );
+  }
+
+  Future<List<ContentItem>> _filterItemsForCurrentUser(
+    List<ContentItem> items,
+  ) async {
+    if (!_shouldHideDisneyPixarContent || items.isEmpty) return items;
+
+    final filtered = await Future.wait<ContentItem?>(
+      items.map((item) async {
+        if (await _shouldHideItem(item)) return null;
+        return item;
+      }),
+    );
+    return filtered.whereType<ContentItem>().toList();
+  }
+
+  Future<ContentItem?> _visibleItemOrNull(ContentItem? item) async {
+    if (item == null) return null;
+    if (await _shouldHideItem(item)) return null;
+    return item;
+  }
+
+  Future<bool> _shouldHideItem(ContentItem item) {
+    if (!_shouldHideDisneyPixarContent) return Future.value(false);
+
+    final remoteId = item.remoteId;
+    if (remoteId == null) return Future.value(false);
+
+    final mediaType = _mediaType(item);
+    final cacheKey = '$mediaType:$remoteId';
+    return _hiddenStudioMatches.putIfAbsent(
+      cacheKey,
+      () => _loadHiddenStudioMatch(remoteId: remoteId, mediaType: mediaType),
+    );
+  }
+
+  Future<bool> _loadHiddenStudioMatch({
+    required int remoteId,
+    required String mediaType,
+  }) async {
+    try {
+      final response = await api.general.get<Map<String, dynamic>>(
+        _detailEndpoint(mediaType, remoteId),
+        queryParameters: _query({'language': 'en-US'}),
+        options: _options(),
+      );
+      final data = response.data;
+      if (data == null) return false;
+
+      return _studioNamesForRestriction(
+        data,
+        mediaType,
+      ).any(_matchesHiddenStudioName);
+    } on DioException {
+      return false;
+    }
+  }
+
+  Iterable<String> _studioNamesForRestriction(
+    Map<String, dynamic> json,
+    String mediaType,
+  ) sync* {
+    for (final key
+        in mediaType == 'tv'
+            ? const ['networks', 'production_companies']
+            : const ['production_companies']) {
+      final companies = json[key];
+      if (companies is! List) continue;
+      for (final company in companies.whereType<Map<String, dynamic>>()) {
+        final name = _string(company['name']);
+        if (name != null && name.isNotEmpty) yield name;
+      }
+    }
+  }
+
+  bool _matchesHiddenStudioName(String name) {
+    final normalized = name.toLowerCase();
+    return normalized.contains('disney') || normalized.contains('pixar');
   }
 
   Future<ContentItem?> _movieDetailItem(
@@ -422,14 +537,15 @@ class TmdbRepository {
   Map<String, dynamic> _query(Map<String, dynamic> values) {
     return {
       ...values,
-      if (readAccessToken.isEmpty && apiKey.isNotEmpty) 'api_key': apiKey,
+      if (!usesServerProxy && readAccessToken.isEmpty && apiKey.isNotEmpty)
+        'api_key': apiKey,
     };
   }
 
   Options _options() {
     return Options(
       headers: {
-        if (readAccessToken.isNotEmpty)
+        if (!usesServerProxy && readAccessToken.isNotEmpty)
           'Authorization': 'Bearer $readAccessToken',
       },
     );
@@ -437,6 +553,19 @@ class TmdbRepository {
 
   void _ensureCredentials() {
     if (!hasCredentials) throw const MissingTmdbCredentialsException();
+  }
+
+  String _mediaType(ContentItem item) {
+    if (item.mediaType == 'tv' || item.type.toLowerCase().contains('tv')) {
+      return 'tv';
+    }
+    return 'movie';
+  }
+
+  String _detailEndpoint(String mediaType, int remoteId) {
+    return mediaType == 'tv'
+        ? Endpoints.tvDetail(remoteId)
+        : Endpoints.movieDetail(remoteId);
   }
 
   ContentDetail _detailFromJson({

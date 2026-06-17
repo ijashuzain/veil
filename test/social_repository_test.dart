@@ -221,6 +221,39 @@ void main() {
   });
 
   test(
+    'blocking a user hides their reviews comments and profile search locally',
+    () async {
+      final viewer = SocialRepository(localUserId: 'viewer');
+      final blockedMember = SocialRepository(localUserId: 'member-2');
+
+      await viewer.cacheUserProfile(
+        const UserProfileSummary(
+          userId: 'member-2',
+          displayName: 'Mira Kapoor',
+        ),
+      );
+      final blockedReview = await blockedMember.rateReview(
+        item,
+        rating: 4,
+        review: 'Not for me.',
+        tags: const ['first-time'],
+      );
+      await blockedMember.addReviewComment(blockedReview, 'Comment body');
+
+      expect(await viewer.searchUserProfiles('mira'), hasLength(1));
+      expect(await viewer.globalReviews(), hasLength(1));
+      expect(await viewer.reviewComments(blockedReview), hasLength(1));
+
+      await viewer.blockUser('member-2', displayName: 'Mira Kapoor');
+
+      expect(await viewer.blockedUserIds(), contains('member-2'));
+      expect(await viewer.searchUserProfiles('mira'), isEmpty);
+      expect(await viewer.globalReviews(), isEmpty);
+      expect(await viewer.reviewComments(blockedReview), isEmpty);
+    },
+  );
+
+  test(
     'follow requests wait for acceptance and notify both participants',
     () async {
       final bob = SocialRepository(localUserId: 'bob');

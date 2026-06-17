@@ -9,6 +9,9 @@ import 'package:veil/src/features/catalog/models/tmdb_media/tmdb_media.dart';
 import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
 import 'package:veil/src/shared/models/content_item.dart';
 
+const _tmdbProxyBaseUrl =
+    'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/tmdb/3';
+
 void main() {
   test('TMDB media maps movie JSON into a Veil content item', () {
     final media = TmdbMedia.fromJson(const {
@@ -38,43 +41,110 @@ void main() {
     expect(item.backdropUrl, media.backdropUrl);
   });
 
+  test('TMDB repository uses proxy without client TMDB auth', () async {
+    final api = Api();
+    api.general.httpClientAdapter = _FakeAdapter((options) {
+      expect(options.path, '$_tmdbProxyBaseUrl/trending/all/week');
+      expect(options.headers.containsKey('Authorization'), isFalse);
+      expect(options.queryParameters.containsKey('api_key'), isFalse);
+      return {
+        'results': [
+          {
+            'id': 1,
+            'media_type': 'tv',
+            'name': 'Arcane',
+            'overview': 'Animated drama.',
+            'first_air_date': '2024-01-01',
+            'vote_average': 9.0,
+            'genre_ids': [16, 18],
+          },
+        ],
+      };
+    });
+
+    final repository = TmdbRepository(api: api, readAccessToken: 'test-token');
+    final results = await repository.trending();
+
+    expect(results.single.title, 'Arcane');
+    expect(results.single.id, 'tv-1');
+  });
+
   test(
-    'TMDB repository sends bearer token and parses trending results',
+    'TMDB repository hides Disney and Pixar titles for tester account',
     () async {
       final api = Api();
       api.general.httpClientAdapter = _FakeAdapter((options) {
-        expect(options.path, 'https://api.themoviedb.org/3/trending/all/week');
-        expect(options.headers['Authorization'], 'Bearer test-token');
-        return {
-          'results': [
-            {
-              'id': 1,
-              'media_type': 'tv',
-              'name': 'Arcane',
-              'overview': 'Animated drama.',
-              'first_air_date': '2024-01-01',
-              'vote_average': 9.0,
-              'genre_ids': [16, 18],
-            },
-          ],
-        };
+        switch (options.path) {
+          case '$_tmdbProxyBaseUrl/trending/all/week':
+            return {
+              'results': [
+                {
+                  'id': 100,
+                  'media_type': 'movie',
+                  'title': 'Frozen',
+                  'overview': 'A snow queen changes a kingdom.',
+                  'release_date': '2013-11-27',
+                  'vote_average': 7.2,
+                  'genre_ids': [16, 12],
+                },
+                {
+                  'id': 94605,
+                  'media_type': 'tv',
+                  'name': 'Arcane',
+                  'overview': 'Animated drama.',
+                  'first_air_date': '2024-01-01',
+                  'vote_average': 9.0,
+                  'genre_ids': [16, 18],
+                },
+                {
+                  'id': 862,
+                  'media_type': 'movie',
+                  'title': 'Toy Story',
+                  'overview': 'Toys come to life when nobody is around.',
+                  'release_date': '1995-11-22',
+                  'vote_average': 8.3,
+                  'genre_ids': [16, 35],
+                },
+              ],
+            };
+          case '$_tmdbProxyBaseUrl/movie/100':
+            return {
+              'production_companies': [
+                {'name': 'Walt Disney Animation Studios'},
+              ],
+            };
+          case '$_tmdbProxyBaseUrl/tv/94605':
+            return {
+              'networks': [
+                {'name': 'Netflix'},
+              ],
+              'production_companies': const [],
+            };
+          case '$_tmdbProxyBaseUrl/movie/862':
+            return {
+              'production_companies': [
+                {'name': 'Pixar Animation Studios'},
+              ],
+            };
+        }
+        fail('Unexpected path: ${options.path}');
       });
 
       final repository = TmdbRepository(
         api: api,
-        readAccessToken: 'test-token',
+        apiKey: 'api-key',
+        currentUserEmail: 'tester@vexellab.com',
       );
       final results = await repository.trending();
 
-      expect(results.single.title, 'Arcane');
-      expect(results.single.id, 'tv-1');
+      expect(results.map((item) => item.title), ['Arcane']);
     },
   );
 
   test('TMDB repository parses appended movie detail data', () async {
     final api = Api();
     api.general.httpClientAdapter = _FakeAdapter((options) {
-      expect(options.path, 'https://api.themoviedb.org/3/movie/505642');
+      expect(options.path, '$_tmdbProxyBaseUrl/movie/505642');
       expect(options.queryParameters['append_to_response'], contains('videos'));
       return {
         'id': 505642,
@@ -182,10 +252,132 @@ void main() {
     expect(detail.backdropUrls.single, contains('/w780/still.jpg'));
   });
 
+  test(
+    'TMDB repository hides Disney and Pixar recommendations for tester account',
+    () async {
+      final api = Api();
+      api.general.httpClientAdapter = _FakeAdapter((options) {
+        switch (options.path) {
+          case '$_tmdbProxyBaseUrl/movie/949':
+            if (options.queryParameters['append_to_response'] != null) {
+              return {
+                'id': 949,
+                'title': 'Heat',
+                'overview': 'A master thief squares off with a detective.',
+                'poster_path': '/heat.jpg',
+                'backdrop_path': '/heat-bg.jpg',
+                'release_date': '1995-12-15',
+                'runtime': 170,
+                'status': 'Released',
+                'vote_average': 7.9,
+                'genres': [
+                  {'id': 80, 'name': 'Crime'},
+                  {'id': 18, 'name': 'Drama'},
+                ],
+                'production_companies': [
+                  {'name': 'Warner Bros.'},
+                ],
+                'spoken_languages': [
+                  {'english_name': 'English'},
+                ],
+                'videos': {'results': const []},
+                'credits': {'cast': const []},
+                'reviews': {'results': const []},
+                'recommendations': {
+                  'results': [
+                    {
+                      'id': 100,
+                      'title': 'Frozen',
+                      'overview': 'A snow queen changes a kingdom.',
+                      'release_date': '2013-11-27',
+                      'vote_average': 7.2,
+                      'genre_ids': [16, 12],
+                    },
+                    {
+                      'id': 603,
+                      'title': 'The Matrix',
+                      'overview': 'A hacker learns the truth.',
+                      'release_date': '1999-03-31',
+                      'vote_average': 8.2,
+                      'genre_ids': [28, 878],
+                    },
+                  ],
+                },
+                'similar': {
+                  'results': [
+                    {
+                      'id': 862,
+                      'title': 'Toy Story',
+                      'overview': 'Toys come to life when nobody is around.',
+                      'release_date': '1995-11-22',
+                      'vote_average': 8.3,
+                      'genre_ids': [16, 35],
+                    },
+                  ],
+                },
+                'watch/providers': {'results': const {}},
+                'images': {'backdrops': const []},
+                'release_dates': {'results': const []},
+              };
+            }
+            return {
+              'production_companies': [
+                {'name': 'Warner Bros.'},
+              ],
+            };
+          case '$_tmdbProxyBaseUrl/movie/100':
+            return {
+              'production_companies': [
+                {'name': 'Walt Disney Animation Studios'},
+              ],
+            };
+          case '$_tmdbProxyBaseUrl/movie/603':
+            return {
+              'production_companies': [
+                {'name': 'Village Roadshow Pictures'},
+              ],
+            };
+          case '$_tmdbProxyBaseUrl/movie/862':
+            return {
+              'production_companies': [
+                {'name': 'Pixar Animation Studios'},
+              ],
+            };
+        }
+        fail('Unexpected path: ${options.path}');
+      });
+
+      final repository = TmdbRepository(
+        api: api,
+        apiKey: 'api-key',
+        currentUserEmail: 'tester@vexellab.com',
+      );
+      final detail = await repository.detail(
+        const ContentItem(
+          id: 'movie-949',
+          remoteId: 949,
+          mediaType: 'movie',
+          title: 'Heat',
+          subtitle: 'Movie',
+          year: 1995,
+          genre: 'Crime',
+          type: 'Movie',
+          rating: 7.9,
+          palette: [],
+          glyph: Icons.movie_rounded,
+          description: 'Fallback',
+        ),
+      );
+
+      expect(detail.recommendations.map((item) => item.title), ['The Matrix']);
+      expect(detail.similar, isEmpty);
+    },
+  );
+
   test('TMDB repository parses appended TV external IMDb ID', () async {
     final api = Api();
     api.general.httpClientAdapter = _FakeAdapter((options) {
-      expect(options.path, 'https://api.themoviedb.org/3/tv/94605');
+      expect(options.path, '$_tmdbProxyBaseUrl/tv/94605');
       expect(
         options.queryParameters['append_to_response'],
         contains('external_ids'),
@@ -252,7 +444,7 @@ void main() {
           ],
         };
       }
-      expect(options.path, 'https://api.themoviedb.org/3/genre/tv/list');
+      expect(options.path, '$_tmdbProxyBaseUrl/genre/tv/list');
       return {
         'genres': [
           {'id': 10759, 'name': 'Action & Adventure'},
@@ -272,24 +464,21 @@ void main() {
     ]);
   });
 
-  test(
-    'TMDB repository reports missing credentials before calling network',
-    () async {
-      final repository = TmdbRepository(api: Api());
+  test('TMDB repository reports missing credentials in direct mode', () async {
+    final repository = TmdbRepository(api: Api(), usesServerProxy: false);
 
-      expect(
-        repository.trending,
-        throwsA(isA<MissingTmdbCredentialsException>()),
-      );
-    },
-  );
+    expect(
+      repository.trending,
+      throwsA(isA<MissingTmdbCredentialsException>()),
+    );
+  });
 
   test('TMDB repository resolves Letterboxd rows by IMDb id', () async {
     final api = Api();
     final calls = <String>[];
     api.general.httpClientAdapter = _FakeAdapter((options) {
       calls.add(options.path);
-      expect(options.path, 'https://api.themoviedb.org/3/find/tt0113277');
+      expect(options.path, '$_tmdbProxyBaseUrl/find/tt0113277');
       expect(options.queryParameters['external_source'], 'imdb_id');
       return {
         'movie_results': [
@@ -315,7 +504,7 @@ void main() {
       year: 1995,
     );
 
-    expect(calls, ['https://api.themoviedb.org/3/find/tt0113277']);
+    expect(calls, ['$_tmdbProxyBaseUrl/find/tt0113277']);
     expect(item?.id, 'movie-949');
     expect(item?.remoteId, 949);
     expect(item?.imdbId, 'tt0113277');
@@ -326,7 +515,7 @@ void main() {
   test('TMDB repository resolves Letterboxd rows by title and year', () async {
     final api = Api();
     api.general.httpClientAdapter = _FakeAdapter((options) {
-      expect(options.path, 'https://api.themoviedb.org/3/search/movie');
+      expect(options.path, '$_tmdbProxyBaseUrl/search/movie');
       expect(options.queryParameters['query'], 'Heat');
       expect(options.queryParameters['primary_release_year'], 1995);
       return {

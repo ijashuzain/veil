@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
 import 'package:veil/src/features/letterboxd/services/letterboxd_tmdb_link_service.dart';
+import 'package:veil/src/features/social/models/review_comment.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/shared/models/content_item.dart';
@@ -48,16 +49,37 @@ class SocialLibraryViewModel extends _$SocialLibraryViewModel {
     try {
       state = state.copyWith(loadStatus: const Status.loading());
       final repository = ref.read(socialRepositoryProvider);
+      final tmdbRepository = ref.read(tmdbRepositoryProvider);
       final entries = await repository.entries();
       final globalReviews = await repository.globalReviews();
       state = state.copyWith(
-        entries: entries,
-        globalReviews: globalReviews,
+        entries: await _filterHiddenEntries(entries, tmdbRepository),
+        globalReviews: await _filterHiddenEntries(
+          globalReviews,
+          tmdbRepository,
+        ),
         loadStatus: const Status.success(),
       );
     } catch (error) {
       state = state.copyWith(loadStatus: Status.failure(error.toString()));
     }
+  }
+
+  Future<List<SocialEntry>> _filterHiddenEntries(
+    List<SocialEntry> entries,
+    TmdbRepository tmdbRepository,
+  ) async {
+    final filtered = await Future.wait<SocialEntry?>(
+      entries.map((entry) async {
+        if (await tmdbRepository.shouldHideForCurrentUser(
+          entry.toContentItem(),
+        )) {
+          return null;
+        }
+        return entry;
+      }),
+    );
+    return filtered.whereType<SocialEntry>().toList();
   }
 
   Future<void> logWatched(ContentItem item) {
@@ -207,6 +229,43 @@ class SocialLibraryViewModel extends _$SocialLibraryViewModel {
           isSpoiler: isSpoiler,
         );
     _replaceReview(updated);
+  }
+
+  Future<void> blockUser(String userId, {String displayName = ''}) async {
+    await ref
+        .read(socialRepositoryProvider)
+        .blockUser(userId, displayName: displayName);
+    await load();
+  }
+
+  Future<void> reportReview(
+    SocialEntry review, {
+    required String reason,
+    String details = '',
+  }) {
+    return ref
+        .read(socialRepositoryProvider)
+        .reportReview(review, reason: reason, details: details);
+  }
+
+  Future<void> reportComment(
+    ReviewComment comment, {
+    required String reason,
+    String details = '',
+  }) {
+    return ref
+        .read(socialRepositoryProvider)
+        .reportComment(comment, reason: reason, details: details);
+  }
+
+  Future<void> reportUser(
+    String userId, {
+    required String reason,
+    String details = '',
+  }) {
+    return ref
+        .read(socialRepositoryProvider)
+        .reportUser(userId, reason: reason, details: details);
   }
 
   Future<void> deleteReview(SocialEntry review) {

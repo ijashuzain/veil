@@ -14,6 +14,8 @@ class SocialReviewCard extends StatelessWidget {
     this.onMovie,
     this.onUser,
     this.onDelete,
+    this.onReport,
+    this.onBlockUser,
     this.showMovieTitle = true,
   });
 
@@ -25,6 +27,8 @@ class SocialReviewCard extends StatelessWidget {
   final VoidCallback? onMovie;
   final VoidCallback? onUser;
   final VoidCallback? onDelete;
+  final VoidCallback? onReport;
+  final VoidCallback? onBlockUser;
   final bool showMovieTitle;
 
   @override
@@ -84,6 +88,41 @@ class SocialReviewCard extends StatelessWidget {
                     color: VeilColors.text3,
                     size: 20,
                   ),
+                ),
+              ] else if (onReport != null || onBlockUser != null) ...[
+                const SizedBox(width: 4),
+                PopupMenuButton<_ReviewMenuAction>(
+                  tooltip: 'More actions',
+                  color: VeilColors.panelRaised,
+                  icon: const Icon(
+                    Icons.more_horiz_rounded,
+                    color: VeilColors.text3,
+                    size: 20,
+                  ),
+                  onSelected: (action) {
+                    switch (action) {
+                      case _ReviewMenuAction.report:
+                        onReport?.call();
+                        return;
+                      case _ReviewMenuAction.blockUser:
+                        onBlockUser?.call();
+                        return;
+                    }
+                  },
+                  itemBuilder: (context) {
+                    return [
+                      if (onReport != null)
+                        const PopupMenuItem(
+                          value: _ReviewMenuAction.report,
+                          child: Text('Report review'),
+                        ),
+                      if (onBlockUser != null)
+                        const PopupMenuItem(
+                          value: _ReviewMenuAction.blockUser,
+                          child: Text('Block user'),
+                        ),
+                    ];
+                  },
                 ),
               ],
             ],
@@ -227,3 +266,5 @@ String _helpfulLabel(int count) {
   if (count == 1) return '1 helpful';
   return '$count helpful';
 }
+
+enum _ReviewMenuAction { report, blockUser }

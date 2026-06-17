@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
+import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
 import 'package:veil/src/features/social/models/follow_request.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
+import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/features/social/widgets/community_report_sheet.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
+import 'package:veil/src/shared/components/veil_sheet.dart';
+import 'package:veil/src/shared/components/veil_toast.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 
@@ -74,6 +79,35 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
                           ),
                         ),
                       ),
+                      if (!_isSelf)
+                        PopupMenuButton<_UserProfileMenuAction>(
+                          tooltip: 'More actions',
+                          color: VeilColors.panelRaised,
+                          icon: const Icon(
+                            Icons.more_horiz_rounded,
+                            color: VeilColors.text2,
+                          ),
+                          onSelected: (action) {
+                            switch (action) {
+                              case _UserProfileMenuAction.report:
+                                _reportUser();
+                                return;
+                              case _UserProfileMenuAction.block:
+                                _confirmBlockUser();
+                                return;
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: _UserProfileMenuAction.report,
+                              child: Text('Report user'),
+                            ),
+                            PopupMenuItem(
+                              value: _UserProfileMenuAction.block,
+                              child: Text('Block user'),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -154,7 +188,11 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
     setState(() => _loading = true);
     try {
       final repository = ref.read(socialRepositoryProvider);
-      final entries = await repository.entriesForUser(widget.userId);
+      final tmdbRepository = ref.read(tmdbRepositoryProvider);
+      final entries = await _filterHiddenEntries(
+        await repository.entriesForUser(widget.userId),
+        tmdbRepository,
+      );
       final following = await repository.following(widget.userId);
       final followers = await repository.followers(widget.userId);
       final isFollowing = await repository.isFollowing(widget.userId);
@@ -177,6 +215,23 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
     }
   }
 
+  Future<List<SocialEntry>> _filterHiddenEntries(
+    List<SocialEntry> entries,
+    TmdbRepository tmdbRepository,
+  ) async {
+    final filtered = await Future.wait<SocialEntry?>(
+      entries.map((entry) async {
+        if (await tmdbRepository.shouldHideForCurrentUser(
+          entry.toContentItem(),
+        )) {
+          return null;
+        }
+        return entry;
+      }),
+    );
+    return filtered.whereType<SocialEntry>().toList();
+  }
+
   Future<void> _toggleFollow() async {
     final repository = ref.read(socialRepositoryProvider);
     if (_isFollowing) {
@@ -190,7 +245,65 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
     }
     await _load();
   }
+
+  void _reportUser() {
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CommunityReportSheet(
+        title: 'Report user',
+        subjectLabel: 'this member',
+        onSubmit: (reason, details) async {
+          await ref
+              .read(socialLibraryViewModelProvider.notifier)
+              .reportUser(widget.userId, reason: reason, details: details);
+          if (!mounted) return;
+          showVeilToast(
+            context,
+            'Report submitted. We will review it shortly.',
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmBlockUser() async {
+    final name = widget.displayName ?? _displayName(widget.userId);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: VeilColors.panel,
+          title: const Text('Block user?'),
+          content: Text(
+            'You will stop seeing posts, comments, and profile activity from $name.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: VeilColors.red),
+              child: const Text('Block user'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+
+    await ref
+        .read(socialLibraryViewModelProvider.notifier)
+        .blockUser(widget.userId, displayName: name);
+    if (!mounted) return;
+    showVeilToast(context, '$name has been blocked.');
+    Navigator.of(context).maybePop();
+  }
 }
+
+enum _UserProfileMenuAction { report, block }
 
 enum _ProfileTab {
   following('Following'),

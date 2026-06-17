@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -30,6 +31,8 @@ class SocialRepository {
   static const _suggestionStorageKey = 'veil_movie_suggestions_v1';
   static const _profileStorageKey = 'veil_user_profiles_v1';
   static const _reviewCommentStorageKey = 'veil_review_comments_v1';
+  static const _blockedUserStorageKey = 'veil_blocked_users_v1';
+  static const _communityReportStorageKey = 'veil_community_reports_v1';
   static const _table = 'film_entries';
   static const _likesTable = 'review_likes';
   static const _commentsTable = 'review_comments';
@@ -38,6 +41,8 @@ class SocialRepository {
   static const _followRequestsTable = 'follow_requests';
   static const _suggestionsTable = 'movie_suggestions';
   static const _profilesTable = 'user_profiles';
+  static const _blocksTable = 'user_blocks';
+  static const _reportsTable = 'community_reports';
   static const deletedUserDisplayName = 'Deleted user';
 
   final SupabaseClient? _client;
@@ -87,12 +92,15 @@ class SocialRepository {
           .whereType<Map<String, dynamic>>()
           .map(SocialEntry.fromSupabaseJson)
           .toList();
-      return _withReviewInteractions(await _withAuthorDisplayNames(reviews));
+      return _filterBlockedEntries(
+        _withReviewInteractions(await _withAuthorDisplayNames(reviews)),
+      );
     }
-    return reviews();
+    return _filterBlockedEntries(reviews());
   }
 
   Future<List<SocialEntry>> entriesForUser(String userId) async {
+    if (await isUserBlocked(userId)) return const [];
     if (_hasAuthenticatedSupabaseUser) {
       final rows = await _client!
           .from(_table)
@@ -104,7 +112,7 @@ class SocialRepository {
           .map(SocialEntry.fromSupabaseJson)
           .toList();
     }
-    return entries();
+    return (await entries()).where((entry) => entry.userId == userId).toList();
   }
 
   Future<List<SocialEntry>> watchlist() async {
@@ -508,14 +516,16 @@ class SocialRepository {
   Future<List<ReviewComment>> reviewComments(SocialEntry review) async {
     if (!_hasAuthenticatedSupabaseUser) {
       final comments = await _localReviewComments();
-      return comments
-          .where(
-            (comment) =>
-                comment.reviewUserId == review.userId &&
-                comment.reviewId == review.id,
-          )
-          .toList()
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return (await _filterBlockedComments(
+        comments
+            .where(
+              (comment) =>
+                  comment.reviewUserId == review.userId &&
+                  comment.reviewId == review.id,
+            )
+            .toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+      )).toList();
     }
 
     final rows = await _client!
@@ -528,7 +538,136 @@ class SocialRepository {
         .whereType<Map<String, dynamic>>()
         .map(ReviewComment.fromSupabaseJson)
         .toList();
-    return _withCommentAuthorDisplayNames(comments);
+    return _filterBlockedComments(_withCommentAuthorDisplayNames(comments));
+  }
+
+  Future<List<String>> blockedUserIds() async {
+    final blockedIds = <String>{
+      for (final block in await _localUserBlocks())
+        if (block.blockerId == _userId) block.blockedUserId,
+    };
+
+    if (_hasAuthenticatedSupabaseUser) {
+      final rows = await _client!
+          .from(_blocksTable)
+          .select('blocked_user_id')
+          .eq('blocker_id', _userId);
+      blockedIds.addAll(
+        rows
+            .whereType<Map<String, dynamic>>()
+            .map((row) => row['blocked_user_id'] as String?)
+            .whereType<String>(),
+      );
+    }
+
+    return blockedIds.toList();
+  }
+
+  Future<bool> isUserBlocked(String userId) async {
+    if (userId.trim().isEmpty || userId == _userId) return false;
+    return (await blockedUserIds()).contains(userId);
+  }
+
+  Future<void> blockUser(String userId, {String displayName = ''}) async {
+    if (userId.trim().isEmpty || userId == _userId) return;
+
+    final block = _UserBlock(
+      blockerId: _userId,
+      blockedUserId: userId,
+      blockedDisplayName: displayName,
+      createdAt: DateTime.now(),
+    );
+
+    if (_hasAuthenticatedSupabaseUser) {
+      await _client!.from(_blocksTable).upsert(block.toSupabaseInsertJson());
+      await unfollowUser(userId);
+    }
+
+    final existing = await _localUserBlocks();
+    await _saveLocalUserBlocks([
+      block,
+      ...existing.where(
+        (candidate) =>
+            candidate.blockerId != _userId || candidate.blockedUserId != userId,
+      ),
+    ]);
+    await _removeLocalConnections(userId);
+  }
+
+  Future<void> unblockUser(String userId) async {
+    if (userId.trim().isEmpty || userId == _userId) return;
+
+    if (_hasAuthenticatedSupabaseUser) {
+      await _client!
+          .from(_blocksTable)
+          .delete()
+          .eq('blocker_id', _userId)
+          .eq('blocked_user_id', userId);
+    }
+
+    final existing = await _localUserBlocks();
+    await _saveLocalUserBlocks(
+      existing
+          .where(
+            (candidate) =>
+                candidate.blockerId != _userId ||
+                candidate.blockedUserId != userId,
+          )
+          .toList(),
+    );
+  }
+
+  Future<void> reportReview(
+    SocialEntry review, {
+    required String reason,
+    String details = '',
+  }) {
+    return _saveCommunityReport(
+      _CommunityReport.create(
+        reporterId: _userId,
+        targetType: 'review',
+        targetUserId: review.userId,
+        contentId: review.id,
+        parentContentId: review.tmdbId?.toString(),
+        reason: reason,
+        details: details,
+      ),
+    );
+  }
+
+  Future<void> reportComment(
+    ReviewComment comment, {
+    required String reason,
+    String details = '',
+  }) {
+    return _saveCommunityReport(
+      _CommunityReport.create(
+        reporterId: _userId,
+        targetType: 'comment',
+        targetUserId: comment.userId,
+        contentId: comment.id,
+        parentContentId: comment.reviewId,
+        reason: reason,
+        details: details,
+      ),
+    );
+  }
+
+  Future<void> reportUser(
+    String userId, {
+    required String reason,
+    String details = '',
+  }) {
+    return _saveCommunityReport(
+      _CommunityReport.create(
+        reporterId: _userId,
+        targetType: 'profile',
+        targetUserId: userId,
+        contentId: userId,
+        reason: reason,
+        details: details,
+      ),
+    );
   }
 
   Future<SocialEntry> addReviewComment(
@@ -742,11 +881,13 @@ class SocialRepository {
           params: {'search_query': trimmed, 'max_results': limit},
         );
         if (rows is List) {
-          return rows
-              .whereType<Map<String, dynamic>>()
-              .map(UserProfileSummary.fromSupabaseJson)
-              .where((profile) => profile.userId.isNotEmpty)
-              .toList();
+          return _filterBlockedProfiles(
+            rows
+                .whereType<Map<String, dynamic>>()
+                .map(UserProfileSummary.fromSupabaseJson)
+                .where((profile) => profile.userId.isNotEmpty)
+                .toList(),
+          );
         }
       } catch (_) {
         // Fall through to the local cache so search still works in tests and
@@ -756,20 +897,26 @@ class SocialRepository {
 
     final normalized = trimmed.toLowerCase();
     final profiles = await _localUserProfiles();
-    return profiles
-        .where(
-          (profile) =>
-              profile.userId.toLowerCase().contains(normalized) ||
-              profile.displayName.toLowerCase().contains(normalized),
-        )
-        .take(limit)
-        .toList();
+    return _filterBlockedProfiles(
+      profiles
+          .where(
+            (profile) =>
+                profile.userId.toLowerCase().contains(normalized) ||
+                profile.displayName.toLowerCase().contains(normalized),
+          )
+          .take(limit)
+          .toList(),
+    );
   }
 
   Future<List<UserProfileSummary>> userProfilesForIds(
     List<String> userIds,
   ) async {
-    final ids = userIds.where((id) => id.trim().isNotEmpty).toSet().toList();
+    final blockedIds = (await blockedUserIds()).toSet();
+    final ids = userIds
+        .where((id) => id.trim().isNotEmpty && !blockedIds.contains(id))
+        .toSet()
+        .toList();
     if (ids.isEmpty) return const [];
 
     if (_hasAuthenticatedSupabaseUser) {
@@ -784,15 +931,19 @@ class SocialRepository {
               .map(UserProfileSummary.fromSupabaseJson)
               .where((profile) => profile.userId.isNotEmpty)
               .toList();
-          if (profiles.length == ids.length) return profiles;
-          return _mergeProfileFallbacks(ids, profiles);
+          final visibleProfiles = await _filterBlockedProfiles(profiles);
+          if (visibleProfiles.length == ids.length) return visibleProfiles;
+          return _mergeProfileFallbacks(ids, visibleProfiles);
         }
       } catch (_) {
         // Fall through to local cache and id-derived labels.
       }
     }
 
-    return _mergeProfileFallbacks(ids, await _localUserProfiles());
+    return _mergeProfileFallbacks(
+      ids,
+      await _filterBlockedProfiles(await _localUserProfiles()),
+    );
   }
 
   Future<void> followUser(
@@ -801,6 +952,7 @@ class SocialRepository {
     String recipientDisplayName = '',
   }) async {
     if (userId == _userId) return;
+    if (await isUserBlocked(userId)) return;
     if (_hasAuthenticatedSupabaseUser) {
       final request = FollowRequest.create(
         requesterId: _userId,
@@ -896,6 +1048,7 @@ class SocialRepository {
   }
 
   Future<bool> isFollowing(String userId) async {
+    if (await isUserBlocked(userId)) return false;
     if (_hasAuthenticatedSupabaseUser) {
       final row = await _client!
           .from(_followsTable)
@@ -913,6 +1066,7 @@ class SocialRepository {
   }
 
   Future<List<String>> following(String userId) async {
+    final blockedIds = (await blockedUserIds()).toSet();
     if (_hasAuthenticatedSupabaseUser) {
       final rows = await _client!
           .from(_followsTable)
@@ -922,6 +1076,7 @@ class SocialRepository {
           .whereType<Map<String, dynamic>>()
           .map((row) => row['following_id'] as String?)
           .whereType<String>()
+          .where((id) => !blockedIds.contains(id))
           .toList();
     }
 
@@ -929,10 +1084,12 @@ class SocialRepository {
     return follows
         .where((follow) => follow.followerId == userId)
         .map((follow) => follow.followingId)
+        .where((id) => !blockedIds.contains(id))
         .toList();
   }
 
   Future<List<String>> followers(String userId) async {
+    final blockedIds = (await blockedUserIds()).toSet();
     if (_hasAuthenticatedSupabaseUser) {
       final rows = await _client!
           .from(_followsTable)
@@ -942,6 +1099,7 @@ class SocialRepository {
           .whereType<Map<String, dynamic>>()
           .map((row) => row['follower_id'] as String?)
           .whereType<String>()
+          .where((id) => !blockedIds.contains(id))
           .toList();
     }
 
@@ -949,10 +1107,12 @@ class SocialRepository {
     return follows
         .where((follow) => follow.followingId == userId)
         .map((follow) => follow.followerId)
+        .where((id) => !blockedIds.contains(id))
         .toList();
   }
 
   Future<FollowRequestStatus?> followRequestStatus(String userId) async {
+    if (await isUserBlocked(userId)) return null;
     if (_hasAuthenticatedSupabaseUser) {
       final row = await _client!
           .from(_followRequestsTable)
@@ -974,6 +1134,7 @@ class SocialRepository {
   }
 
   Future<List<FollowRequest>> followRequestsForAlerts() async {
+    final blockedIds = (await blockedUserIds()).toSet();
     if (_hasAuthenticatedSupabaseUser) {
       final client = _client!;
       final incoming = await client
@@ -995,7 +1156,12 @@ class SocialRepository {
         ...accepted.whereType<Map<String, dynamic>>().map(
           FollowRequest.fromSupabaseJson,
         ),
-      ]);
+      ]).where((request) {
+        final otherUserId = request.requesterId == _userId
+            ? request.recipientId
+            : request.requesterId;
+        return !blockedIds.contains(otherUserId);
+      }).toList();
     }
 
     final requests = await _localFollowRequests();
@@ -1007,6 +1173,13 @@ class SocialRepository {
                     request.status == FollowRequestStatus.pending) ||
                 (request.requesterId == _userId &&
                     request.status == FollowRequestStatus.accepted),
+          )
+          .where(
+            (request) => !blockedIds.contains(
+              request.requesterId == _userId
+                  ? request.recipientId
+                  : request.requesterId,
+            ),
           )
           .toList(),
     );
@@ -1083,8 +1256,12 @@ class SocialRepository {
     required List<String> recipientIds,
     required String senderDisplayName,
   }) async {
+    final blockedIds = (await blockedUserIds()).toSet();
     final uniqueRecipients = recipientIds
-        .where((id) => id.trim().isNotEmpty && id != _userId)
+        .where(
+          (id) =>
+              id.trim().isNotEmpty && id != _userId && !blockedIds.contains(id),
+        )
         .toSet()
         .toList();
     if (uniqueRecipients.isEmpty) return;
@@ -1118,6 +1295,7 @@ class SocialRepository {
   }
 
   Future<List<MovieSuggestion>> movieSuggestions() async {
+    final blockedIds = (await blockedUserIds()).toSet();
     if (_hasAuthenticatedSupabaseUser) {
       final rows = await _client!
           .from(_suggestionsTable)
@@ -1127,12 +1305,17 @@ class SocialRepository {
       return rows
           .whereType<Map<String, dynamic>>()
           .map(MovieSuggestion.fromSupabaseJson)
+          .where((suggestion) => !blockedIds.contains(suggestion.senderId))
           .toList();
     }
 
     final suggestions = await _localMovieSuggestions();
     return suggestions
-        .where((suggestion) => suggestion.recipientId == _userId)
+        .where(
+          (suggestion) =>
+              suggestion.recipientId == _userId &&
+              !blockedIds.contains(suggestion.senderId),
+        )
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -1155,6 +1338,77 @@ class SocialRepository {
             ? suggestion.copyWith(readAt: now)
             : suggestion,
     ]);
+  }
+
+  Future<void> _saveCommunityReport(_CommunityReport report) async {
+    final existing = await _localCommunityReports();
+    await _saveLocalCommunityReports([report, ...existing]);
+
+    if (_hasAuthenticatedSupabaseUser) {
+      await _client!.from(_reportsTable).insert(report.toSupabaseInsertJson());
+    }
+  }
+
+  Future<void> _removeLocalConnections(String userId) async {
+    final follows = await _localFollows();
+    await _saveLocalFollows(
+      follows
+          .where(
+            (follow) =>
+                (follow.followerId != _userId ||
+                    follow.followingId != userId) &&
+                (follow.followerId != userId || follow.followingId != _userId),
+          )
+          .toList(),
+    );
+
+    final requests = await _localFollowRequests();
+    await _saveLocalFollowRequests(
+      requests
+          .where(
+            (request) =>
+                (request.requesterId != _userId ||
+                    request.recipientId != userId) &&
+                (request.requesterId != userId ||
+                    request.recipientId != _userId),
+          )
+          .toList(),
+    );
+  }
+
+  Future<List<SocialEntry>> _filterBlockedEntries(
+    FutureOr<List<SocialEntry>> entriesFuture,
+  ) async {
+    final entries = await entriesFuture;
+    if (entries.isEmpty) return entries;
+    final blockedIds = (await blockedUserIds()).toSet();
+    if (blockedIds.isEmpty) return entries;
+    return entries
+        .where((entry) => !blockedIds.contains(entry.userId))
+        .toList();
+  }
+
+  Future<List<ReviewComment>> _filterBlockedComments(
+    FutureOr<List<ReviewComment>> commentsFuture,
+  ) async {
+    final comments = await commentsFuture;
+    if (comments.isEmpty) return comments;
+    final blockedIds = (await blockedUserIds()).toSet();
+    if (blockedIds.isEmpty) return comments;
+    return comments
+        .where((comment) => !blockedIds.contains(comment.userId))
+        .toList();
+  }
+
+  Future<List<UserProfileSummary>> _filterBlockedProfiles(
+    List<UserProfileSummary> profiles,
+  ) async {
+    if (profiles.isEmpty) return profiles;
+    final blockedIds = (await blockedUserIds()).toSet();
+    if (blockedIds.isEmpty) return profiles;
+    return profiles
+        .where((profile) => !blockedIds.contains(profile.userId))
+        .toList();
   }
 
   Future<SocialEntry> _upsertFromItem(
@@ -1411,6 +1665,42 @@ class SocialRepository {
     );
     await LocalStorage.setString(_profileStorageKey, encoded);
   }
+
+  Future<List<_UserBlock>> _localUserBlocks() async {
+    final raw = LocalStorage.getString(_blockedUserStorageKey);
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(_UserBlock.fromJson)
+        .toList();
+  }
+
+  Future<void> _saveLocalUserBlocks(List<_UserBlock> blocks) async {
+    final encoded = jsonEncode(blocks.map((block) => block.toJson()).toList());
+    await LocalStorage.setString(_blockedUserStorageKey, encoded);
+  }
+
+  Future<List<_CommunityReport>> _localCommunityReports() async {
+    final raw = LocalStorage.getString(_communityReportStorageKey);
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(_CommunityReport.fromJson)
+        .toList();
+  }
+
+  Future<void> _saveLocalCommunityReports(
+    List<_CommunityReport> reports,
+  ) async {
+    final encoded = jsonEncode(
+      reports.map((report) => report.toJson()).toList(),
+    );
+    await LocalStorage.setString(_communityReportStorageKey, encoded);
+  }
 }
 
 class SocialImportResult {
@@ -1521,4 +1811,137 @@ class _UserFollow {
   Map<String, dynamic> toJson() {
     return {'follower_id': followerId, 'following_id': followingId};
   }
+}
+
+class _UserBlock {
+  const _UserBlock({
+    required this.blockerId,
+    required this.blockedUserId,
+    required this.blockedDisplayName,
+    required this.createdAt,
+  });
+
+  factory _UserBlock.fromJson(Map<String, dynamic> json) {
+    return _UserBlock(
+      blockerId: json['blocker_id'] as String? ?? '',
+      blockedUserId: json['blocked_user_id'] as String? ?? '',
+      blockedDisplayName: json['blocked_display_name'] as String? ?? '',
+      createdAt: _repositoryParseDate(json['created_at']) ?? DateTime.now(),
+    );
+  }
+
+  final String blockerId;
+  final String blockedUserId;
+  final String blockedDisplayName;
+  final DateTime createdAt;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'blocker_id': blockerId,
+      'blocked_user_id': blockedUserId,
+      'blocked_display_name': blockedDisplayName,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  Map<String, dynamic> toSupabaseInsertJson() {
+    return {
+      'blocker_id': blockerId,
+      'blocked_user_id': blockedUserId,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
+
+class _CommunityReport {
+  const _CommunityReport({
+    required this.id,
+    required this.reporterId,
+    required this.targetType,
+    required this.targetUserId,
+    required this.contentId,
+    this.parentContentId,
+    required this.reason,
+    required this.details,
+    required this.createdAt,
+  });
+
+  factory _CommunityReport.create({
+    required String reporterId,
+    required String targetType,
+    required String targetUserId,
+    required String contentId,
+    String? parentContentId,
+    required String reason,
+    String details = '',
+  }) {
+    return _CommunityReport(
+      id: 'report_${DateTime.now().microsecondsSinceEpoch}',
+      reporterId: reporterId,
+      targetType: targetType,
+      targetUserId: targetUserId,
+      contentId: contentId,
+      parentContentId: parentContentId,
+      reason: reason.trim().isEmpty ? 'other' : reason.trim(),
+      details: details.trim(),
+      createdAt: DateTime.now(),
+    );
+  }
+
+  factory _CommunityReport.fromJson(Map<String, dynamic> json) {
+    return _CommunityReport(
+      id: json['id'] as String? ?? '',
+      reporterId: json['reporter_id'] as String? ?? '',
+      targetType: json['target_type'] as String? ?? 'review',
+      targetUserId: json['target_user_id'] as String? ?? '',
+      contentId: json['content_id'] as String? ?? '',
+      parentContentId: json['parent_content_id'] as String?,
+      reason: json['reason'] as String? ?? 'other',
+      details: json['details'] as String? ?? '',
+      createdAt: _repositoryParseDate(json['created_at']) ?? DateTime.now(),
+    );
+  }
+
+  final String id;
+  final String reporterId;
+  final String targetType;
+  final String targetUserId;
+  final String contentId;
+  final String? parentContentId;
+  final String reason;
+  final String details;
+  final DateTime createdAt;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'reporter_id': reporterId,
+      'target_type': targetType,
+      'target_user_id': targetUserId,
+      'content_id': contentId,
+      'parent_content_id': parentContentId,
+      'reason': reason,
+      'details': details,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  Map<String, dynamic> toSupabaseInsertJson() {
+    return {
+      'reporter_id': reporterId,
+      'target_type': targetType,
+      'target_user_id': targetUserId,
+      'content_id': contentId,
+      'parent_content_id': parentContentId,
+      'reason': reason,
+      'details': details,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
+
+DateTime? _repositoryParseDate(Object? value) {
+  if (value is DateTime) return value;
+  if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+  return null;
 }

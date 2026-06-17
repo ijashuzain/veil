@@ -5,10 +5,12 @@ import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/features/social/widgets/community_report_sheet.dart';
 import 'package:veil/src/features/social/widgets/review_thread_sheet.dart';
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
+import 'package:veil/src/shared/components/veil_toast.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 
@@ -83,6 +85,15 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
                         onDelete: review.userId == currentUserId
                             ? () => vm.deleteReview(review)
                             : null,
+                        onReport: review.userId == currentUserId
+                            ? null
+                            : () => _reportReview(review),
+                        onBlockUser: review.userId == currentUserId
+                            ? null
+                            : () => _confirmBlockUser(
+                                review.userId,
+                                _reviewDisplayName(review),
+                              ),
                       ),
                 ],
               ),
@@ -102,6 +113,59 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
         displayName: _reviewDisplayName(review),
       ),
     );
+  }
+
+  void _reportReview(SocialEntry review) {
+    final vm = ref.read(socialLibraryViewModelProvider.notifier);
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CommunityReportSheet(
+        title: 'Report review',
+        subjectLabel: 'this review',
+        onSubmit: (reason, details) async {
+          await vm.reportReview(review, reason: reason, details: details);
+          if (!mounted) return;
+          showVeilToast(
+            context,
+            'Report submitted. We will review it shortly.',
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmBlockUser(String userId, String displayName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: VeilColors.panel,
+          title: const Text('Block user?'),
+          content: Text(
+            'You will stop seeing reviews and comments from $displayName in your community feed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: VeilColors.red),
+              child: const Text('Block user'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+
+    await ref
+        .read(socialLibraryViewModelProvider.notifier)
+        .blockUser(userId, displayName: displayName);
+    if (!mounted) return;
+    showVeilToast(context, '$displayName has been blocked.');
   }
 }
 

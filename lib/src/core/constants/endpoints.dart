@@ -1,24 +1,26 @@
+import 'package:veil/src/core/config/app_environment.dart';
+
 class Endpoints {
   const Endpoints._();
 
-  static const tmdbBaseUrl = 'https://api.themoviedb.org/3';
+  static String get tmdbBaseUrl => AppEnvironment.tmdbBaseUrl;
 
-  static const trendingAllWeek = '$tmdbBaseUrl/trending/all/week';
-  static const configuration = '$tmdbBaseUrl/configuration';
-  static const moviePopular = '$tmdbBaseUrl/movie/popular';
-  static const movieNowPlaying = '$tmdbBaseUrl/movie/now_playing';
-  static const movieTopRated = '$tmdbBaseUrl/movie/top_rated';
-  static const movieUpcoming = '$tmdbBaseUrl/movie/upcoming';
-  static const tvPopular = '$tmdbBaseUrl/tv/popular';
-  static const tvTopRated = '$tmdbBaseUrl/tv/top_rated';
-  static const tvAiringToday = '$tmdbBaseUrl/tv/airing_today';
-  static const tvOnTheAir = '$tmdbBaseUrl/tv/on_the_air';
-  static const searchMulti = '$tmdbBaseUrl/search/multi';
-  static const searchMovie = '$tmdbBaseUrl/search/movie';
-  static const genreMovieList = '$tmdbBaseUrl/genre/movie/list';
-  static const genreTvList = '$tmdbBaseUrl/genre/tv/list';
-  static const discoverMovie = '$tmdbBaseUrl/discover/movie';
-  static const discoverTv = '$tmdbBaseUrl/discover/tv';
+  static String get trendingAllWeek => '$tmdbBaseUrl/trending/all/week';
+  static String get configuration => '$tmdbBaseUrl/configuration';
+  static String get moviePopular => '$tmdbBaseUrl/movie/popular';
+  static String get movieNowPlaying => '$tmdbBaseUrl/movie/now_playing';
+  static String get movieTopRated => '$tmdbBaseUrl/movie/top_rated';
+  static String get movieUpcoming => '$tmdbBaseUrl/movie/upcoming';
+  static String get tvPopular => '$tmdbBaseUrl/tv/popular';
+  static String get tvTopRated => '$tmdbBaseUrl/tv/top_rated';
+  static String get tvAiringToday => '$tmdbBaseUrl/tv/airing_today';
+  static String get tvOnTheAir => '$tmdbBaseUrl/tv/on_the_air';
+  static String get searchMulti => '$tmdbBaseUrl/search/multi';
+  static String get searchMovie => '$tmdbBaseUrl/search/movie';
+  static String get genreMovieList => '$tmdbBaseUrl/genre/movie/list';
+  static String get genreTvList => '$tmdbBaseUrl/genre/tv/list';
+  static String get discoverMovie => '$tmdbBaseUrl/discover/movie';
+  static String get discoverTv => '$tmdbBaseUrl/discover/tv';
 
   static String movieDetail(int id) => '$tmdbBaseUrl/movie/$id';
   static String tvDetail(int id) => '$tmdbBaseUrl/tv/$id';

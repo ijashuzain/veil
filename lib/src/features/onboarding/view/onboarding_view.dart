@@ -1,15 +1,18 @@
 import 'dart:developer';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gap/gap.dart';
+import 'package:the_responsive_builder/the_responsive_builder.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/auth/view_model/auth_view_model/auth_view_model.dart';
-import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/components/veil_toast.dart';
 import 'package:veil/src/shared/components/veil_logo.dart';
-import 'package:veil/src/shared/data/mock_catalog.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 
 class OnboardingView extends ConsumerStatefulWidget {
@@ -28,10 +31,25 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
   bool _handledAuthenticatedUser = false;
   bool _isRecoveringPassword = false;
   bool _resetLinkSent = false;
+  bool _acceptedTerms = false;
+  bool _passwordVisible = false;
   String _resetEmail = '';
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openExternalUrl(AppEnvironment.termsAndConditionsUrl);
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openExternalUrl(AppEnvironment.privacyPolicyUrl);
+  }
 
   @override
   void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -42,10 +60,11 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authViewModelProvider);
     final authVm = ref.read(authViewModelProvider.notifier);
-    final posters = VeilCatalog.items.take(12).toList();
     final isBusy = auth.authStatus is StatusLoading;
     final isResetLinkSent = _resetLinkSent;
     final isForgotPassword = _isRecoveringPassword && !isResetLinkSent;
+    final needsTermsAcceptance =
+        auth.isSignUp && !isForgotPassword && !isResetLinkSent;
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final breakpoint = VeilBreakpoint.of(context);
@@ -78,33 +97,6 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(gutter, 34, gutter, 0),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: switch (breakpoint) {
-                    VeilBreakpoint.mobile => 3,
-                    VeilBreakpoint.tablet => 4,
-                    VeilBreakpoint.desktop => 6,
-                  },
-                  mainAxisSpacing: 7,
-                  crossAxisSpacing: 7,
-                  childAspectRatio: 2 / 3,
-                ),
-                itemCount: posters.length,
-                itemBuilder: (context, index) => Opacity(
-                  opacity: .82,
-                  child: PosterArt(
-                    item: posters[index],
-                    width: 110,
-                    height: 165,
-                    radius: 6,
-                    showTitle: false,
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -120,12 +112,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                 ),
               ),
             ),
-            const Positioned(
-              top: 24,
-              left: 0,
-              right: 0,
-              child: VeilLogo(size: 26, center: true),
-            ),
+
             Positioned.fill(
               child: SingleChildScrollView(
                 keyboardDismissBehavior:
@@ -211,34 +198,29 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                                   ),
                                 ),
                               ] else ...[
+                                const VeilLogo(size: 18, center: true),
+                                Gap(24.dp),
                                 RichText(
                                   textAlign: TextAlign.center,
-                                  text: const TextSpan(
+                                  text: TextSpan(
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 26,
+                                      fontSize: 32,
                                       fontWeight: FontWeight.w900,
                                       height: 1.14,
                                     ),
                                     children: [
-                                      TextSpan(text: 'Log '),
                                       TextSpan(
-                                        text: 'every',
-                                        style: TextStyle(color: VeilColors.red),
+                                        text: auth.isSignUp
+                                            ? 'Sign Up'
+                                            : 'Sign In',
                                       ),
-                                      TextSpan(text: ' film\nyou watch'),
+                                      // TextSpan(
+                                      //   text: 'every',
+                                      //   style: TextStyle(color: VeilColors.red),
+                                      // ),
+                                      // TextSpan(text: ' film\nyou watch'),
                                     ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'your watch diary - reimagined',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: VeilColors.text3,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.3,
                                   ),
                                 ),
                                 const SizedBox(height: 10),
@@ -247,12 +229,12 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: VeilColors.text3,
-                                    fontSize: 14,
+                                    fontSize: 12,
                                     height: 1.45,
                                   ),
                                 ),
                               ],
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 18),
                               if (!isResetLinkSent &&
                                   auth.isSignUp &&
                                   !isForgotPassword) ...[
@@ -276,7 +258,26 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                                   controller: _passwordController,
                                   hint: 'Password',
                                   icon: Icons.lock_outline_rounded,
-                                  obscure: true,
+                                  obscure: !_passwordVisible,
+                                  keyboardType: TextInputType.visiblePassword,
+                                  suffixIcon: IconButton(
+                                    tooltip: _passwordVisible
+                                        ? 'Hide password'
+                                        : 'Show password',
+                                    onPressed: isBusy
+                                        ? null
+                                        : () => setState(
+                                            () => _passwordVisible =
+                                                !_passwordVisible,
+                                          ),
+                                    icon: Icon(
+                                      _passwordVisible
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: VeilColors.text3,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
                               ],
                               if (auth.authStatus.errorMessage.isNotEmpty) ...[
@@ -291,11 +292,86 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                                   ),
                                 ),
                               ],
+                              if (needsTermsAcceptance) ...[
+                                const SizedBox(height: 12),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: VeilColors.panelRaised,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: VeilColors.hairline,
+                                    ),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      2,
+                                      4,
+                                      4,
+                                      4,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        CheckboxListTile.adaptive(
+                                          value: _acceptedTerms,
+                                          dense: true,
+                                          visualDensity: VisualDensity.compact,
+                                          contentPadding: EdgeInsets.zero,
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          activeColor: VeilColors.red,
+                                          onChanged: isBusy
+                                              ? null
+                                              : (value) => setState(
+                                                  () => _acceptedTerms =
+                                                      value ?? false,
+                                                ),
+                                          title: RichText(
+                                            text: TextSpan(
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.normal,
+                                                height: 1.3,
+                                              ),
+                                              children: [
+                                                const TextSpan(
+                                                  text: 'I agree to the ',
+                                                ),
+                                                TextSpan(
+                                                  text: 'Terms',
+                                                  recognizer: _termsRecognizer,
+                                                  style: const TextStyle(
+                                                    color: VeilColors.red,
+                                                  ),
+                                                ),
+                                                const TextSpan(text: ' and '),
+                                                TextSpan(
+                                                  text: 'Privacy Policy',
+                                                  recognizer:
+                                                      _privacyRecognizer,
+                                                  style: const TextStyle(
+                                                    color: VeilColors.red,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 18),
                               SizedBox(
                                 width: double.infinity,
                                 child: FilledButton(
-                                  onPressed: isBusy
+                                  onPressed:
+                                      isBusy ||
+                                          (needsTermsAcceptance &&
+                                              !_acceptedTerms)
                                       ? null
                                       : () => _submitAuthAction(
                                           authVm,
@@ -382,6 +458,17 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
                                     ),
                                   ),
                               ],
+                              // if (!isResetLinkSent) ...[
+                              //   const Text(
+                              //     'This product uses TMDB and the TMDB APIs',
+                              //     textAlign: TextAlign.center,
+                              //     style: TextStyle(
+                              //       color: VeilColors.text3,
+                              //       fontSize: 10,
+                              //       height: 1.45,
+                              //     ),
+                              //   ),
+                              // ],
                             ],
                           ),
                         ),
@@ -415,6 +502,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
       _isRecoveringPassword = true;
       _resetLinkSent = false;
       _resetEmail = '';
+      _passwordVisible = false;
     });
   }
 
@@ -424,6 +512,7 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
       _isRecoveringPassword = false;
       _resetLinkSent = false;
       _resetEmail = '';
+      _passwordVisible = false;
     });
   }
 
@@ -465,6 +554,20 @@ class _OnboardingViewState extends ConsumerState<OnboardingView> {
     if (isForgotPassword) return 'Send reset link';
     return auth.isSignUp ? 'Create account' : 'Sign in';
   }
+
+  Future<void> _openExternalUrl(String url) async {
+    try {
+      final opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!mounted || opened) return;
+      showVeilToast(context, 'Could not open that page right now.');
+    } catch (_) {
+      if (!mounted) return;
+      showVeilToast(context, 'Could not open that page right now.');
+    }
+  }
 }
 
 class _AuthField extends StatelessWidget {
@@ -474,6 +577,7 @@ class _AuthField extends StatelessWidget {
     required this.icon,
     this.obscure = false,
     this.keyboardType,
+    this.suffixIcon,
   });
 
   final TextEditingController controller;
@@ -481,6 +585,7 @@ class _AuthField extends StatelessWidget {
   final IconData icon;
   final bool obscure;
   final TextInputType? keyboardType;
+  final Widget? suffixIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -497,6 +602,7 @@ class _AuthField extends StatelessWidget {
         hintText: hint,
         hintStyle: const TextStyle(color: VeilColors.text3),
         prefixIcon: Icon(icon, color: VeilColors.text3, size: 19),
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: VeilColors.panelRaised,
         border: OutlineInputBorder(

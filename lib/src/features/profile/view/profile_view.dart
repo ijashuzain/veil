@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:the_responsive_builder/the_responsive_builder.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/router/app_router.dart';
@@ -80,14 +81,14 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
               const SizedBox(height: 16),
               _SettingsSection(
                 children: [
-                  _SettingsRow(
-                    icon: Icons.history_rounded,
-                    label: 'My Activity',
-                    onTap: () => _openActivityPage(social.entries),
-                  ),
+                  // _SettingsRow(
+                  //   icon: Icons.history_rounded,
+                  //   label: 'My Activity',
+                  //   onTap: () => _openActivityPage(social.entries),
+                  // ),
                   _SettingsRow(
                     icon: Icons.import_export_rounded,
-                    label: 'Import/Export',
+                    label: 'Letterboxd Import/Export',
                     onTap: _openLetterboxdTools,
                   ),
                 ],
@@ -95,6 +96,11 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
               const SizedBox(height: 12),
               _SettingsSection(
                 children: [
+                  _SettingsRow(
+                    icon: Icons.support_agent_rounded,
+                    label: 'Support & Safety',
+                    onTap: () => _openExternalUrl(AppEnvironment.supportUrl),
+                  ),
                   _SettingsRow(
                     icon: Icons.privacy_tip_outlined,
                     label: 'Privacy Policy',
@@ -116,6 +122,8 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              const _TmdbAttributionCard(),
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
@@ -382,6 +390,35 @@ class _ProfileHeader extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TmdbAttributionCard extends StatelessWidget {
+  const _TmdbAttributionCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 100.w,
+      decoration: BoxDecoration(
+        color: VeilColors.panel.withValues(alpha: .82),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: VeilColors.hairline),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(14),
+        child: Center(
+          child: Text(
+            'This product uses TMDB and the TMDB APIs.',
+            style: TextStyle(
+              color: VeilColors.text3,
+              fontSize: 10,
+              height: 1.45,
+            ),
+          ),
         ),
       ),
     );

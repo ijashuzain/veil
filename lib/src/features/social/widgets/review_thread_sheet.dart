@@ -5,8 +5,10 @@ import 'package:veil/src/features/social/models/review_comment.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/features/social/widgets/community_report_sheet.dart';
 import 'package:veil/src/features/social/widgets/spoiler_text.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
+import 'package:veil/src/shared/components/veil_toast.dart';
 
 class ReviewThreadSheet extends ConsumerStatefulWidget {
   const ReviewThreadSheet({
@@ -92,6 +94,7 @@ class _ReviewThreadSheetState extends ConsumerState<ReviewThreadSheet> {
       );
     }
 
+    final currentUserId = ref.read(socialRepositoryProvider).currentUserId;
     final roots = _comments.where((comment) => !comment.isReply).toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final repliesByParent = <String, List<ReviewComment>>{};
@@ -114,6 +117,12 @@ class _ReviewThreadSheetState extends ConsumerState<ReviewThreadSheet> {
             _CommentTile(
               comment: comment,
               onReply: () => setState(() => _replyingTo = comment),
+              onReport: comment.userId == currentUserId
+                  ? null
+                  : () => _reportComment(comment),
+              onBlockUser: comment.userId == currentUserId
+                  ? null
+                  : () => _confirmBlockUser(comment.userId, comment),
             ),
             for (final reply in repliesByParent[comment.id] ?? const [])
               Padding(
@@ -122,6 +131,12 @@ class _ReviewThreadSheetState extends ConsumerState<ReviewThreadSheet> {
                   comment: reply,
                   isReply: true,
                   onReply: () => setState(() => _replyingTo = comment),
+                  onReport: reply.userId == currentUserId
+                      ? null
+                      : () => _reportComment(reply),
+                  onBlockUser: reply.userId == currentUserId
+                      ? null
+                      : () => _confirmBlockUser(reply.userId, reply),
                 ),
               ),
           ],
@@ -172,6 +187,63 @@ class _ReviewThreadSheetState extends ConsumerState<ReviewThreadSheet> {
     } finally {
       if (mounted) setState(() => _posting = false);
     }
+  }
+
+  void _reportComment(ReviewComment comment) {
+    final vm = ref.read(socialLibraryViewModelProvider.notifier);
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CommunityReportSheet(
+        title: 'Report comment',
+        subjectLabel: 'this comment',
+        onSubmit: (reason, details) async {
+          await vm.reportComment(comment, reason: reason, details: details);
+          if (!mounted) return;
+          showVeilToast(
+            context,
+            'Report submitted. We will review it shortly.',
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmBlockUser(String userId, ReviewComment comment) async {
+    final displayName = comment.authorDisplayName.trim().isEmpty
+        ? _displayName(comment.userId)
+        : comment.authorDisplayName.trim();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: VeilColors.panel,
+          title: const Text('Block user?'),
+          content: Text(
+            'You will stop seeing comments from $displayName in this thread and across the community feed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: VeilColors.red),
+              child: const Text('Block user'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+
+    await ref
+        .read(socialLibraryViewModelProvider.notifier)
+        .blockUser(userId, displayName: displayName);
+    await _loadComments();
+    if (!mounted) return;
+    showVeilToast(context, '$displayName has been blocked.');
   }
 }
 
@@ -224,11 +296,15 @@ class _CommentTile extends StatelessWidget {
   const _CommentTile({
     required this.comment,
     required this.onReply,
+    this.onReport,
+    this.onBlockUser,
     this.isReply = false,
   });
 
   final ReviewComment comment;
   final VoidCallback onReply;
+  final VoidCallback? onReport;
+  final VoidCallback? onBlockUser;
   final bool isReply;
 
   @override
@@ -276,6 +352,40 @@ class _CommentTile extends StatelessWidget {
                       Icons.warning_amber_rounded,
                       color: VeilColors.gold,
                       size: 16,
+                    ),
+                  if (onReport != null || onBlockUser != null)
+                    PopupMenuButton<_CommentMenuAction>(
+                      tooltip: 'More actions',
+                      color: VeilColors.panelRaised,
+                      icon: const Icon(
+                        Icons.more_horiz_rounded,
+                        color: VeilColors.text3,
+                        size: 18,
+                      ),
+                      onSelected: (action) {
+                        switch (action) {
+                          case _CommentMenuAction.report:
+                            onReport?.call();
+                            return;
+                          case _CommentMenuAction.blockUser:
+                            onBlockUser?.call();
+                            return;
+                        }
+                      },
+                      itemBuilder: (context) {
+                        return [
+                          if (onReport != null)
+                            const PopupMenuItem(
+                              value: _CommentMenuAction.report,
+                              child: Text('Report comment'),
+                            ),
+                          if (onBlockUser != null)
+                            const PopupMenuItem(
+                              value: _CommentMenuAction.blockUser,
+                              child: Text('Block user'),
+                            ),
+                        ];
+                      },
                     ),
                 ],
               ),
@@ -419,6 +529,8 @@ class _CommentComposer extends StatelessWidget {
     );
   }
 }
+
+enum _CommentMenuAction { report, blockUser }
 
 class _EmptyThread extends StatelessWidget {
   const _EmptyThread();

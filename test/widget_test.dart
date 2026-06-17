@@ -74,6 +74,61 @@ void main() {
     expect(find.text('Create account'), findsOneWidget);
   });
 
+  testWidgets('sign up requires terms acceptance before account creation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        child: const VeilApp(),
+      ),
+    );
+
+    await tester.tap(find.text('New here? Create account'));
+    await tester.pump();
+
+    final agreementText = find.byWidgetPredicate((widget) {
+      return widget is RichText &&
+          widget.text.toPlainText() ==
+              'I agree to the Terms and Privacy Policy';
+    });
+    expect(agreementText, findsOneWidget);
+
+    final agreementSpan =
+        tester.widget<RichText>(agreementText).text as TextSpan;
+    final agreementChildren = agreementSpan.children!.whereType<TextSpan>();
+    expect(
+      agreementChildren.singleWhere((span) => span.text == 'Terms').recognizer,
+      isNotNull,
+    );
+    expect(
+      agreementChildren
+          .singleWhere((span) => span.text == 'Privacy Policy')
+          .recognizer,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Create account'),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Create account'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
   testWidgets('sign up form does not overflow when keyboard is open', (
     tester,
   ) async {
@@ -139,6 +194,30 @@ void main() {
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
     expect(snackBar.backgroundColor, VeilColors.red);
     expect(find.textContaining('Invalid login credentials'), findsWidgets);
+  });
+
+  testWidgets('login password field toggles visibility', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        child: const VeilApp(),
+      ),
+    );
+
+    final passwordField = find.widgetWithText(TextField, 'Password');
+    expect(tester.widget<TextField>(passwordField).obscureText, isTrue);
+    expect(find.byTooltip('Show password'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Show password'));
+    await tester.pump();
+
+    expect(tester.widget<TextField>(passwordField).obscureText, isFalse);
+    expect(find.byTooltip('Hide password'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hide password'));
+    await tester.pump();
+
+    expect(tester.widget<TextField>(passwordField).obscureText, isTrue);
   });
 
   testWidgets('veil choice chip uses compact neutral selected styling', (
@@ -302,7 +381,7 @@ void main() {
     );
   });
 
-  testWidgets('profile does not expose TMDB account linking', (tester) async {
+  testWidgets('profile shows support and TMDB attribution', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
@@ -318,11 +397,12 @@ void main() {
     expect(find.text('TMDB account'), findsNothing);
     expect(find.text('Connect TMDB'), findsNothing);
     expect(find.text('Disconnect TMDB'), findsNothing);
+    expect(find.text('Support & Safety'), findsOneWidget);
     expect(
       find.text(
-        'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+        'This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.',
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -2209,6 +2289,7 @@ void main() {
     expect(find.text('Activity'), findsNothing);
     expect(find.text('My Activity'), findsOneWidget);
     expect(find.text('Import/Export'), findsOneWidget);
+    expect(find.text('Support & Safety'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
     expect(find.text('Terms and Conditions'), findsOneWidget);
     expect(find.text('Delete Account'), findsOneWidget);
