@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/models/content_item.dart';
@@ -22,7 +23,7 @@ class PosterArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = item.posterUrl;
+    final imageUrl = _displayImageUrl(item.posterUrl);
     return SizedBox(
       width: width,
       height: height,
@@ -90,7 +91,7 @@ class BackdropArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = item.backdropUrl ?? item.posterUrl;
+    final imageUrl = _displayImageUrl(item.backdropUrl ?? item.posterUrl);
     return SizedBox(
       width: width,
       height: height,
@@ -130,6 +131,11 @@ class BackdropArt extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _displayImageUrl(String? url) {
+  if (url == null || url.trim().isEmpty) return null;
+  return AppEnvironment.resolveTmdbImageUrl(url);
 }
 
 class _GeneratedArtwork extends StatelessWidget {

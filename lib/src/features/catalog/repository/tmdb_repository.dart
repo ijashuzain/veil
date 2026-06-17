@@ -831,8 +831,7 @@ class TmdbRepository {
   }
 
   String? _imageUrl(String size, String? path) {
-    if (path == null || path.isEmpty) return null;
-    return 'https://image.tmdb.org/t/p/$size$path';
+    return AppEnvironment.tmdbImageUrl(size, path);
   }
 
   String? _string(Object? value) => value is String ? value : null;

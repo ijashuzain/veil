@@ -22,7 +22,13 @@ class AppEnvironment {
 
   static const _tmdbBaseUrlFromEnv = String.fromEnvironment('TMDB_BASE_URL');
 
+  static const _tmdbImageBaseUrlFromEnv = String.fromEnvironment(
+    'TMDB_IMAGE_BASE_URL',
+  );
+
   static const tmdbDirectBaseUrl = 'https://api.themoviedb.org/3';
+
+  static const tmdbDirectImageBaseUrl = 'https://image.tmdb.org/t/p';
 
   static String get tmdbReadAccessToken => _tmdbReadAccessTokenFromEnv;
 
@@ -41,6 +47,37 @@ class AppEnvironment {
   static bool get usesTmdbProxy {
     final host = Uri.tryParse(tmdbBaseUrl)?.host.toLowerCase();
     return host != null && host != 'api.themoviedb.org';
+  }
+
+  static String get tmdbImageBaseUrl {
+    if (_tmdbImageBaseUrlFromEnv.trim().isNotEmpty) {
+      return _withoutTrailingSlash(_tmdbImageBaseUrlFromEnv.trim());
+    }
+    if (supabaseUrl.trim().isNotEmpty) {
+      return '${_withoutTrailingSlash(supabaseUrl)}/functions/v1/tmdb-image/t/p';
+    }
+    return tmdbDirectImageBaseUrl;
+  }
+
+  static String? tmdbImageUrl(String size, String? path) {
+    final trimmed = path?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    final imagePath = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    return '${_withoutTrailingSlash(tmdbImageBaseUrl)}/$size/$imagePath';
+  }
+
+  static String resolveTmdbImageUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.toLowerCase() != 'image.tmdb.org') return url;
+
+    final segments = uri.pathSegments;
+    if (segments.length < 4 || segments[0] != 't' || segments[1] != 'p') {
+      return url;
+    }
+
+    final size = segments[2];
+    final path = segments.sublist(3).join('/');
+    return tmdbImageUrl(size, path) ?? url;
   }
 
   static bool get hasTmdbCredentials =>

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/auth/utils/auth_display_name.dart';
@@ -1092,7 +1093,9 @@ class _CastGrid extends StatelessWidget {
                           ),
                         )
                       : CachedNetworkImage(
-                          imageUrl: person.profileUrl!,
+                          imageUrl: AppEnvironment.resolveTmdbImageUrl(
+                            person.profileUrl!,
+                          ),
                           fit: BoxFit.cover,
                           errorWidget: (context, url, error) => Center(
                             child: Text(

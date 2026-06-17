@@ -386,6 +386,9 @@ verify_jwt = false
 [functions.tmdb]
 verify_jwt = false
 
+[functions.tmdb-image]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

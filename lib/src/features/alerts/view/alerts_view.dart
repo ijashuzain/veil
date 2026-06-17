@@ -38,8 +38,8 @@ class _AlertsViewState extends ConsumerState<AlertsView> {
         followRequests.isNotEmpty ||
         suggestions.isNotEmpty;
     final subtitle = state.suggestionUnreadCount == 0
-        ? '$unread new from TMDB'
-        : '$unread new from TMDB · ${state.suggestionUnreadCount} suggestions';
+        ? '$unread new '
+        : '$unread new  · ${state.suggestionUnreadCount} suggestions';
 
     return Scaffold(
       backgroundColor: VeilColors.bg1,

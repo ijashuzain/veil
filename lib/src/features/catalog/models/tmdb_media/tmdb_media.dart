@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/shared/models/content_item.dart';
 
 part 'tmdb_media.freezed.dart';
@@ -94,8 +95,7 @@ Object? _readReleaseDate(Map<dynamic, dynamic> json, String key) {
 }
 
 String? _imageUrl(String size, String? path) {
-  if (path == null || path.isEmpty) return null;
-  return 'https://image.tmdb.org/t/p/$size$path';
+  return AppEnvironment.tmdbImageUrl(size, path);
 }
 
 String _fallbackGenre(String mediaType) {

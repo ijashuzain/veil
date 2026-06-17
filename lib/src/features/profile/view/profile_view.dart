@@ -123,8 +123,8 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                 ],
               ),
               const SizedBox(height: 12),
-              const _TmdbAttributionCard(),
-              const SizedBox(height: 18),
+              // const _TmdbAttributionCard(),
+              // const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(

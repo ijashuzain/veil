@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class VeilColors {
-  static const red = Color(0xFFFF8A1F);
-  static const redDeep = Color(0xFFB95000);
+  static const red = Color(0xFFF5C84B);
+  static const redDeep = Color(0xFF806515);
   static const bg0 = Color(0xFF050507);
   static const bg1 = Color(0xFF090D0F);
   static const bg2 = Color(0xFF111719);
@@ -10,7 +10,7 @@ class VeilColors {
   static const bg4 = Color(0xFF253034);
   static const panel = Color(0xFF101617);
   static const panelRaised = Color(0xFF192123);
-  static const redSoft = Color(0x33FF8A1F);
+  static const redSoft = Color(0x33F5C84B);
   static const gold = Color(0xFFF5C84B);
   static const goldMuted = Color(0x665F4714);
   static const teal = Color(0xFF4FD1C5);
