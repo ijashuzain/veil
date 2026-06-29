@@ -22,6 +22,7 @@ class FollowRequest {
     this.status = FollowRequestStatus.pending,
     required this.createdAt,
     this.respondedAt,
+    this.acceptedNoticeReadAt,
   });
 
   factory FollowRequest.create({
@@ -51,6 +52,7 @@ class FollowRequest {
       status: FollowRequestStatus.fromJson(json['status']),
       createdAt: _parseDate(json['created_at']) ?? DateTime.now(),
       respondedAt: _parseDate(json['responded_at']),
+      acceptedNoticeReadAt: _parseDate(json['accepted_notice_read_at']),
     );
   }
 
@@ -66,11 +68,15 @@ class FollowRequest {
   final FollowRequestStatus status;
   final DateTime createdAt;
   final DateTime? respondedAt;
+  final DateTime? acceptedNoticeReadAt;
 
   bool isIncomingFor(String userId) => recipientId == userId;
 
   bool isAcceptedFor(String userId) =>
       requesterId == userId && status == FollowRequestStatus.accepted;
+
+  bool isAcceptedNoticeUnreadFor(String userId) =>
+      isAcceptedFor(userId) && acceptedNoticeReadAt == null;
 
   Map<String, dynamic> toJson() {
     return {
@@ -82,6 +88,7 @@ class FollowRequest {
       'status': status.name,
       'created_at': createdAt.toIso8601String(),
       'responded_at': respondedAt?.toIso8601String(),
+      'accepted_notice_read_at': acceptedNoticeReadAt?.toIso8601String(),
     };
   }
 
@@ -104,6 +111,7 @@ class FollowRequest {
     FollowRequestStatus? status,
     DateTime? createdAt,
     DateTime? respondedAt,
+    DateTime? acceptedNoticeReadAt,
   }) {
     return FollowRequest(
       id: id ?? this.id,
@@ -114,6 +122,7 @@ class FollowRequest {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       respondedAt: respondedAt ?? this.respondedAt,
+      acceptedNoticeReadAt: acceptedNoticeReadAt ?? this.acceptedNoticeReadAt,
     );
   }
 }

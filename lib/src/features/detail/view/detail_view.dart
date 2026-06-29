@@ -770,12 +770,9 @@ class _DetailViewState extends ConsumerState<DetailView> {
         return DetailSuggestionSheet(
           item: item,
           currentUserId: ref.read(socialRepositoryProvider).currentUserId,
-          loadFollowers: () async {
+          loadFriends: () async {
             final repository = ref.read(socialRepositoryProvider);
-            final followers = await repository.followers(
-              repository.currentUserId,
-            );
-            return repository.userProfilesForIds(followers);
+            return repository.friendProfiles(repository.currentUserId);
           },
           onSuggest: (recipientIds) async {
             await ref
@@ -788,7 +785,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
                   ),
                 );
             if (!mounted) return;
-            showVeilToast(context, 'Suggestion sent');
+            showVeilToast(context, 'Suggestion sent to friends');
           },
         );
       },

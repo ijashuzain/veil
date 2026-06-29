@@ -26,10 +26,15 @@ abstract class AlertsViewState with _$AlertsViewState {
 
   factory AlertsViewState.initial() => const AlertsViewState();
 
-  int get unreadCount => alerts.where((alert) => alert.unread).length;
+  int get tmdbUnreadCount => alerts.where((alert) => alert.unread).length;
+
+  int get followUnreadCount => followRequests.length;
 
   int get suggestionUnreadCount =>
       suggestions.where((suggestion) => suggestion.isUnread).length;
+
+  int get unreadCount =>
+      tmdbUnreadCount + followUnreadCount + suggestionUnreadCount;
 }
 
 @riverpod
@@ -80,8 +85,15 @@ class AlertsViewModel extends _$AlertsViewModel {
     final unreadSuggestions = state.suggestions
         .where((suggestion) => suggestion.isUnread)
         .toList();
+    final acceptedFollowNotices = state.followRequests
+        .where((request) => request.status == FollowRequestStatus.accepted)
+        .toList();
     state = state.copyWith(
       alerts: [for (final alert in state.alerts) alert.copyWith(unread: false)],
+      followRequests: [
+        for (final request in state.followRequests)
+          if (request.status == FollowRequestStatus.pending) request,
+      ],
       suggestions: [
         for (final suggestion in state.suggestions)
           suggestion.copyWith(readAt: suggestion.readAt ?? DateTime.now()),
@@ -90,6 +102,9 @@ class AlertsViewModel extends _$AlertsViewModel {
     final repository = ref.read(socialRepositoryProvider);
     for (final suggestion in unreadSuggestions) {
       unawaited(repository.markMovieSuggestionRead(suggestion.id));
+    }
+    for (final request in acceptedFollowNotices) {
+      unawaited(repository.markFollowRequestNoticeRead(request.id));
     }
   }
 
@@ -114,6 +129,18 @@ class AlertsViewModel extends _$AlertsViewModel {
   Future<void> declineFollowRequest(String requestId) async {
     await ref.read(socialRepositoryProvider).declineFollowRequest(requestId);
     await load();
+  }
+
+  Future<void> markFollowRequestNoticeRead(String requestId) async {
+    await ref
+        .read(socialRepositoryProvider)
+        .markFollowRequestNoticeRead(requestId);
+    state = state.copyWith(
+      followRequests: [
+        for (final request in state.followRequests)
+          if (request.id != requestId) request,
+      ],
+    );
   }
 
   Future<_SocialAlertsResult> _loadSocialAlerts(

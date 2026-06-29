@@ -2723,6 +2723,49 @@ void main() {
     expect(find.text('Requested'), findsOneWidget);
   });
 
+  testWidgets('user profile supports follow back friends and unfollow states', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStorage.init();
+    final repository = SocialRepository();
+    final memberRepository = SocialRepository(localUserId: 'member-2');
+
+    await memberRepository.followUser(
+      'local-user',
+      requesterDisplayName: 'Mira',
+      recipientDisplayName: 'Ijas Huzain',
+    );
+    await repository.acceptFollowRequest(
+      (await repository.followRequestsForAlerts()).single.id,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [socialRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          home: UserProfileView(userId: 'member-2', displayName: 'Mira'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Follow Back'), findsOneWidget);
+
+    await tester.tap(find.text('Follow Back'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Friends'), findsOneWidget);
+
+    await tester.tap(find.text('Friends'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('Follow Back'), findsOneWidget);
+  });
+
   testWidgets('responsive shell keeps bottom navigation on mobile', (
     tester,
   ) async {

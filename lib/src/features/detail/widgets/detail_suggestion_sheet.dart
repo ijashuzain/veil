@@ -4,7 +4,7 @@ import 'package:veil/src/features/social/models/user_profile_summary.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/models/content_item.dart';
 
-typedef DetailFollowersLoader = Future<List<UserProfileSummary>> Function();
+typedef DetailFriendsLoader = Future<List<UserProfileSummary>> Function();
 typedef DetailSuggestSubmit = Future<void> Function(List<String> recipientIds);
 
 class DetailSuggestionSheet extends StatefulWidget {
@@ -12,13 +12,13 @@ class DetailSuggestionSheet extends StatefulWidget {
     super.key,
     required this.item,
     required this.currentUserId,
-    required this.loadFollowers,
+    required this.loadFriends,
     required this.onSuggest,
   });
 
   final ContentItem item;
   final String currentUserId;
-  final DetailFollowersLoader loadFollowers;
+  final DetailFriendsLoader loadFriends;
   final DetailSuggestSubmit onSuggest;
 
   @override
@@ -26,7 +26,7 @@ class DetailSuggestionSheet extends StatefulWidget {
 }
 
 class _DetailSuggestionSheetState extends State<DetailSuggestionSheet> {
-  var _followers = <UserProfileSummary>[];
+  var _friends = <UserProfileSummary>[];
   final _selected = <String>{};
   var _loading = true;
   var _sending = false;
@@ -117,10 +117,11 @@ class _DetailSuggestionSheetState extends State<DetailSuggestionSheet> {
                   padding: EdgeInsets.symmetric(vertical: 18),
                   child: CircularProgressIndicator(color: VeilColors.red),
                 )
-              else if (_followers.isEmpty)
+              else if (_friends.isEmpty)
                 const _SuggestionMessage(
-                  title: 'No followers yet',
-                  message: 'Followers will appear here when they follow you.',
+                  title: 'No friends yet',
+                  message:
+                      'Follow each other with someone to suggest movies and shows.',
                 )
               else
                 ConstrainedBox(
@@ -129,24 +130,24 @@ class _DetailSuggestionSheetState extends State<DetailSuggestionSheet> {
                   ),
                   child: ListView.builder(
                     shrinkWrap: true,
-                    itemCount: _followers.length,
+                    itemCount: _friends.length,
                     itemBuilder: (context, index) {
-                      final follower = _followers[index];
-                      final selected = _selected.contains(follower.userId);
+                      final friend = _friends[index];
+                      final selected = _selected.contains(friend.userId);
                       return CheckboxListTile(
                         value: selected,
-                        onChanged: (_) => _toggle(follower.userId),
+                        onChanged: (_) => _toggle(friend.userId),
                         activeColor: VeilColors.red,
                         checkColor: Colors.white,
                         contentPadding: EdgeInsets.zero,
                         title: Text(
-                          follower.displayName,
+                          friend.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                         subtitle: Text(
-                          _displayName(follower.userId),
+                          _displayName(friend.userId),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -201,10 +202,10 @@ class _DetailSuggestionSheetState extends State<DetailSuggestionSheet> {
 
   Future<void> _load() async {
     try {
-      final followers = await widget.loadFollowers();
+      final friends = await widget.loadFriends();
       if (!mounted) return;
       setState(() {
-        _followers = followers;
+        _friends = friends;
         _loading = false;
       });
     } catch (error) {

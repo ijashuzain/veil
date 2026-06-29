@@ -10,6 +10,7 @@ import 'package:veil/src/features/social/models/movie_suggestion.dart';
 import 'package:veil/src/features/social/models/review_comment.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/models/user_profile_summary.dart';
+import 'package:veil/src/features/social/models/user_relationship.dart';
 import 'package:veil/src/shared/models/content_item.dart';
 import 'package:veil/src/shared/utils/veil_rating.dart';
 
@@ -568,6 +569,36 @@ class SocialRepository {
     return (await blockedUserIds()).contains(userId);
   }
 
+  Future<bool> _areUsersBlocked(String leftUserId, String rightUserId) async {
+    if (leftUserId.trim().isEmpty || rightUserId.trim().isEmpty) return true;
+    if (leftUserId == rightUserId) return false;
+
+    if (_hasAuthenticatedSupabaseUser) {
+      try {
+        final blocked = await _client!.rpc(
+          'social_relationship_blocked',
+          params: {'left_user': leftUserId, 'right_user': rightUserId},
+        );
+        if (blocked is bool) return blocked;
+      } catch (_) {
+        // Fall through to local/current-user block checks for older schemas.
+      }
+    }
+
+    final blocks = await _localUserBlocks();
+    return blocks.any(
+          (block) =>
+              block.blockerId == leftUserId &&
+              block.blockedUserId == rightUserId,
+        ) ||
+        blocks.any(
+          (block) =>
+              block.blockerId == rightUserId &&
+              block.blockedUserId == leftUserId,
+        ) ||
+        await isUserBlocked(rightUserId);
+  }
+
   Future<void> blockUser(String userId, {String displayName = ''}) async {
     if (userId.trim().isEmpty || userId == _userId) return;
 
@@ -952,20 +983,16 @@ class SocialRepository {
     String recipientDisplayName = '',
   }) async {
     if (userId == _userId) return;
-    if (await isUserBlocked(userId)) return;
+    if (await _areUsersBlocked(_userId, userId)) return;
     if (_hasAuthenticatedSupabaseUser) {
-      final request = FollowRequest.create(
-        requesterId: _userId,
-        recipientId: userId,
-        requesterDisplayName: requesterDisplayName,
-        recipientDisplayName: recipientDisplayName,
+      await _client!.rpc(
+        'request_follow_user',
+        params: {
+          'target_user_id': userId,
+          'requester_display_name': requesterDisplayName,
+          'recipient_display_name': recipientDisplayName,
+        },
       );
-      await _client!
-          .from(_followRequestsTable)
-          .upsert(
-            request.toSupabaseInsertJson(),
-            onConflict: 'requester_id,recipient_id',
-          );
       return;
     }
 
@@ -986,24 +1013,30 @@ class SocialRepository {
       ),
     );
 
+    if (await _isFollowingPair(_userId, userId)) return;
+    if (await _isFollowingPair(userId, _userId)) {
+      await _saveLocalFollowEdge(_userId, userId);
+      return;
+    }
+
     final requests = await _localFollowRequests();
+    final existingIndex = requests.indexWhere(
+      (candidate) =>
+          candidate.requesterId == _userId && candidate.recipientId == userId,
+    );
+    if (existingIndex != -1 &&
+        requests[existingIndex].status == FollowRequestStatus.pending) {
+      return;
+    }
+
     final request = FollowRequest.create(
       requesterId: _userId,
       recipientId: userId,
       requesterDisplayName: requesterDisplayName,
       recipientDisplayName: recipientDisplayName,
     );
-    final existingIndex = requests.indexWhere(
-      (candidate) =>
-          candidate.requesterId == _userId && candidate.recipientId == userId,
-    );
     if (existingIndex == -1) {
       await _saveLocalFollowRequests([request, ...requests]);
-      return;
-    }
-    final existing = requests[existingIndex];
-    if (existing.status == FollowRequestStatus.accepted ||
-        existing.status == FollowRequestStatus.pending) {
       return;
     }
     final next = [...requests];
@@ -1011,19 +1044,31 @@ class SocialRepository {
     await _saveLocalFollowRequests(next);
   }
 
+  Future<void> cancelFollowRequest(String userId) async {
+    if (_hasAuthenticatedSupabaseUser) {
+      await _client!.rpc(
+        'cancel_follow_request',
+        params: {'target_user_id': userId},
+      );
+      return;
+    }
+
+    final requests = await _localFollowRequests();
+    await _saveLocalFollowRequests(
+      requests
+          .where(
+            (request) =>
+                request.requesterId != _userId ||
+                request.recipientId != userId ||
+                request.status != FollowRequestStatus.pending,
+          )
+          .toList(),
+    );
+  }
+
   Future<void> unfollowUser(String userId) async {
     if (_hasAuthenticatedSupabaseUser) {
-      final client = _client!;
-      await client
-          .from(_followsTable)
-          .delete()
-          .eq('follower_id', _userId)
-          .eq('following_id', userId);
-      await client
-          .from(_followRequestsTable)
-          .delete()
-          .eq('requester_id', _userId)
-          .eq('recipient_id', userId);
+      await _client!.rpc('unfollow_user', params: {'target_user_id': userId});
       return;
     }
 
@@ -1036,83 +1081,210 @@ class SocialRepository {
           )
           .toList(),
     );
-    final requests = await _localFollowRequests();
-    await _saveLocalFollowRequests(
-      requests
-          .where(
-            (request) =>
-                request.requesterId != _userId || request.recipientId != userId,
-          )
-          .toList(),
-    );
   }
 
   Future<bool> isFollowing(String userId) async {
-    if (await isUserBlocked(userId)) return false;
+    if (await _areUsersBlocked(_userId, userId)) return false;
+    return _isFollowingPair(_userId, userId);
+  }
+
+  Future<bool> _isFollowingPair(String followerId, String followingId) async {
+    if (followerId.trim().isEmpty || followingId.trim().isEmpty) return false;
     if (_hasAuthenticatedSupabaseUser) {
       final row = await _client!
           .from(_followsTable)
           .select('following_id')
-          .eq('follower_id', _userId)
-          .eq('following_id', userId)
+          .eq('follower_id', followerId)
+          .eq('following_id', followingId)
           .maybeSingle();
       return row != null;
     }
 
     final follows = await _localFollows();
     return follows.any(
-      (follow) => follow.followerId == _userId && follow.followingId == userId,
+      (follow) =>
+          follow.followerId == followerId && follow.followingId == followingId,
     );
   }
 
+  Future<void> _saveLocalFollowEdge(
+    String followerId,
+    String followingId,
+  ) async {
+    if (followerId == followingId) return;
+    final follows = await _localFollows();
+    final exists = follows.any(
+      (follow) =>
+          follow.followerId == followerId && follow.followingId == followingId,
+    );
+    if (exists) return;
+    await _saveLocalFollows([
+      _UserFollow(followerId: followerId, followingId: followingId),
+      ...follows,
+    ]);
+  }
+
+  Future<UserRelationship> relationshipWith(String userId) async {
+    if (userId == _userId) {
+      return UserRelationship(
+        userId: userId,
+        status: UserRelationshipStatus.self,
+      );
+    }
+    if (await _areUsersBlocked(_userId, userId)) {
+      return UserRelationship(
+        userId: userId,
+        status: UserRelationshipStatus.blocked,
+      );
+    }
+
+    final followsTarget = await _isFollowingPair(_userId, userId);
+    final targetFollowsViewer = await _isFollowingPair(userId, _userId);
+    final outgoingRequest = await _followRequestBetween(_userId, userId);
+    final incomingRequest = await _followRequestBetween(userId, _userId);
+
+    if (followsTarget && targetFollowsViewer) {
+      return UserRelationship(
+        userId: userId,
+        status: UserRelationshipStatus.friends,
+        outgoingRequest: outgoingRequest,
+        incomingRequest: incomingRequest,
+      );
+    }
+    if (followsTarget) {
+      return UserRelationship(
+        userId: userId,
+        status: UserRelationshipStatus.following,
+        outgoingRequest: outgoingRequest,
+        incomingRequest: incomingRequest,
+      );
+    }
+    if (targetFollowsViewer) {
+      return UserRelationship(
+        userId: userId,
+        status: UserRelationshipStatus.followsMe,
+        outgoingRequest: outgoingRequest,
+        incomingRequest: incomingRequest,
+      );
+    }
+    if (outgoingRequest?.status == FollowRequestStatus.pending) {
+      return UserRelationship(
+        userId: userId,
+        status: UserRelationshipStatus.requested,
+        outgoingRequest: outgoingRequest,
+        incomingRequest: incomingRequest,
+      );
+    }
+    if (incomingRequest?.status == FollowRequestStatus.pending) {
+      return UserRelationship(
+        userId: userId,
+        status: UserRelationshipStatus.incomingRequest,
+        outgoingRequest: outgoingRequest,
+        incomingRequest: incomingRequest,
+      );
+    }
+    return UserRelationship(
+      userId: userId,
+      status: UserRelationshipStatus.none,
+      outgoingRequest: outgoingRequest,
+      incomingRequest: incomingRequest,
+    );
+  }
+
+  Future<FollowRequest?> _followRequestBetween(
+    String requesterId,
+    String recipientId,
+  ) async {
+    if (_hasAuthenticatedSupabaseUser) {
+      final row = await _client!
+          .from(_followRequestsTable)
+          .select()
+          .eq('requester_id', requesterId)
+          .eq('recipient_id', recipientId)
+          .maybeSingle();
+      if (row == null) return null;
+      return FollowRequest.fromSupabaseJson(row);
+    }
+
+    final requests = await _localFollowRequests();
+    return requests
+        .where(
+          (request) =>
+              request.requesterId == requesterId &&
+              request.recipientId == recipientId,
+        )
+        .firstOrNull;
+  }
+
+  Future<List<String>> friends(String userId) async {
+    final followingIds = (await following(userId)).toSet();
+    if (followingIds.isEmpty) return const [];
+    final followerIds = (await followers(userId)).toSet();
+    return followingIds.where(followerIds.contains).toList();
+  }
+
+  Future<List<UserProfileSummary>> friendProfiles(String userId) async {
+    return userProfilesForIds(await friends(userId));
+  }
+
   Future<List<String>> following(String userId) async {
-    final blockedIds = (await blockedUserIds()).toSet();
     if (_hasAuthenticatedSupabaseUser) {
       final rows = await _client!
           .from(_followsTable)
           .select('following_id')
           .eq('follower_id', userId);
-      return rows
+      final ids = rows
           .whereType<Map<String, dynamic>>()
           .map((row) => row['following_id'] as String?)
           .whereType<String>()
-          .where((id) => !blockedIds.contains(id))
           .toList();
+      return _filterBlockedUserIds(ids);
     }
 
     final follows = await _localFollows();
-    return follows
+    final ids = follows
         .where((follow) => follow.followerId == userId)
         .map((follow) => follow.followingId)
-        .where((id) => !blockedIds.contains(id))
         .toList();
+    return _filterBlockedUserIds(ids);
   }
 
   Future<List<String>> followers(String userId) async {
-    final blockedIds = (await blockedUserIds()).toSet();
     if (_hasAuthenticatedSupabaseUser) {
       final rows = await _client!
           .from(_followsTable)
           .select('follower_id')
           .eq('following_id', userId);
-      return rows
+      final ids = rows
           .whereType<Map<String, dynamic>>()
           .map((row) => row['follower_id'] as String?)
           .whereType<String>()
-          .where((id) => !blockedIds.contains(id))
           .toList();
+      return _filterBlockedUserIds(ids);
     }
 
     final follows = await _localFollows();
-    return follows
+    final ids = follows
         .where((follow) => follow.followingId == userId)
         .map((follow) => follow.followerId)
-        .where((id) => !blockedIds.contains(id))
         .toList();
+    return _filterBlockedUserIds(ids);
+  }
+
+  Future<List<String>> _filterBlockedUserIds(List<String> userIds) async {
+    final visible = <String>[];
+    final seen = <String>{};
+    for (final userId in userIds) {
+      if (userId.trim().isEmpty || !seen.add(userId)) continue;
+      if (!await _areUsersBlocked(_userId, userId)) {
+        visible.add(userId);
+      }
+    }
+    return visible;
   }
 
   Future<FollowRequestStatus?> followRequestStatus(String userId) async {
-    if (await isUserBlocked(userId)) return null;
+    if (await _areUsersBlocked(_userId, userId)) return null;
     if (_hasAuthenticatedSupabaseUser) {
       final row = await _client!
           .from(_followRequestsTable)
@@ -1160,7 +1332,9 @@ class SocialRepository {
         final otherUserId = request.requesterId == _userId
             ? request.recipientId
             : request.requesterId;
-        return !blockedIds.contains(otherUserId);
+        return !blockedIds.contains(otherUserId) &&
+            (request.status == FollowRequestStatus.pending ||
+                request.isAcceptedNoticeUnreadFor(_userId));
       }).toList();
     }
 
@@ -1172,7 +1346,7 @@ class SocialRepository {
                 (request.recipientId == _userId &&
                     request.status == FollowRequestStatus.pending) ||
                 (request.requesterId == _userId &&
-                    request.status == FollowRequestStatus.accepted),
+                    request.isAcceptedNoticeUnreadFor(_userId)),
           )
           .where(
             (request) => !blockedIds.contains(
@@ -1208,33 +1382,15 @@ class SocialRepository {
     );
     await _saveLocalFollowRequests(nextRequests);
 
-    final follows = await _localFollows();
-    final exists = follows.any(
-      (follow) =>
-          follow.followerId == request.requesterId &&
-          follow.followingId == request.recipientId,
-    );
-    if (!exists) {
-      await _saveLocalFollows([
-        _UserFollow(
-          followerId: request.requesterId,
-          followingId: request.recipientId,
-        ),
-        ...follows,
-      ]);
-    }
+    await _saveLocalFollowEdge(request.requesterId, request.recipientId);
   }
 
   Future<void> declineFollowRequest(String requestId) async {
     if (_hasAuthenticatedSupabaseUser) {
-      await _client!
-          .from(_followRequestsTable)
-          .update({
-            'status': FollowRequestStatus.declined.name,
-            'responded_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', requestId)
-          .eq('recipient_id', _userId);
+      await _client!.rpc(
+        'decline_follow_request',
+        params: {'request_id': requestId},
+      );
       return;
     }
 
@@ -1249,6 +1405,27 @@ class SocialRepository {
       respondedAt: DateTime.now(),
     );
     await _saveLocalFollowRequests(next);
+  }
+
+  Future<void> markFollowRequestNoticeRead(String requestId) async {
+    final now = DateTime.now();
+    if (_hasAuthenticatedSupabaseUser) {
+      await _client!.rpc(
+        'mark_follow_request_notice_read',
+        params: {'request_id': requestId},
+      );
+      return;
+    }
+
+    final requests = await _localFollowRequests();
+    await _saveLocalFollowRequests([
+      for (final request in requests)
+        request.id == requestId &&
+                request.requesterId == _userId &&
+                request.status == FollowRequestStatus.accepted
+            ? request.copyWith(acceptedNoticeReadAt: now)
+            : request,
+    ]);
   }
 
   Future<void> suggestMovie(
@@ -1266,10 +1443,10 @@ class SocialRepository {
         .toList();
     if (uniqueRecipients.isEmpty) return;
 
-    final followerIds = (await followers(_userId)).toSet();
+    final friendIds = (await friends(_userId)).toSet();
     final suggestions = [
       for (final recipientId in uniqueRecipients)
-        if (followerIds.contains(recipientId))
+        if (friendIds.contains(recipientId))
           MovieSuggestion.create(
             senderId: _userId,
             recipientId: recipientId,

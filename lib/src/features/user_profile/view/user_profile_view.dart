@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
-import 'package:veil/src/features/social/models/follow_request.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
+import 'package:veil/src/features/social/models/user_profile_summary.dart';
+import 'package:veil/src/features/social/models/user_relationship.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/features/social/widgets/community_report_sheet.dart';
@@ -26,12 +27,11 @@ class UserProfileView extends ConsumerStatefulWidget {
 
 class _UserProfileViewState extends ConsumerState<UserProfileView> {
   var _entries = <SocialEntry>[];
-  var _following = <String>[];
-  var _followers = <String>[];
+  var _following = <UserProfileSummary>[];
+  var _followers = <UserProfileSummary>[];
   var _loading = true;
-  var _isFollowing = false;
   var _isSelf = false;
-  FollowRequestStatus? _followRequestStatus;
+  UserRelationship? _relationship;
   var _tab = _ProfileTab.followers;
 
   @override
@@ -125,9 +125,8 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
                   following: _following.length,
                   followers: _followers.length,
                   isSelf: _isSelf,
-                  isFollowing: _isFollowing,
-                  followRequestStatus: _followRequestStatus,
-                  onFollowToggle: _toggleFollow,
+                  relationship: _relationship,
+                  onRelationshipAction: _handleRelationshipAction,
                   onFollowingTap: () =>
                       setState(() => _tab = _ProfileTab.following),
                   onFollowersTap: () =>
@@ -173,7 +172,7 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
                       following: _following,
                       followers: _followers,
                       activity: _entries,
-                      isFollowingViewer: _isFollowing,
+                      onRelationshipChanged: _load,
                     ),
                   ),
                 ),
@@ -193,20 +192,18 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
         await repository.entriesForUser(widget.userId),
         tmdbRepository,
       );
-      final following = await repository.following(widget.userId);
-      final followers = await repository.followers(widget.userId);
-      final isFollowing = await repository.isFollowing(widget.userId);
-      final followRequestStatus = await repository.followRequestStatus(
-        widget.userId,
-      );
+      final followingIds = await repository.following(widget.userId);
+      final followersIds = await repository.followers(widget.userId);
+      final following = await repository.userProfilesForIds(followingIds);
+      final followers = await repository.userProfilesForIds(followersIds);
+      final relationship = await repository.relationshipWith(widget.userId);
       if (!mounted) return;
       setState(() {
         _entries = entries;
         _following = following;
         _followers = followers;
-        _isFollowing = isFollowing;
-        _followRequestStatus = followRequestStatus;
         _isSelf = widget.userId == repository.currentUserId;
+        _relationship = relationship;
         _loading = false;
       });
     } catch (_) {
@@ -232,16 +229,35 @@ class _UserProfileViewState extends ConsumerState<UserProfileView> {
     return filtered.whereType<SocialEntry>().toList();
   }
 
-  Future<void> _toggleFollow() async {
+  Future<void> _handleRelationshipAction() async {
     final repository = ref.read(socialRepositoryProvider);
-    if (_isFollowing) {
-      await repository.unfollowUser(widget.userId);
-    } else {
-      if (_followRequestStatus == FollowRequestStatus.pending) return;
-      await repository.followUser(
-        widget.userId,
-        recipientDisplayName: widget.displayName ?? _displayName(widget.userId),
-      );
+    final relationship = _relationship;
+    switch (relationship?.status) {
+      case UserRelationshipStatus.requested:
+        await repository.cancelFollowRequest(widget.userId);
+        break;
+      case UserRelationshipStatus.following:
+      case UserRelationshipStatus.friends:
+        await repository.unfollowUser(widget.userId);
+        break;
+      case UserRelationshipStatus.incomingRequest:
+        final requestId = relationship?.incomingRequest?.id;
+        if (requestId != null && requestId.isNotEmpty) {
+          await repository.acceptFollowRequest(requestId);
+        }
+        break;
+      case UserRelationshipStatus.none:
+      case UserRelationshipStatus.followsMe:
+      case null:
+        await repository.followUser(
+          widget.userId,
+          recipientDisplayName:
+              widget.displayName ?? _displayName(widget.userId),
+        );
+        break;
+      case UserRelationshipStatus.self:
+      case UserRelationshipStatus.blocked:
+        return;
     }
     await _load();
   }
@@ -325,9 +341,8 @@ class _UserProfileHeader extends StatelessWidget {
     required this.following,
     required this.followers,
     required this.isSelf,
-    required this.isFollowing,
-    required this.followRequestStatus,
-    required this.onFollowToggle,
+    required this.relationship,
+    required this.onRelationshipAction,
     required this.onFollowingTap,
     required this.onFollowersTap,
   });
@@ -340,9 +355,8 @@ class _UserProfileHeader extends StatelessWidget {
   final int following;
   final int followers;
   final bool isSelf;
-  final bool isFollowing;
-  final FollowRequestStatus? followRequestStatus;
-  final VoidCallback? onFollowToggle;
+  final UserRelationship? relationship;
+  final VoidCallback? onRelationshipAction;
   final VoidCallback onFollowingTap;
   final VoidCallback onFollowersTap;
 
@@ -406,26 +420,28 @@ class _UserProfileHeader extends StatelessWidget {
                   const SizedBox(width: 10),
                   Builder(
                     builder: (context) {
-                      final isPending =
-                          followRequestStatus == FollowRequestStatus.pending;
-                      final label = isFollowing
-                          ? 'Unfollow'
-                          : isPending
-                          ? 'Requested'
-                          : 'Follow';
+                      final status = relationship?.status;
+                      final label = _relationshipActionLabel(status);
+                      final isPassive =
+                          status == UserRelationshipStatus.blocked;
+                      final isMuted =
+                          status == UserRelationshipStatus.requested ||
+                          status == UserRelationshipStatus.following ||
+                          status == UserRelationshipStatus.friends ||
+                          isPassive;
                       return OutlinedButton(
-                        onPressed: isPending ? null : onFollowToggle,
+                        onPressed: isPassive ? null : onRelationshipAction,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: isFollowing || isPending
+                          foregroundColor: isMuted
                               ? VeilColors.text2
                               : Colors.white,
                           disabledForegroundColor: VeilColors.text3,
                           side: BorderSide(
-                            color: isFollowing || isPending
+                            color: isMuted
                                 ? VeilColors.hairlineStrong
                                 : VeilColors.red,
                           ),
-                          backgroundColor: isFollowing || isPending
+                          backgroundColor: isMuted
                               ? Colors.transparent
                               : VeilColors.red,
                           padding: const EdgeInsets.symmetric(
@@ -491,14 +507,14 @@ class _ProfileTabContent extends StatelessWidget {
     required this.following,
     required this.followers,
     required this.activity,
-    required this.isFollowingViewer,
+    required this.onRelationshipChanged,
   });
 
   final _ProfileTab tab;
-  final List<String> following;
-  final List<String> followers;
+  final List<UserProfileSummary> following;
+  final List<UserProfileSummary> followers;
   final List<SocialEntry> activity;
-  final bool isFollowingViewer;
+  final Future<void> Function() onRelationshipChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -506,12 +522,12 @@ class _ProfileTabContent extends StatelessWidget {
       _ProfileTab.following => _MemberList(
         users: following,
         emptyText: 'Not following anyone yet',
-        actionLabel: 'Following',
+        onRelationshipChanged: onRelationshipChanged,
       ),
       _ProfileTab.followers => _MemberList(
         users: followers,
         emptyText: 'No followers yet',
-        actionLabel: isFollowingViewer ? 'Follows you' : 'Follow back',
+        onRelationshipChanged: onRelationshipChanged,
       ),
       _ProfileTab.activity => _ActivityList(entries: activity),
     };
@@ -522,35 +538,119 @@ class _MemberList extends StatelessWidget {
   const _MemberList({
     required this.users,
     required this.emptyText,
-    required this.actionLabel,
+    required this.onRelationshipChanged,
   });
 
-  final List<String> users;
+  final List<UserProfileSummary> users;
   final String emptyText;
-  final String actionLabel;
+  final Future<void> Function() onRelationshipChanged;
 
   @override
   Widget build(BuildContext context) {
     if (users.isEmpty) return _EmptyPanel(text: emptyText);
     return Column(
       children: [
-        for (final userId in users)
-          _MemberRow(userId: userId, actionLabel: actionLabel),
+        for (final user in users)
+          _MemberRow(
+            key: ValueKey(user.userId),
+            user: user,
+            onRelationshipChanged: onRelationshipChanged,
+          ),
       ],
     );
   }
 }
 
-class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.userId, required this.actionLabel});
+class _MemberRow extends ConsumerStatefulWidget {
+  const _MemberRow({
+    super.key,
+    required this.user,
+    required this.onRelationshipChanged,
+  });
 
-  final String userId;
-  final String actionLabel;
+  final UserProfileSummary user;
+  final Future<void> Function() onRelationshipChanged;
+
+  @override
+  ConsumerState<_MemberRow> createState() => _MemberRowState();
+}
+
+class _MemberRowState extends ConsumerState<_MemberRow> {
+  UserRelationship? _relationship;
+  var _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadRelationship);
+  }
+
+  @override
+  void didUpdateWidget(covariant _MemberRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user.userId != widget.user.userId) {
+      _relationship = null;
+      Future.microtask(_loadRelationship);
+    }
+  }
+
+  Future<void> _loadRelationship() async {
+    final relationship = await ref
+        .read(socialRepositoryProvider)
+        .relationshipWith(widget.user.userId);
+    if (!mounted) return;
+    setState(() => _relationship = relationship);
+  }
+
+  Future<void> _runAction() async {
+    final relationship = _relationship;
+    if (relationship == null || _loading) return;
+    setState(() => _loading = true);
+    final repository = ref.read(socialRepositoryProvider);
+    switch (relationship.status) {
+      case UserRelationshipStatus.requested:
+        await repository.cancelFollowRequest(widget.user.userId);
+        break;
+      case UserRelationshipStatus.following:
+      case UserRelationshipStatus.friends:
+        await repository.unfollowUser(widget.user.userId);
+        break;
+      case UserRelationshipStatus.incomingRequest:
+        final requestId = relationship.incomingRequest?.id;
+        if (requestId != null && requestId.isNotEmpty) {
+          await repository.acceptFollowRequest(requestId);
+        }
+        break;
+      case UserRelationshipStatus.none:
+      case UserRelationshipStatus.followsMe:
+        await repository.followUser(
+          widget.user.userId,
+          recipientDisplayName: widget.user.displayName,
+        );
+        break;
+      case UserRelationshipStatus.self:
+      case UserRelationshipStatus.blocked:
+        break;
+    }
+    await _loadRelationship();
+    await widget.onRelationshipChanged();
+    if (!mounted) return;
+    setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final relationship = _relationship;
+    final label = _relationshipActionLabel(relationship?.status);
+    final showAction =
+        relationship != null &&
+        relationship.status != UserRelationshipStatus.self &&
+        relationship.status != UserRelationshipStatus.blocked;
     return InkWell(
-      onTap: () => UserProfileRoute(id: userId).push(context),
+      onTap: () => UserProfileRoute(
+        id: widget.user.userId,
+        displayName: widget.user.displayName,
+      ).push(context),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -573,12 +673,14 @@ class _MemberRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _displayName(userId),
+                    widget.user.displayName.trim().isEmpty
+                        ? _displayName(widget.user.userId)
+                        : widget.user.displayName,
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    userId,
+                    _displayName(widget.user.userId),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -589,19 +691,29 @@ class _MemberRow extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              actionLabel,
-              style: const TextStyle(
-                color: VeilColors.text3,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
+            if (showAction)
+              TextButton(
+                onPressed: _loading ? null : _runAction,
+                child: Text(label),
               ),
-            ),
           ],
         ),
       ),
     );
   }
+}
+
+String _relationshipActionLabel(UserRelationshipStatus? status) {
+  return switch (status) {
+    UserRelationshipStatus.requested => 'Requested',
+    UserRelationshipStatus.followsMe => 'Follow Back',
+    UserRelationshipStatus.following => 'Following',
+    UserRelationshipStatus.friends => 'Friends',
+    UserRelationshipStatus.incomingRequest => 'Accept',
+    UserRelationshipStatus.blocked => 'Blocked',
+    UserRelationshipStatus.self => 'You',
+    UserRelationshipStatus.none || null => 'Follow',
+  };
 }
 
 class _ActivityList extends StatelessWidget {

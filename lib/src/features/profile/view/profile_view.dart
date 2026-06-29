@@ -7,6 +7,8 @@ import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/auth/utils/auth_display_name.dart';
 import 'package:veil/src/features/auth/view_model/auth_view_model/auth_view_model.dart';
 import 'package:veil/src/features/letterboxd/view/letterboxd_import_export_sheet.dart';
+import 'package:veil/src/features/social/models/user_profile_summary.dart';
+import 'package:veil/src/features/social/models/user_relationship.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
@@ -22,8 +24,8 @@ class ProfileView extends ConsumerStatefulWidget {
 }
 
 class _ProfileViewState extends ConsumerState<ProfileView> {
-  var _following = <String>[];
-  var _followers = <String>[];
+  var _following = <UserProfileSummary>[];
+  var _followers = <UserProfileSummary>[];
 
   @override
   void initState() {
@@ -66,14 +68,20 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                 onFollowingTap: () => _openMembersPage(
                   title: 'Following',
                   users: _following,
+                  reloadUsers: () async {
+                    await _loadFollows();
+                    return _following;
+                  },
                   emptyText: 'Not following anyone yet',
-                  actionLabel: 'Following',
                 ),
                 onFollowersTap: () => _openMembersPage(
                   title: 'Followers',
                   users: _followers,
+                  reloadUsers: () async {
+                    await _loadFollows();
+                    return _followers;
+                  },
                   emptyText: 'No followers yet',
-                  actionLabel: 'Follows you',
                 ),
               ),
               const SizedBox(height: 16),
@@ -151,8 +159,10 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   Future<void> _loadFollows() async {
     final repository = ref.read(socialRepositoryProvider);
     final userId = repository.currentUserId;
-    final following = await repository.following(userId);
-    final followers = await repository.followers(userId);
+    final followingIds = await repository.following(userId);
+    final followersIds = await repository.followers(userId);
+    final following = await repository.userProfilesForIds(followingIds);
+    final followers = await repository.userProfilesForIds(followersIds);
     if (!mounted) return;
     setState(() {
       _following = following;
@@ -175,17 +185,17 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
   void _openMembersPage({
     required String title,
-    required List<String> users,
+    required List<UserProfileSummary> users,
+    required Future<List<UserProfileSummary>> Function() reloadUsers,
     required String emptyText,
-    required String actionLabel,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => _ProfileMembersPage(
           title: title,
           users: users,
+          reloadUsers: reloadUsers,
           emptyText: emptyText,
-          actionLabel: actionLabel,
         ),
       ),
     );
@@ -452,24 +462,43 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
-class _ProfileMembersPage extends StatelessWidget {
+class _ProfileMembersPage extends StatefulWidget {
   const _ProfileMembersPage({
     required this.title,
     required this.users,
+    required this.reloadUsers,
     required this.emptyText,
-    required this.actionLabel,
   });
 
   final String title;
-  final List<String> users;
+  final List<UserProfileSummary> users;
+  final Future<List<UserProfileSummary>> Function() reloadUsers;
   final String emptyText;
-  final String actionLabel;
+
+  @override
+  State<_ProfileMembersPage> createState() => _ProfileMembersPageState();
+}
+
+class _ProfileMembersPageState extends State<_ProfileMembersPage> {
+  late List<UserProfileSummary> _users;
+
+  @override
+  void initState() {
+    super.initState();
+    _users = widget.users;
+  }
+
+  Future<void> _reload() async {
+    final users = await widget.reloadUsers();
+    if (!mounted) return;
+    setState(() => _users = users);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final countLabel = users.length == 1
+    final countLabel = _users.length == 1
         ? '1 member'
-        : '${users.length} members';
+        : '${_users.length} members';
     return Scaffold(
       backgroundColor: VeilColors.bg1,
       body: SingleChildScrollView(
@@ -484,12 +513,12 @@ class _ProfileMembersPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PageHeader(title: title, subtitle: countLabel),
+              _PageHeader(title: widget.title, subtitle: countLabel),
               const SizedBox(height: 18),
               _MemberList(
-                users: users,
-                emptyText: emptyText,
-                actionLabel: actionLabel,
+                users: _users,
+                emptyText: widget.emptyText,
+                onRelationshipChanged: _reload,
               ),
             ],
           ),
@@ -661,12 +690,12 @@ class _MemberList extends StatelessWidget {
   const _MemberList({
     required this.users,
     required this.emptyText,
-    required this.actionLabel,
+    required this.onRelationshipChanged,
   });
 
-  final List<String> users;
+  final List<UserProfileSummary> users;
   final String emptyText;
-  final String actionLabel;
+  final Future<void> Function() onRelationshipChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -675,23 +704,107 @@ class _MemberList extends StatelessWidget {
     }
     return Column(
       children: [
-        for (final userId in users)
-          _MemberRow(userId: userId, actionLabel: actionLabel),
+        for (final user in users)
+          _MemberRow(
+            key: ValueKey(user.userId),
+            user: user,
+            onRelationshipChanged: onRelationshipChanged,
+          ),
       ],
     );
   }
 }
 
-class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.userId, required this.actionLabel});
+class _MemberRow extends ConsumerStatefulWidget {
+  const _MemberRow({
+    super.key,
+    required this.user,
+    required this.onRelationshipChanged,
+  });
 
-  final String userId;
-  final String actionLabel;
+  final UserProfileSummary user;
+  final Future<void> Function() onRelationshipChanged;
+
+  @override
+  ConsumerState<_MemberRow> createState() => _MemberRowState();
+}
+
+class _MemberRowState extends ConsumerState<_MemberRow> {
+  UserRelationship? _relationship;
+  var _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadRelationship);
+  }
+
+  @override
+  void didUpdateWidget(covariant _MemberRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user.userId != widget.user.userId) {
+      _relationship = null;
+      Future.microtask(_loadRelationship);
+    }
+  }
+
+  Future<void> _loadRelationship() async {
+    final relationship = await ref
+        .read(socialRepositoryProvider)
+        .relationshipWith(widget.user.userId);
+    if (!mounted) return;
+    setState(() => _relationship = relationship);
+  }
+
+  Future<void> _runAction() async {
+    final relationship = _relationship;
+    if (relationship == null || _loading) return;
+    setState(() => _loading = true);
+    final repository = ref.read(socialRepositoryProvider);
+    switch (relationship.status) {
+      case UserRelationshipStatus.requested:
+        await repository.cancelFollowRequest(widget.user.userId);
+        break;
+      case UserRelationshipStatus.following:
+      case UserRelationshipStatus.friends:
+        await repository.unfollowUser(widget.user.userId);
+        break;
+      case UserRelationshipStatus.incomingRequest:
+        final requestId = relationship.incomingRequest?.id;
+        if (requestId != null && requestId.isNotEmpty) {
+          await repository.acceptFollowRequest(requestId);
+        }
+        break;
+      case UserRelationshipStatus.none:
+      case UserRelationshipStatus.followsMe:
+        await repository.followUser(
+          widget.user.userId,
+          recipientDisplayName: widget.user.displayName,
+        );
+        break;
+      case UserRelationshipStatus.self:
+      case UserRelationshipStatus.blocked:
+        break;
+    }
+    await _loadRelationship();
+    await widget.onRelationshipChanged();
+    if (!mounted) return;
+    setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final relationship = _relationship;
+    final label = _relationshipActionLabel(relationship?.status);
+    final showAction =
+        relationship != null &&
+        relationship.status != UserRelationshipStatus.self &&
+        relationship.status != UserRelationshipStatus.blocked;
     return InkWell(
-      onTap: () => UserProfileRoute(id: userId).push(context),
+      onTap: () => UserProfileRoute(
+        id: widget.user.userId,
+        displayName: widget.user.displayName,
+      ).push(context),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -714,12 +827,14 @@ class _MemberRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _displayName(userId),
+                    widget.user.displayName.trim().isEmpty
+                        ? _displayName(widget.user.userId)
+                        : widget.user.displayName,
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    userId,
+                    _displayName(widget.user.userId),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -730,19 +845,29 @@ class _MemberRow extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              actionLabel,
-              style: const TextStyle(
-                color: VeilColors.text3,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
+            if (showAction)
+              TextButton(
+                onPressed: _loading ? null : _runAction,
+                child: Text(label),
               ),
-            ),
           ],
         ),
       ),
     );
   }
+}
+
+String _relationshipActionLabel(UserRelationshipStatus? status) {
+  return switch (status) {
+    UserRelationshipStatus.requested => 'Requested',
+    UserRelationshipStatus.followsMe => 'Follow Back',
+    UserRelationshipStatus.following => 'Following',
+    UserRelationshipStatus.friends => 'Friends',
+    UserRelationshipStatus.incomingRequest => 'Accept',
+    UserRelationshipStatus.blocked => 'Blocked',
+    UserRelationshipStatus.self => 'You',
+    UserRelationshipStatus.none || null => 'Follow',
+  };
 }
 
 class _EmptyPanel extends StatelessWidget {

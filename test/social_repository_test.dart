@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:veil/app/services/local_storage_services/local_storage_services.dart';
 import 'package:veil/src/features/social/models/follow_request.dart';
 import 'package:veil/src/features/social/models/user_profile_summary.dart';
+import 'package:veil/src/features/social/models/user_relationship.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/shared/models/content_item.dart';
@@ -266,6 +267,10 @@ void main() {
       );
 
       expect(await bob.isFollowing('alice'), isFalse);
+      expect(
+        (await bob.relationshipWith('alice')).status,
+        UserRelationshipStatus.requested,
+      );
       expect(await alice.followRequestsForAlerts(), hasLength(1));
 
       final incoming = (await alice.followRequestsForAlerts()).single;
@@ -278,22 +283,91 @@ void main() {
       expect(await bob.isFollowing('alice'), isTrue);
       expect(await bob.following('bob'), ['alice']);
       expect(await alice.followers('alice'), ['bob']);
+      expect(
+        (await bob.relationshipWith('alice')).status,
+        UserRelationshipStatus.following,
+      );
+      expect(
+        (await alice.relationshipWith('bob')).status,
+        UserRelationshipStatus.followsMe,
+      );
 
       final accepted = (await bob.followRequestsForAlerts()).single;
       expect(accepted.status, FollowRequestStatus.accepted);
       expect(accepted.recipientDisplayName, 'Alice');
+
+      await bob.markFollowRequestNoticeRead(accepted.id);
+
+      expect(await bob.followRequestsForAlerts(), isEmpty);
+
+      await alice.followUser(
+        'bob',
+        requesterDisplayName: 'Alice',
+        recipientDisplayName: 'Bob',
+      );
+
+      expect(await alice.isFollowing('bob'), isTrue);
+      expect(await bob.friends('bob'), ['alice']);
+      expect(
+        (await bob.relationshipWith('alice')).status,
+        UserRelationshipStatus.friends,
+      );
 
       await bob.unfollowUser('alice');
 
       expect(await bob.isFollowing('alice'), isFalse);
       expect(await bob.following('bob'), isEmpty);
       expect(await alice.followers('alice'), isEmpty);
+      expect(await bob.followers('bob'), ['alice']);
+      expect(
+        (await bob.relationshipWith('alice')).status,
+        UserRelationshipStatus.followsMe,
+      );
     },
   );
 
-  test('suggests movies to followers and marks suggestions read', () async {
+  test('cancels declines and blocks follow requests locally', () async {
+    final charlie = SocialRepository(localUserId: 'charlie');
+    final dora = SocialRepository(localUserId: 'dora');
+
+    await charlie.followUser('dora');
+
+    expect(
+      (await charlie.relationshipWith('dora')).status,
+      UserRelationshipStatus.requested,
+    );
+    expect(await dora.followRequestsForAlerts(), hasLength(1));
+
+    await charlie.cancelFollowRequest('dora');
+
+    expect(await dora.followRequestsForAlerts(), isEmpty);
+    expect(
+      (await charlie.relationshipWith('dora')).status,
+      UserRelationshipStatus.none,
+    );
+
+    await charlie.followUser('dora');
+    final request = (await dora.followRequestsForAlerts()).single;
+
+    await dora.declineFollowRequest(request.id);
+
+    expect(await charlie.isFollowing('dora'), isFalse);
+    expect(await dora.followRequestsForAlerts(), isEmpty);
+    expect(
+      (await charlie.relationshipWith('dora')).status,
+      UserRelationshipStatus.none,
+    );
+
+    await dora.blockUser('charlie');
+    await charlie.followUser('dora');
+
+    expect(await dora.followRequestsForAlerts(), isEmpty);
+  });
+
+  test('suggests movies to friends and marks suggestions read', () async {
     final alice = SocialRepository(localUserId: 'alice');
     final bob = SocialRepository(localUserId: 'bob');
+    final charlie = SocialRepository(localUserId: 'charlie');
 
     await bob.followUser(
       'alice',
@@ -303,10 +377,15 @@ void main() {
     await alice.acceptFollowRequest(
       (await alice.followRequestsForAlerts()).single.id,
     );
+    await alice.followUser(
+      'bob',
+      requesterDisplayName: 'Alice',
+      recipientDisplayName: 'Bob',
+    );
 
     await alice.suggestMovie(
       item,
-      recipientIds: const ['bob'],
+      recipientIds: const ['bob', 'charlie'],
       senderDisplayName: 'Alice',
     );
 
@@ -321,6 +400,7 @@ void main() {
     await bob.markMovieSuggestionRead(suggestions.single.id);
 
     expect((await bob.movieSuggestions()).single.isUnread, isFalse);
+    expect(await charlie.movieSuggestions(), isEmpty);
   });
 
   test('local review like comment and delete update review state', () async {

@@ -68,7 +68,33 @@ void main() {
     expect(state.followRequests.single.requesterDisplayName, 'Mira');
     expect(state.suggestions, hasLength(1));
     expect(state.suggestions.single.senderDisplayName, 'Ijas');
+    expect(state.followUnreadCount, 1);
     expect(state.suggestionUnreadCount, 1);
+    expect(state.unreadCount, 7);
+  });
+
+  test('mark all read clears accepted notices and suggestions', () async {
+    final socialRepository = _MixedAlertsSocialRepository();
+    final container = ProviderContainer(
+      overrides: [
+        tmdbRepositoryProvider.overrideWithValue(_AlertsTmdbRepository()),
+        socialRepositoryProvider.overrideWithValue(socialRepository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(alertsViewModelProvider.notifier).load();
+
+    expect(container.read(alertsViewModelProvider).unreadCount, 8);
+
+    container.read(alertsViewModelProvider.notifier).markAllRead();
+    final state = container.read(alertsViewModelProvider);
+
+    expect(state.tmdbUnreadCount, 0);
+    expect(state.suggestionUnreadCount, 0);
+    expect(state.followRequests, hasLength(1));
+    expect(state.followRequests.single.status, FollowRequestStatus.pending);
+    expect(state.unreadCount, 1);
   });
 
   test('alerts view model exposes failures instead of dummy data', () async {
@@ -88,6 +114,13 @@ void main() {
 }
 
 class _AlertsSocialRepository extends SocialRepository {
+  final suggestion = MovieSuggestion.create(
+    senderId: 'member-3',
+    recipientId: 'local-user',
+    senderDisplayName: 'Ijas',
+    content: _item('movie-7', 'Sinners'),
+  );
+
   @override
   Future<List<FollowRequest>> followRequestsForAlerts() async {
     return [
@@ -102,12 +135,30 @@ class _AlertsSocialRepository extends SocialRepository {
 
   @override
   Future<List<MovieSuggestion>> movieSuggestions() async {
+    return [suggestion];
+  }
+
+  @override
+  Future<void> markMovieSuggestionRead(String suggestionId) async {}
+
+  @override
+  Future<void> markFollowRequestNoticeRead(String requestId) async {}
+}
+
+class _MixedAlertsSocialRepository extends _AlertsSocialRepository {
+  @override
+  Future<List<FollowRequest>> followRequestsForAlerts() async {
     return [
-      MovieSuggestion.create(
-        senderId: 'member-3',
-        recipientId: 'local-user',
-        senderDisplayName: 'Ijas',
-        content: _item('movie-7', 'Sinners'),
+      ...await super.followRequestsForAlerts(),
+      FollowRequest(
+        id: 'accepted-follow-request',
+        requesterId: 'local-user',
+        recipientId: 'member-4',
+        requesterDisplayName: 'Ijas',
+        recipientDisplayName: 'Noor',
+        status: FollowRequestStatus.accepted,
+        createdAt: DateTime(2026),
+        respondedAt: DateTime(2026, 1, 2),
       ),
     ];
   }

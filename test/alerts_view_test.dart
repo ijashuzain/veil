@@ -52,6 +52,12 @@ void main() {
     expect(find.text('Alerts'), findsWidgets);
     expect(find.text('Suggestions'), findsOneWidget);
     expect(find.text('Mira sent you a follow request'), findsOneWidget);
+    expect(find.text('Noor accepted your follow request'), findsOneWidget);
+
+    await tester.tap(find.text('Dismiss'));
+    await tester.pump();
+
+    expect(find.text('Noor accepted your follow request'), findsNothing);
 
     await tester.tap(find.text('Suggestions'));
     await tester.pump();
@@ -70,6 +76,16 @@ class _AlertsSocialRepository extends SocialRepository {
         requesterDisplayName: 'Mira',
         recipientDisplayName: 'Ijas',
       ),
+      FollowRequest(
+        id: 'accepted-follow-request',
+        requesterId: 'local-user',
+        recipientId: 'member-4',
+        requesterDisplayName: 'Ijas',
+        recipientDisplayName: 'Noor',
+        status: FollowRequestStatus.accepted,
+        createdAt: DateTime(2026),
+        respondedAt: DateTime(2026, 1, 2),
+      ),
     ];
   }
 
@@ -84,6 +100,9 @@ class _AlertsSocialRepository extends SocialRepository {
       ),
     ];
   }
+
+  @override
+  Future<void> markFollowRequestNoticeRead(String requestId) async {}
 }
 
 class _AlertsTmdbRepository extends TmdbRepository {

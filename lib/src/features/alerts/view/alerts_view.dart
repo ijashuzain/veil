@@ -235,6 +235,13 @@ class _FollowRequestTile extends ConsumerWidget {
               style: FilledButton.styleFrom(backgroundColor: VeilColors.red),
               child: const Text('Accept'),
             ),
+          ] else ...[
+            TextButton(
+              onPressed: () => ref
+                  .read(alertsViewModelProvider.notifier)
+                  .markFollowRequestNoticeRead(request.id),
+              child: const Text('Dismiss'),
+            ),
           ],
         ],
       ),
