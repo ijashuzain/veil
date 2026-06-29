@@ -203,10 +203,7 @@ class _SearchViewState extends ConsumerState<SearchView> {
                       for (final user in users)
                         _UserResult(
                           user: user,
-                          onTap: () => UserProfileRoute(
-                            id: user.userId,
-                            displayName: user.displayName,
-                          ).push(context),
+                          onTap: () => _openUserResult(user),
                         ),
                     ],
                   ),
@@ -238,10 +235,7 @@ class _SearchViewState extends ConsumerState<SearchView> {
                         for (final item in visibleResults.take(8))
                           _SearchResult(
                             item: item,
-                            onTap: () => DetailRoute(
-                              id: item.id,
-                              $extra: item,
-                            ).push(context),
+                            onTap: () => _openContentResult(item),
                           ),
                       ],
                     ),
@@ -324,18 +318,32 @@ class _SearchViewState extends ConsumerState<SearchView> {
 
   Future<void> _runSearch(String value) async {
     await ref.read(searchViewModelProvider.notifier).search(value);
-    if (!mounted) return;
-    _rememberSearch(value);
   }
 
-  void _rememberSearch(String value) {
+  void _openUserResult(_SearchUser user) {
+    _rememberSearch(user.displayName, scope: _SearchScope.users);
+    UserProfileRoute(
+      id: user.userId,
+      displayName: user.displayName,
+    ).push(context);
+  }
+
+  void _openContentResult(ContentItem item) {
+    _rememberSearch(
+      item.title,
+      scope: _isCastResult(item) ? _SearchScope.cast : _SearchScope.films,
+    );
+    DetailRoute(id: item.id, $extra: item).push(context);
+  }
+
+  void _rememberSearch(String value, {required _SearchScope scope}) {
     final query = value.trim();
     if (query.isEmpty) return;
     setState(() {
       _recentSearches.removeWhere(
         (search) => search.query.toLowerCase() == query.toLowerCase(),
       );
-      _recentSearches.insert(0, _RecentSearch(query: query, scope: _scope));
+      _recentSearches.insert(0, _RecentSearch(query: query, scope: scope));
       if (_recentSearches.length > 5) {
         _recentSearches.removeRange(5, _recentSearches.length);
       }

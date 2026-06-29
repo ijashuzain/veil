@@ -4,11 +4,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide LocalStorage;
 import 'package:veil/app/services/api_services/api_service.dart';
 import 'package:veil/app/services/local_storage_services/local_storage_services.dart';
 import 'package:veil/main.dart';
+import 'package:veil/src/core/router/route_paths.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/auth/repository/auth_repository.dart';
@@ -770,6 +772,169 @@ void main() {
     expect(player.fallbackUrls, isEmpty);
   });
 
+  testWidgets('detail server four appears in playback server sheet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: const MaterialApp(home: DetailView(item: _wakanda)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byKey(const ValueKey('playback-server-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('playback-server-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('playback-server-3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('playback-server-4')), findsOneWidget);
+  });
+
+  testWidgets('detail server four opens movie VidLink in web player', (
+    tester,
+  ) async {
+    var launcherCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _wakanda,
+            externalPlaybackPolicy:
+                ({required isWeb, required viewportWidth}) => true,
+            externalPlayerLauncher: (_) async {
+              launcherCalls += 1;
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-4')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(launcherCalls, 0);
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    final player = tester.widget<FullscreenLandscapeWebPlayer>(
+      find.byType(FullscreenLandscapeWebPlayer),
+    );
+    expect(
+      player.url,
+      'https://vidlink.pro/movie/505642?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
+    );
+    expect(player.fallbackUrls, isEmpty);
+    expect(player.loadAsPage, isTrue);
+  });
+
+  testWidgets('detail server four asks for tv episode before VidLink playback', (
+    tester,
+  ) async {
+    const detail = ContentDetail(item: _arcane, seasons: 3, episodes: 24);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(
+            _arcane,
+          ).overrideWithValue(const DetailViewState(detail: detail)),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(home: DetailView(item: _arcane)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-4')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    expect(
+      find.byKey(const ValueKey('detail-season-episode-panel')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('playback-season-increment')));
+    await tester.tap(find.byKey(const ValueKey('playback-episode-increment')));
+    await tester.tap(find.byKey(const ValueKey('playback-episode-increment')));
+    await tester.pump();
+
+    expect(find.text('Season 2'), findsOneWidget);
+    expect(find.text('Episode 3'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('playback-season-episode-play')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    final player = tester.widget<FullscreenLandscapeWebPlayer>(
+      find.byType(FullscreenLandscapeWebPlayer),
+    );
+    expect(
+      player.url,
+      'https://vidlink.pro/tv/94605/2/3?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
+    );
+    expect(player.fallbackUrls, isEmpty);
+    expect(player.loadAsPage, isTrue);
+  });
+
+  testWidgets('detail server four shows unavailable when TMDB id is missing', (
+    tester,
+  ) async {
+    final item = _wakanda.copyWith(remoteId: 0, imdbId: 'tt9114286');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(item).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(item)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(home: DetailView(item: item)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-4')));
+    await tester.pump();
+
+    expect(
+      find.text('TMDB id is not available for this title yet.'),
+      findsOneWidget,
+    );
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    expect(find.byType(FullscreenLandscapeWebPlayer), findsNothing);
+  });
+
   testWidgets('detail server one asks for tv episode before Vidsrc playback', (
     tester,
   ) async {
@@ -1136,6 +1301,33 @@ void main() {
     expect(vidsrcPlaybackUrl(contentType: 'Movie'), isNull);
   });
 
+  test('vidlink playback urls use tmdb movie and tv paths', () {
+    expect(
+      vidlinkPlaybackUrl(tmdbId: 505642, contentType: 'Movie').toString(),
+      'https://vidlink.pro/movie/505642?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
+    );
+    expect(
+      vidlinkPlaybackUrl(
+        tmdbId: 94605,
+        contentType: 'TV Show',
+        season: 2,
+        episode: 3,
+      ).toString(),
+      'https://vidlink.pro/tv/94605/2/3?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
+    );
+    expect(
+      vidlinkPlaybackUrl(
+        tmdbId: 94605,
+        contentType: 'Series',
+        season: 0,
+        episode: -1,
+      ).toString(),
+      'https://vidlink.pro/tv/94605/1/1?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
+    );
+    expect(vidlinkPlaybackUrl(tmdbId: 0, contentType: 'Movie'), isNull);
+    expect(vidlinkPlaybackUrl(contentType: 'Movie'), isNull);
+  });
+
   test('cine direct playback urls use movie and episode hls playlists', () {
     expect(
       cineDirectPlaybackUrl(tmdbId: 505642, contentType: 'Movie').toString(),
@@ -1307,6 +1499,73 @@ void main() {
         ),
       ),
       NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://ads.example.com/landing',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.prevent,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://cloudorchestranova.com/rcp/player',
+          isMainFrame: false,
+        ),
+      ),
+      NavigationDecision.navigate,
+    );
+  });
+
+  testWidgets('server four mobile player can load VidLink as a top-level page', (
+    tester,
+  ) async {
+    final platform = _FakeWebViewPlatform();
+    WebViewPlatform.instance = platform;
+    final vidlinkUrl = Uri.parse(
+      'https://vidlink.pro/movie/505642?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FullscreenLandscapeWebPlayer(
+          url: vidlinkUrl.toString(),
+          loadAsPage: true,
+          showCloseButton: false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(platform.controller.htmlLoads, isEmpty);
+    expect(platform.controller.requestLoads, [vidlinkUrl]);
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        NavigationRequest(url: vidlinkUrl.toString(), isMainFrame: true),
+      ),
+      NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url:
+              'https://vidlink.pro/tv/94605/2/3?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://vidlink.pro/anime/5/1/sub',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.prevent,
     );
     expect(
       await platform.navigationDelegate.onNavigationRequest?.call(
@@ -2271,7 +2530,21 @@ void main() {
     expect(tester.getTopLeft(find.text('Alerts')).dy, lessThan(36));
   });
 
-  testWidgets('search records and clears recent searches', (tester) async {
+  testWidgets('search records opened result titles as recent searches', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: RoutePaths.search,
+      routes: [
+        GoRoute(path: RoutePaths.search, builder: (_, _) => const SearchView()),
+        GoRoute(
+          path: RoutePaths.detail,
+          builder: (_, _) => const Scaffold(body: Text('Detail opened')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -2280,7 +2553,7 @@ void main() {
             const SocialLibraryViewState(),
           ),
         ],
-        child: const MaterialApp(home: SearchView()),
+        child: MaterialApp.router(routerConfig: router),
       ),
     );
     await tester.pump();
@@ -2292,8 +2565,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
 
+    expect(find.text('Arcane'), findsOneWidget);
+    expect(find.text('Recent searches'), findsNothing);
+
+    await tester.tap(find.text('Arcane'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detail opened'), findsOneWidget);
+
+    router.pop();
+    await tester.pumpAndSettle();
+
     expect(find.text('Recent searches'), findsOneWidget);
-    expect(find.text('arcane'), findsWidgets);
+    expect(find.text('Arcane'), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Text && widget.data == 'arcane',
+      ),
+      findsNothing,
+    );
     expect(find.text('Clear recent'), findsOneWidget);
 
     await tester.tap(find.text('Clear recent'));

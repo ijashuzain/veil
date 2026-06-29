@@ -420,6 +420,10 @@ class _DetailViewState extends ConsumerState<DetailView> {
             Navigator.of(sheetContext).pop();
             _openCinesrcServerPlayer(item);
           },
+          onServerFour: () {
+            Navigator.of(sheetContext).pop();
+            _openVidlinkServerPlayerFromDetail(detail);
+          },
         );
       },
     );
@@ -588,6 +592,82 @@ class _DetailViewState extends ConsumerState<DetailView> {
       );
     } catch (error) {
       debugPrint('Cannot open Vidsrc player URL: $error');
+      if (mounted) {
+        showVeilToast(context, 'Player is not available right now.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExtractingRedirectUrl = false);
+      }
+    }
+  }
+
+  void _openVidlinkServerPlayerFromDetail(ContentDetail detail) {
+    final item = detail.item;
+    if (!isTvPlaybackContent(item.type)) {
+      _openVidlinkServerPlayer(item);
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _openVidlinkEpisodeSheet(detail);
+    });
+  }
+
+  void _openVidlinkEpisodeSheet(ContentDetail detail) {
+    final item = detail.item;
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return DetailEpisodeSelectionSheet(
+          title: item.title,
+          year: item.year,
+          seasons: detail.seasons,
+          episodes: detail.episodes,
+          onPlay: (season, episode) {
+            Navigator.of(sheetContext).pop();
+            _openVidlinkServerPlayer(item, season: season, episode: episode);
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openVidlinkServerPlayer(
+    ContentItem item, {
+    int season = 1,
+    int episode = 1,
+  }) async {
+    if (_isExtractingRedirectUrl) return;
+
+    final embedUrl = vidlinkPlaybackUrl(
+      tmdbId: item.remoteId,
+      contentType: item.type,
+      season: season,
+      episode: episode,
+    );
+    if (embedUrl == null) {
+      showVeilToast(context, 'TMDB id is not available for this title yet.');
+      debugPrint(
+        'Cannot open VidLink player because TMDB id is missing for ${item.id}',
+      );
+      return;
+    }
+
+    setState(() => _isExtractingRedirectUrl = true);
+    try {
+      debugPrint('Opening VidLink player URL for ${embedUrl.host}');
+      await _openResolvedPlayerUrl(
+        contentId: '${item.remoteId}',
+        embedUrl: embedUrl,
+        fallbackUrls: const [],
+        forceEmbedded: true,
+        loadAsPage: true,
+      );
+    } catch (error) {
+      debugPrint('Cannot open VidLink player URL: $error');
       if (mounted) {
         showVeilToast(context, 'Player is not available right now.');
       }

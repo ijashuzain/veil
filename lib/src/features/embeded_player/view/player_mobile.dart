@@ -266,7 +266,15 @@ class _FullscreenLandscapeWebPlayerState
     final allowedHosts = {playerUri.host, 'vsembed.ru'};
     return uri.scheme == playerUri.scheme &&
         allowedHosts.contains(uri.host) &&
-        uri.path.startsWith('/embed/');
+        _isAllowedPlayerPagePath(uri);
+  }
+
+  bool _isAllowedPlayerPagePath(Uri uri) {
+    if (uri.path.startsWith('/embed/')) return true;
+    if (uri.host == 'vidlink.pro') {
+      return uri.path.startsWith('/movie/') || uri.path.startsWith('/tv/');
+    }
+    return false;
   }
 
   static String _buildSandboxedPlayerHtml(String url) {

@@ -9,6 +9,7 @@ class DetailPlaybackServerSheet extends StatelessWidget {
     required this.onServerOne,
     required this.onServerTwo,
     required this.onServerThree,
+    required this.onServerFour,
   });
 
   final String title;
@@ -16,6 +17,7 @@ class DetailPlaybackServerSheet extends StatelessWidget {
   final VoidCallback onServerOne;
   final VoidCallback onServerTwo;
   final VoidCallback onServerThree;
+  final VoidCallback onServerFour;
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +106,13 @@ class DetailPlaybackServerSheet extends StatelessWidget {
                   icon: Icons.video_file_rounded,
                   title: 'Server 3',
                   onTap: onServerThree,
+                ),
+                const SizedBox(height: 10),
+                _ServerButton(
+                  key: const ValueKey('playback-server-4'),
+                  icon: Icons.web_asset_rounded,
+                  title: 'Server 4',
+                  onTap: onServerFour,
                 ),
               ],
             ),

@@ -1,5 +1,12 @@
 import 'package:veil/src/core/config/app_environment.dart';
 
+const _vidlinkQueryParameters = {
+  'player': 'jw',
+  'primaryColor': 'FFFFFF',
+  'secondaryColor': '253034',
+  'iconColor': 'FFFFFF',
+};
+
 Uri playbackEntryUrl({
   required String imdbId,
   required bool isWeb,
@@ -87,6 +94,27 @@ Uri? vidsrcPlaybackUrl({
     isTv ? '/embed/tv' : '/embed/movie',
     queryParameters,
   );
+}
+
+Uri? vidlinkPlaybackUrl({
+  int? tmdbId,
+  String? contentType,
+  int season = 1,
+  int episode = 1,
+}) {
+  if (tmdbId == null || tmdbId <= 0) return null;
+
+  if (isTvPlaybackContent(contentType)) {
+    final safeSeason = season < 1 ? 1 : season;
+    final safeEpisode = episode < 1 ? 1 : episode;
+    return Uri.https(
+      'vidlink.pro',
+      '/tv/$tmdbId/$safeSeason/$safeEpisode',
+      _vidlinkQueryParameters,
+    );
+  }
+
+  return Uri.https('vidlink.pro', '/movie/$tmdbId', _vidlinkQueryParameters);
 }
 
 Uri cineDirectPlaybackUrl({
