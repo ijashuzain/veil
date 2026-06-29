@@ -60,6 +60,35 @@ Uri cinesrcPlaybackUrl({
   return Uri.https('cinesrc.st', '/embed/movie/$tmdbId');
 }
 
+Uri? vidsrcPlaybackUrl({
+  int? tmdbId,
+  String? imdbId,
+  String? contentType,
+  int season = 1,
+  int episode = 1,
+}) {
+  final cleanImdbId = imdbId?.trim() ?? '';
+  final hasTmdbId = tmdbId != null && tmdbId > 0;
+  if (!hasTmdbId && cleanImdbId.isEmpty) return null;
+
+  final isTv = isTvPlaybackContent(contentType);
+  final queryParameters = <String, String>{
+    if (hasTmdbId) 'tmdb': '$tmdbId' else 'imdb': cleanImdbId,
+    if (isTv) ...{
+      'season': '${season < 1 ? 1 : season}',
+      'episode': '${episode < 1 ? 1 : episode}',
+    },
+    'autoplay': '1',
+    if (isTv) 'autonext': '1',
+  };
+
+  return Uri.https(
+    'vidsrc-embed.ru',
+    isTv ? '/embed/tv' : '/embed/movie',
+    queryParameters,
+  );
+}
+
 Uri cineDirectPlaybackUrl({
   required int tmdbId,
   String? contentType,

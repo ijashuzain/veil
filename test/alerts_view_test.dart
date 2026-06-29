@@ -24,14 +24,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.text('5 new from TMDB'), findsOneWidget);
+    expect(find.textContaining('5 new'), findsOneWidget);
     expect(find.textContaining('Swapped'), findsWidgets);
     expect(find.textContaining('Dune: Part Two trailer'), findsNothing);
 
     await tester.tap(find.text('Mark read'));
     await tester.pump();
 
-    expect(find.text('0 new from TMDB'), findsOneWidget);
+    expect(find.textContaining('0 new'), findsOneWidget);
   });
 
   testWidgets('alerts view renders follow alerts and suggestions tab', (

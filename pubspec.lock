@@ -9,6 +9,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "92.0.0"
+  adblocker_core:
+    dependency: transitive
+    description:
+      name: adblocker_core
+      sha256: "9a082b9769241ff9932ef597d01ef36c38165655dcefe391a08899f339c2686f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  adblocker_manager:
+    dependency: transitive
+    description:
+      name: adblocker_manager
+      sha256: "14f55f9e9d7ca9baca69768fc188d3d509ac1934e90bcb08d7d5f2ccbc2e3b99"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  adblocker_webview:
+    dependency: "direct main"
+    description:
+      name: adblocker_webview
+      sha256: "270adcc354462dee5c4ae850134af7271c1681e0c6b03f5efdf6f01c573a1936"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
   analyzer:
     dependency: transitive
     description:
@@ -1403,7 +1427,7 @@ packages:
     source: hosted
     version: "4.13.1"
   webview_flutter_android:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: webview_flutter_android
       sha256: ad5182eff9a550925330cb9f0cb038eddfdd5712aba8b77aa0f0400e50f6e688
@@ -1419,7 +1443,7 @@ packages:
     source: hosted
     version: "2.15.1"
   webview_flutter_wkwebview:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: webview_flutter_wkwebview
       sha256: "82648217f537573e1ca9ae9952d3eacedca6ab5aee69dc84445fc763766dcea2"

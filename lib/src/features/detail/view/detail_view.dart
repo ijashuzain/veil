@@ -19,10 +19,8 @@ import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_suggestion_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_social_action_sheet.dart';
 import 'package:veil/src/features/embeded_player/utils/compact_web_player_policy.dart';
-import 'package:veil/src/features/embeded_player/utils/direct_stream_availability.dart';
 import 'package:veil/src/features/embeded_player/utils/external_player_launcher.dart';
 import 'package:veil/src/features/embeded_player/utils/redirect_url_extractor.dart';
-import 'package:veil/src/features/embeded_player/view/direct_video_player.dart';
 import 'package:veil/src/features/embeded_player/view/player.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
@@ -42,7 +40,6 @@ typedef ClipLauncher = Future<bool> Function(Uri url);
 typedef ExternalPlayerLauncher = Future<bool> Function(List<Uri> urls);
 typedef ExternalPlaybackPolicy =
     bool Function({required bool isWeb, required double viewportWidth});
-typedef DirectStreamAvailabilityChecker = Future<bool> Function(Uri url);
 
 class DetailView extends ConsumerStatefulWidget {
   const DetailView({
@@ -54,7 +51,6 @@ class DetailView extends ConsumerStatefulWidget {
     this.clipLauncher,
     this.externalPlayerLauncher = openExternalPlayerCandidates,
     this.externalPlaybackPolicy = shouldOpenPlayerExternally,
-    this.directStreamAvailabilityChecker = isDirectStreamAvailable,
   });
 
   final ContentItem item;
@@ -64,7 +60,6 @@ class DetailView extends ConsumerStatefulWidget {
   final ClipLauncher? clipLauncher;
   final ExternalPlayerLauncher externalPlayerLauncher;
   final ExternalPlaybackPolicy externalPlaybackPolicy;
-  final DirectStreamAvailabilityChecker directStreamAvailabilityChecker;
 
   @override
   ConsumerState<DetailView> createState() => _DetailViewState();
@@ -415,7 +410,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
           year: item.year,
           onServerOne: () {
             Navigator.of(sheetContext).pop();
-            _openCineDirectServerPlayerFromDetail(detail);
+            _openVidsrcServerPlayerFromDetail(detail);
           },
           onServerTwo: () {
             Navigator.of(sheetContext).pop();
@@ -522,20 +517,20 @@ class _DetailViewState extends ConsumerState<DetailView> {
     }
   }
 
-  void _openCineDirectServerPlayerFromDetail(ContentDetail detail) {
+  void _openVidsrcServerPlayerFromDetail(ContentDetail detail) {
     final item = detail.item;
     if (!isTvPlaybackContent(item.type)) {
-      _openCineDirectServerPlayer(item);
+      _openVidsrcServerPlayer(item);
       return;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _openCineDirectEpisodeSheet(detail);
+      _openVidsrcEpisodeSheet(detail);
     });
   }
 
-  void _openCineDirectEpisodeSheet(ContentDetail detail) {
+  void _openVidsrcEpisodeSheet(ContentDetail detail) {
     final item = detail.item;
     showVeilBottomSheet<void>(
       context: context,
@@ -548,66 +543,53 @@ class _DetailViewState extends ConsumerState<DetailView> {
           episodes: detail.episodes,
           onPlay: (season, episode) {
             Navigator.of(sheetContext).pop();
-            _openCineDirectServerPlayer(item, season: season, episode: episode);
+            _openVidsrcServerPlayer(item, season: season, episode: episode);
           },
         );
       },
     );
   }
 
-  Future<void> _openCineDirectServerPlayer(
+  Future<void> _openVidsrcServerPlayer(
     ContentItem item, {
     int season = 1,
     int episode = 1,
   }) async {
     if (_isExtractingRedirectUrl) return;
 
-    final tmdbId = item.remoteId;
-    if (tmdbId == null || tmdbId <= 0) {
-      showVeilToast(context, 'TMDB id is not available for this title yet.');
+    final embedUrl = vidsrcPlaybackUrl(
+      tmdbId: item.remoteId,
+      imdbId: item.imdbId,
+      contentType: item.type,
+      season: season,
+      episode: episode,
+    );
+    if (embedUrl == null) {
+      showVeilToast(
+        context,
+        'Playback id is not available for this title yet.',
+      );
       debugPrint(
-        'Cannot open cine direct player because TMDB id is missing for '
+        'Cannot open Vidsrc player because playback ids are missing for '
         '${item.id}',
       );
       return;
     }
 
-    final streamUrl = cineDirectPlaybackUrl(
-      tmdbId: tmdbId,
-      contentType: item.type,
-      season: season,
-      episode: episode,
-    );
-
     setState(() => _isExtractingRedirectUrl = true);
     try {
-      final isAvailable = await widget.directStreamAvailabilityChecker(
-        streamUrl,
-      );
-      if (!mounted) return;
-      if (!isAvailable) {
-        await _openVidnestFallbackPlayer(
-          item,
-          tmdbId: tmdbId,
-          season: season,
-          episode: episode,
-        );
-        return;
-      }
-
-      debugPrint('Opening cine direct stream URL for $tmdbId');
-      Navigator.of(context, rootNavigator: true).push(
-        MaterialPageRoute(
-          builder: (_) => FullscreenLandscapeDirectVideoPlayer(
-            url: streamUrl.toString(),
-            title: item.title,
-          ),
-        ),
+      debugPrint('Opening Vidsrc player URL for ${embedUrl.host}');
+      await _openResolvedPlayerUrl(
+        contentId: item.remoteId?.toString() ?? item.imdbId?.trim() ?? item.id,
+        embedUrl: embedUrl,
+        fallbackUrls: const [],
+        forceEmbedded: true,
+        loadAsPage: true,
       );
     } catch (error) {
-      debugPrint('Cannot check cine direct stream for $tmdbId: $error');
+      debugPrint('Cannot open Vidsrc player URL: $error');
       if (mounted) {
-        showVeilToast(context, 'Video is not available right now.');
+        showVeilToast(context, 'Player is not available right now.');
       }
     } finally {
       if (mounted) {
@@ -616,33 +598,12 @@ class _DetailViewState extends ConsumerState<DetailView> {
     }
   }
 
-  Future<void> _openVidnestFallbackPlayer(
-    ContentItem item, {
-    required int tmdbId,
-    required int season,
-    required int episode,
-  }) async {
-    final embedUrl = vidnestPlaybackUrl(
-      tmdbId: tmdbId,
-      contentType: item.type,
-      season: season,
-      episode: episode,
-    );
-
-    debugPrint('Opening VidNest fallback URL for $tmdbId');
-    await _openResolvedPlayerUrl(
-      contentId: '$tmdbId',
-      embedUrl: embedUrl,
-      fallbackUrls: const [],
-      forceEmbedded: true,
-    );
-  }
-
   Future<void> _openResolvedPlayerUrl({
     required String contentId,
     required Uri embedUrl,
     required List<Uri> fallbackUrls,
     bool forceEmbedded = false,
+    bool loadAsPage = false,
   }) async {
     final viewportWidth = MediaQuery.sizeOf(context).width;
     if (!forceEmbedded &&
@@ -667,6 +628,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
         builder: (_) => FullscreenLandscapeWebPlayer(
           url: embedUrl.toString(),
           fallbackUrls: fallbackUrls,
+          loadAsPage: loadAsPage,
         ),
       ),
     );

@@ -12,11 +12,13 @@ class FullscreenLandscapeWebPlayer extends StatefulWidget {
     super.key,
     required this.url,
     this.fallbackUrls = const [],
+    this.loadAsPage = false,
     this.showCloseButton = true,
   });
 
   final String url;
   final List<Uri> fallbackUrls;
+  final bool loadAsPage;
   final bool showCloseButton;
 
   @override

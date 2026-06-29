@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:the_responsive_builder/the_responsive_builder.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/router/app_router.dart';
@@ -8,7 +7,6 @@ import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/auth/utils/auth_display_name.dart';
 import 'package:veil/src/features/auth/view_model/auth_view_model/auth_view_model.dart';
 import 'package:veil/src/features/letterboxd/view/letterboxd_import_export_sheet.dart';
-import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
@@ -81,11 +79,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
               const SizedBox(height: 16),
               _SettingsSection(
                 children: [
-                  // _SettingsRow(
-                  //   icon: Icons.history_rounded,
-                  //   label: 'My Activity',
-                  //   onTap: () => _openActivityPage(social.entries),
-                  // ),
                   _SettingsRow(
                     icon: Icons.import_export_rounded,
                     label: 'Letterboxd Import/Export',
@@ -123,8 +116,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                 ],
               ),
               const SizedBox(height: 12),
-              // const _TmdbAttributionCard(),
-              // const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -196,14 +187,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           emptyText: emptyText,
           actionLabel: actionLabel,
         ),
-      ),
-    );
-  }
-
-  void _openActivityPage(List<SocialEntry> entries) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _ProfileActivityPage(entries: entries),
       ),
     );
   }
@@ -396,35 +379,6 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-class _TmdbAttributionCard extends StatelessWidget {
-  const _TmdbAttributionCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 100.w,
-      decoration: BoxDecoration(
-        color: VeilColors.panel.withValues(alpha: .82),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: VeilColors.hairline),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(14),
-        child: Center(
-          child: Text(
-            'This product uses TMDB and the TMDB APIs.',
-            style: TextStyle(
-              color: VeilColors.text3,
-              fontSize: 10,
-              height: 1.45,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SettingsSection extends StatelessWidget {
   const _SettingsSection({required this.children});
 
@@ -537,38 +491,6 @@ class _ProfileMembersPage extends StatelessWidget {
                 emptyText: emptyText,
                 actionLabel: actionLabel,
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileActivityPage extends StatelessWidget {
-  const _ProfileActivityPage({required this.entries});
-
-  final List<SocialEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: VeilColors.bg1,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          0,
-          VeilLayout.pageTopPadding(context),
-          0,
-          28,
-        ),
-        child: AdaptiveContent(
-          maxWidth: VeilLayout.readableMaxWidth(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _PageHeader(title: 'My Activity'),
-              const SizedBox(height: 18),
-              _ActivityList(entries: entries),
             ],
           ),
         ),
@@ -819,54 +741,6 @@ class _MemberRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ActivityList extends StatelessWidget {
-  const _ActivityList({required this.entries});
-
-  final List<SocialEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    if (entries.isEmpty) {
-      return const _EmptyPanel(text: 'No activity yet');
-    }
-    return Column(
-      children: [
-        for (final entry in entries.take(6))
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: VeilColors.panel,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: VeilColors.hairline),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  entry.review.trim().isEmpty
-                      ? Icons.visibility_rounded
-                      : Icons.rate_review_rounded,
-                  color: VeilColors.red,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    entry.review.trim().isEmpty
-                        ? 'Watched ${entry.title}'
-                        : 'Reviewed ${entry.title}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }

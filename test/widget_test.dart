@@ -55,7 +55,7 @@ void main() {
     );
 
     expect(find.text('VEIL'), findsWidgets);
-    expect(find.textContaining('your watch diary'), findsOneWidget);
+    expect(find.textContaining('Discover movies'), findsOneWidget);
     expect(find.textContaining('streaming'), findsNothing);
   });
 
@@ -381,7 +381,7 @@ void main() {
     );
   });
 
-  testWidgets('profile shows support and TMDB attribution', (tester) async {
+  testWidgets('profile shows support and account links', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
@@ -397,13 +397,9 @@ void main() {
     expect(find.text('TMDB account'), findsNothing);
     expect(find.text('Connect TMDB'), findsNothing);
     expect(find.text('Disconnect TMDB'), findsNothing);
+    expect(find.text('Letterboxd Import/Export'), findsOneWidget);
     expect(find.text('Support & Safety'), findsOneWidget);
-    expect(
-      find.text(
-        'This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.textContaining('This product uses TMDB'), findsNothing);
   });
 
   testWidgets('app router stays stable through responsive metric changes', (
@@ -755,12 +751,7 @@ void main() {
           ),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
-        child: MaterialApp(
-          home: DetailView(
-            item: _arcane,
-            directStreamAvailabilityChecker: (_) async => true,
-          ),
-        ),
+        child: MaterialApp(home: DetailView(item: _arcane)),
       ),
     );
     await tester.pump();
@@ -779,7 +770,7 @@ void main() {
     expect(player.fallbackUrls, isEmpty);
   });
 
-  testWidgets('detail server one asks for tv episode before direct stream', (
+  testWidgets('detail server one asks for tv episode before Vidsrc playback', (
     tester,
   ) async {
     const detail = ContentDetail(item: _arcane, seasons: 3, episodes: 24);
@@ -792,12 +783,7 @@ void main() {
           ).overrideWithValue(const DetailViewState(detail: detail)),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
-        child: MaterialApp(
-          home: DetailView(
-            item: _arcane,
-            directStreamAvailabilityChecker: (_) async => true,
-          ),
-        ),
+        child: MaterialApp(home: DetailView(item: _arcane)),
       ),
     );
     await tester.pump();
@@ -829,43 +815,33 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.byType(FullscreenLandscapeWebPlayer), findsNothing);
-    final player = tester.widget<FullscreenLandscapeDirectVideoPlayer>(
-      find.byType(FullscreenLandscapeDirectVideoPlayer),
+    expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+    final player = tester.widget<FullscreenLandscapeWebPlayer>(
+      find.byType(FullscreenLandscapeWebPlayer),
     );
     expect(
       player.url,
-      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
-      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Ftv%2F94605%2F2%2F3.m3u8',
+      'https://vidsrc-embed.ru/embed/tv?tmdb=94605&season=2&episode=3&autoplay=1&autonext=1',
     );
+    expect(player.fallbackUrls, isEmpty);
+    expect(player.loadAsPage, isTrue);
   });
 
-  testWidgets('detail server one falls back to vidnest for tv episode', (
+  testWidgets('detail server one uses IMDb fallback for tv episode', (
     tester,
   ) async {
-    const detail = ContentDetail(item: _arcane, seasons: 3, episodes: 24);
-    var launcherCalls = 0;
+    final item = _arcane.copyWith(remoteId: 0, imdbId: 'tt0944947');
+    final detail = ContentDetail(item: item, seasons: 3, episodes: 24);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           detailViewModelProvider(
-            _arcane,
-          ).overrideWithValue(const DetailViewState(detail: detail)),
+            item,
+          ).overrideWithValue(DetailViewState(detail: detail)),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
-        child: MaterialApp(
-          home: DetailView(
-            item: _arcane,
-            externalPlaybackPolicy:
-                ({required isWeb, required viewportWidth}) => true,
-            externalPlayerLauncher: (_) async {
-              launcherCalls += 1;
-              return true;
-            },
-            directStreamAvailabilityChecker: (_) async => false,
-          ),
-        ),
+        child: MaterialApp(home: DetailView(item: item)),
       ),
     );
     await tester.pump();
@@ -888,19 +864,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(launcherCalls, 0);
     expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
       find.byType(FullscreenLandscapeWebPlayer),
     );
     expect(
       player.url,
-      'https://vidnest.fun/tv/94605/2/3?muted=0&mute=0&volume=100',
+      'https://vidsrc-embed.ru/embed/tv?imdb=tt0944947&season=2&episode=3&autoplay=1&autonext=1',
     );
     expect(player.fallbackUrls, isEmpty);
+    expect(player.loadAsPage, isTrue);
   });
 
-  testWidgets('detail server one opens movie cine proxy in the direct player', (
+  testWidgets('detail server one opens movie Vidsrc embed in web player', (
     tester,
   ) async {
     var launcherCalls = 0;
@@ -922,7 +898,6 @@ void main() {
               launcherCalls += 1;
               return true;
             },
-            directStreamAvailabilityChecker: (_) async => true,
           ),
         ),
       ),
@@ -936,63 +911,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(launcherCalls, 0);
-    expect(find.byType(FullscreenLandscapeWebPlayer), findsNothing);
-    final player = tester.widget<FullscreenLandscapeDirectVideoPlayer>(
-      find.byType(FullscreenLandscapeDirectVideoPlayer),
-    );
-    expect(
-      player.url,
-      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
-      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Fmovie%2F505642.m3u8',
-    );
-  });
-
-  testWidgets('detail server one falls back to vidnest when cine is missing', (
-    tester,
-  ) async {
-    var checkedUrl = '';
-    var launcherCalls = 0;
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          detailViewModelProvider(_wakanda).overrideWithValue(
-            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
-          ),
-          currentUserIsPremiumProvider.overrideWith((ref) async => true),
-        ],
-        child: MaterialApp(
-          home: DetailView(
-            item: _wakanda,
-            externalPlaybackPolicy:
-                ({required isWeb, required viewportWidth}) => true,
-            externalPlayerLauncher: (_) async {
-              launcherCalls += 1;
-              return true;
-            },
-            directStreamAvailabilityChecker: (url) async {
-              checkedUrl = url.toString();
-              return false;
-            },
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    await tester.tap(find.text('Play'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-
-    expect(
-      checkedUrl,
-      'https://verlsbmdqggejpfmvzue.supabase.co/functions/v1/proxy?url='
-      'https%3A%2F%2Fcine.su%2Fv1%2Fstream%2Fmaster%2Fmovie%2F505642.m3u8',
-    );
     expect(launcherCalls, 0);
     expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
@@ -1000,10 +918,45 @@ void main() {
     );
     expect(
       player.url,
-      'https://vidnest.fun/movie/505642?muted=0&mute=0&volume=100',
+      'https://vidsrc-embed.ru/embed/movie?tmdb=505642&autoplay=1',
     );
     expect(player.fallbackUrls, isEmpty);
+    expect(player.loadAsPage, isTrue);
   });
+
+  testWidgets(
+    'detail server sheet shows unavailable when playback ids are missing',
+    (tester) async {
+      final item = _wakanda.copyWith(remoteId: 0);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            detailViewModelProvider(item).overrideWithValue(
+              DetailViewState(detail: ContentDetail.fallback(item)),
+            ),
+            currentUserIsPremiumProvider.overrideWith((ref) async => true),
+          ],
+          child: MaterialApp(home: DetailView(item: item)),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Play'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        find.text('Playback id is not available for this title yet.'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('detail-playback-server-panel')),
+        findsNothing,
+      );
+      expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
+      expect(find.byType(FullscreenLandscapeWebPlayer), findsNothing);
+    },
+  );
 
   testWidgets(
     'detail server three stays embedded when compact web externalizes',
@@ -1148,6 +1101,41 @@ void main() {
     );
   });
 
+  test('vidsrc playback urls use tmdb first and imdb fallback', () {
+    expect(
+      vidsrcPlaybackUrl(tmdbId: 505642, contentType: 'Movie').toString(),
+      'https://vidsrc-embed.ru/embed/movie?tmdb=505642&autoplay=1',
+    );
+    expect(
+      vidsrcPlaybackUrl(
+        tmdbId: 0,
+        imdbId: 'tt9114286',
+        contentType: 'Movie',
+      ).toString(),
+      'https://vidsrc-embed.ru/embed/movie?imdb=tt9114286&autoplay=1',
+    );
+    expect(
+      vidsrcPlaybackUrl(
+        tmdbId: 94605,
+        imdbId: 'tt0944947',
+        contentType: 'TV Show',
+        season: 2,
+        episode: 3,
+      ).toString(),
+      'https://vidsrc-embed.ru/embed/tv?tmdb=94605&season=2&episode=3&autoplay=1&autonext=1',
+    );
+    expect(
+      vidsrcPlaybackUrl(
+        imdbId: 'tt0944947',
+        contentType: 'Series',
+        season: 0,
+        episode: -1,
+      ).toString(),
+      'https://vidsrc-embed.ru/embed/tv?imdb=tt0944947&season=1&episode=1&autoplay=1&autonext=1',
+    );
+    expect(vidsrcPlaybackUrl(contentType: 'Movie'), isNull);
+  });
+
   test('cine direct playback urls use movie and episode hls playlists', () {
     expect(
       cineDirectPlaybackUrl(tmdbId: 505642, contentType: 'Movie').toString(),
@@ -1261,7 +1249,11 @@ void main() {
     expect(platform.controller.htmlLoads, hasLength(1));
     expect(
       platform.controller.htmlLoads.single,
-      contains(primaryUrl.toString()),
+      contains(htmlEscape.convert(primaryUrl.toString())),
+    );
+    expect(
+      platform.controller.htmlLoads.single,
+      contains('allow-popups allow-popups-to-escape-sandbox'),
     );
 
     platform.navigationDelegate.onHttpError?.call(
@@ -1276,6 +1268,63 @@ void main() {
     expect(
       platform.controller.htmlLoads.last,
       contains(htmlEscape.convert(fallbackUrl.toString())),
+    );
+  });
+
+  testWidgets('mobile player can load Vidsrc as a top-level page', (
+    tester,
+  ) async {
+    final platform = _FakeWebViewPlatform();
+    WebViewPlatform.instance = platform;
+    final vidsrcUrl = Uri.parse(
+      'https://vidsrc-embed.ru/embed/movie?tmdb=505642&autoplay=1',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FullscreenLandscapeWebPlayer(
+          url: vidsrcUrl.toString(),
+          loadAsPage: true,
+          showCloseButton: false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(platform.controller.htmlLoads, isEmpty);
+    expect(platform.controller.requestLoads, [vidsrcUrl]);
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        NavigationRequest(url: vidsrcUrl.toString(), isMainFrame: true),
+      ),
+      NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://vsembed.ru/embed/movie?tmdb=505642&autoplay=1',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://ads.example.com/landing',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.prevent,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://cloudorchestranova.com/rcp/player',
+          isMainFrame: false,
+        ),
+      ),
+      NavigationDecision.navigate,
     );
   });
 
@@ -2287,8 +2336,8 @@ void main() {
     expect(find.text('Followers'), findsWidgets);
     expect(find.text('Reviews'), findsNothing);
     expect(find.text('Activity'), findsNothing);
-    expect(find.text('My Activity'), findsOneWidget);
-    expect(find.text('Import/Export'), findsOneWidget);
+    expect(find.text('My Activity'), findsNothing);
+    expect(find.text('Letterboxd Import/Export'), findsOneWidget);
     expect(find.text('Support & Safety'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
     expect(find.text('Terms and Conditions'), findsOneWidget);
@@ -2715,6 +2764,7 @@ class _FakeWebViewController extends PlatformWebViewController {
   _FakeWebViewController(super.params) : super.implementation();
 
   final List<String> htmlLoads = [];
+  final List<Uri> requestLoads = [];
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
@@ -2739,17 +2789,25 @@ class _FakeWebViewController extends PlatformWebViewController {
   Future<void> loadHtmlString(String html, {String? baseUrl}) async {
     htmlLoads.add(html);
   }
+
+  @override
+  Future<void> loadRequest(LoadRequestParams params) async {
+    requestLoads.add(params.uri);
+  }
 }
 
 class _FakeNavigationDelegate extends PlatformNavigationDelegate {
   _FakeNavigationDelegate(super.params) : super.implementation();
 
+  NavigationRequestCallback? onNavigationRequest;
   HttpResponseErrorCallback? onHttpError;
 
   @override
   Future<void> setOnNavigationRequest(
     NavigationRequestCallback onNavigationRequest,
-  ) async {}
+  ) async {
+    this.onNavigationRequest = onNavigationRequest;
+  }
 
   @override
   Future<void> setOnPageStarted(PageEventCallback onPageStarted) async {}

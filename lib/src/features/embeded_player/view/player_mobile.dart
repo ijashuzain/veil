@@ -1,20 +1,26 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:adblocker_webview/adblocker_webview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 class FullscreenLandscapeWebPlayer extends StatefulWidget {
   const FullscreenLandscapeWebPlayer({
     super.key,
     required this.url,
     this.fallbackUrls = const [],
+    this.loadAsPage = false,
     this.showCloseButton = true,
   });
 
   final String url;
   final List<Uri> fallbackUrls;
+  final bool loadAsPage;
   final bool showCloseButton;
 
   @override
@@ -27,10 +33,18 @@ class _FullscreenLandscapeWebPlayerState
   late final WebViewController _controller;
   late final List<String> _playerUrls;
   bool _isDisposed = false;
+  bool _isAdBlockerReady = false;
   int? _lastLoggedProgressBucket;
   int _currentUrlIndex = 0;
 
   static const _wrapperBaseUrl = 'https://flutter-player.local/';
+  static const _iOSSafariUserAgent =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) '
+      'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 '
+      'Mobile/15E148 Safari/604.1';
+  static final AdBlockerWebviewController _adBlocker =
+      AdBlockerWebviewController.instance;
+  static Future<void>? _adBlockerInitialization;
 
   @override
   void initState() {
@@ -46,16 +60,64 @@ class _FullscreenLandscapeWebPlayerState
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
-      ..setOnConsoleMessage(
-        (message) => _log(
-          'console level=${message.level.name} message='
-          '${_singleLine(message.message)}',
-        ),
-      )
       ..setNavigationDelegate(_buildNavigationDelegate());
 
-    _loadCurrentPlayerHtml();
+    unawaited(_prepareAndLoadPlayer());
+  }
+
+  Future<void> _prepareAndLoadPlayer() async {
+    await _configurePlatformWebView();
+    unawaited(_initializeAdBlocker());
+
+    if (_isDisposed) return;
+    _loadCurrentPlayer();
     unawaited(_logInitialUserAgent());
+  }
+
+  Future<void> _initializeAdBlocker() async {
+    try {
+      await _ensureAdBlockerInitialized();
+      if (_isDisposed) return;
+
+      _isAdBlockerReady = true;
+      _adBlocker.resetStatistics();
+    } catch (error) {
+      _log('adblocker unavailable: $error');
+    }
+  }
+
+  Future<void> _configurePlatformWebView() async {
+    if (Platform.isAndroid) {
+      try {
+        await AndroidWebViewController.enableDebugging(false);
+      } catch (error) {
+        _log('android webview debugging unchanged: $error');
+      }
+    }
+
+    final platformController = _controller.platform;
+    if (platformController is WebKitWebViewController) {
+      try {
+        await platformController.setInspectable(false);
+      } catch (error) {
+        _log('ios webview inspectability unchanged: $error');
+      }
+
+      try {
+        await _controller.setUserAgent(_iOSSafariUserAgent);
+      } catch (error) {
+        _log('ios user agent unchanged: $error');
+      }
+    }
+  }
+
+  static Future<void> _ensureAdBlockerInitialized() {
+    return _adBlockerInitialization ??= _adBlocker.initialize(
+      FilterConfig(
+        filterTypes: const [FilterType.easyList, FilterType.adGuard],
+        blockedDomains: const ['theajack.github.io'],
+      ),
+    );
   }
 
   NavigationDelegate _buildNavigationDelegate() {
@@ -63,10 +125,13 @@ class _FullscreenLandscapeWebPlayerState
       onNavigationRequest: (request) {
         // Block attempts to replace the wrapper page itself.
         // Sub-frame navigations are allowed so the embedded player can load.
+        final isBlockedResource = _shouldBlockResource(request.url);
         final isAllowed =
-            !request.isMainFrame || _isAllowedMainFrameUrl(request.url);
+            !isBlockedResource &&
+            (!request.isMainFrame || _isAllowedMainFrameUrl(request.url));
         _log(
           '${isAllowed ? 'allow' : 'block'} navigation '
+          '${isBlockedResource ? 'reason=adblock ' : ''}'
           'frame=${request.isMainFrame ? 'main' : 'sub'} '
           'url=${_summarizeUrl(request.url)}',
         );
@@ -117,6 +182,17 @@ class _FullscreenLandscapeWebPlayerState
     );
   }
 
+  bool _shouldBlockResource(String url) {
+    if (!_isAdBlockerReady) return false;
+
+    try {
+      return _adBlocker.shouldBlockResource(url);
+    } catch (error) {
+      _log('adblock check failed for ${_summarizeUrl(url)}: $error');
+      return false;
+    }
+  }
+
   void _handleHttpError(HttpResponseError error) {
     if (error.response?.statusCode != 404) return;
 
@@ -138,10 +214,16 @@ class _FullscreenLandscapeWebPlayerState
 
     _currentUrlIndex += 1;
     _log('load fallback iframe=${_summarizeUrl(_currentPlayerUrl)}');
-    _loadCurrentPlayerHtml();
+    _loadCurrentPlayer();
   }
 
-  void _loadCurrentPlayerHtml() {
+  void _loadCurrentPlayer() {
+    if (widget.loadAsPage) {
+      _log('load page=${_summarizeUrl(_currentPlayerUrl)}');
+      unawaited(_controller.loadRequest(Uri.parse(_currentPlayerUrl)));
+      return;
+    }
+
     _log('load wrapper base=$_wrapperBaseUrl');
     unawaited(
       _controller.loadHtmlString(
@@ -162,7 +244,9 @@ class _FullscreenLandscapeWebPlayerState
     }
   }
 
-  static bool _isAllowedMainFrameUrl(String url) {
+  bool _isAllowedMainFrameUrl(String url) {
+    if (widget.loadAsPage) return _isAllowedPlayerPageUrl(url);
+
     final uri = Uri.tryParse(url);
     if (uri == null) return false;
 
@@ -171,9 +255,22 @@ class _FullscreenLandscapeWebPlayerState
         url.startsWith(_wrapperBaseUrl);
   }
 
+  bool _isAllowedPlayerPageUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    if (uri.scheme == 'about' || uri.scheme == 'data') return true;
+
+    final playerUri = Uri.tryParse(_currentPlayerUrl);
+    if (playerUri == null) return false;
+
+    final allowedHosts = {playerUri.host, 'vsembed.ru'};
+    return uri.scheme == playerUri.scheme &&
+        allowedHosts.contains(uri.host) &&
+        uri.path.startsWith('/embed/');
+  }
+
   static String _buildSandboxedPlayerHtml(String url) {
     final escapedUrl = htmlEscape.convert(url);
-    final summarizedUrl = jsonEncode(_summarizeUrl(url));
 
     return '''
 <!doctype html>
@@ -205,46 +302,10 @@ class _FullscreenLandscapeWebPlayerState
 <body>
   <iframe
     src="$escapedUrl"
-    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-popups-to-escape-sandbox"
     allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
     referrerpolicy="origin">
   </iframe>
-  <script>
-    (function () {
-      const frame = document.querySelector('iframe');
-      console.log('[wrapper] boot iframe=' + $summarizedUrl);
-
-      frame.addEventListener('load', function () {
-        console.log('[wrapper] iframe load event src=' + frame.src);
-      });
-
-      frame.addEventListener('error', function () {
-        console.error('[wrapper] iframe error event src=' + frame.src);
-      });
-
-      window.addEventListener('error', function (event) {
-        console.error(
-          '[wrapper] error ' + event.message +
-          ' at ' + event.filename + ':' + event.lineno
-        );
-      });
-
-      window.addEventListener('unhandledrejection', function (event) {
-        const reason = event.reason && event.reason.message
-          ? event.reason.message
-          : String(event.reason);
-        console.error('[wrapper] unhandled rejection ' + reason);
-      });
-
-      window.addEventListener('pagehide', function () {
-        console.log('[wrapper] pagehide');
-      });
-
-      document.addEventListener('visibilitychange', function () {
-        console.log('[wrapper] visibility=' + document.visibilityState);
-      });
-    })();
-  </script>
 </body>
 </html>
 ''';

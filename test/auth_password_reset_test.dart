@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:the_responsive_builder/the_responsive_builder.dart';
 import 'package:veil/app/services/supabase_services/supabase_service.dart';
 import 'package:veil/src/core/config/app_environment.dart';
 import 'package:veil/src/core/router/app_router.dart';
@@ -128,7 +129,13 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [authRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(home: OnboardingView(onGetStarted: _noop)),
+        child: TheResponsiveBuilder(
+          baselineWidth: 390,
+          baselineHeight: 844,
+          builder: (context, orientation, screenType) {
+            return const MaterialApp(home: OnboardingView(onGetStarted: _noop));
+          },
+        ),
       ),
     );
     await tester.pump();
