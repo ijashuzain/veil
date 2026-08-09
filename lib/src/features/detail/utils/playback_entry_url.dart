@@ -7,45 +7,22 @@ const _vidlinkQueryParameters = {
   'iconColor': 'FFFFFF',
 };
 
-Uri playbackEntryUrl({
-  required String imdbId,
-  required bool isWeb,
-  String? contentType,
-}) {
-  final cleanImdbId = imdbId.trim();
-  if (isWeb) {
-    final embedType = isTvPlaybackContent(contentType) ? 'tv' : 'movie';
-    return Uri.https('streamimdb.ru', '/embed/$embedType/$cleanImdbId');
-  }
-
-  return Uri.https('www.playimdb.com', '/title/$cleanImdbId/');
-}
-
-List<Uri> playbackFallbackUrls({
-  required String imdbId,
-  int? tmdbId,
+Uri? cinejoyPlaybackUrl({
+  required int? tmdbId,
   String? contentType,
   int season = 1,
   int episode = 1,
 }) {
-  final cleanImdbId = imdbId.trim();
-  if (cleanImdbId.isEmpty) return const [];
-  final safeSeason = season < 1 ? 1 : season;
-  final safeEpisode = episode < 1 ? 1 : episode;
-
+  if (tmdbId == null || tmdbId <= 0) return null;
   if (isTvPlaybackContent(contentType)) {
-    return [
-      Uri.https('vsembed.ru', '/embed/tv', {
-        'imdb': cleanImdbId,
-        'season': '$safeSeason',
-        'episode': '$safeEpisode',
-      }),
-    ];
+    final safeSeason = season < 1 ? 1 : season;
+    final safeEpisode = episode < 1 ? 1 : episode;
+    return Uri.https(
+      'cinejoy.to',
+      '/watch/tv/$tmdbId/$safeSeason/$safeEpisode',
+    );
   }
-
-  return [
-    Uri.https('vsembed.ru', '/embed/movie', {'imdb': cleanImdbId}),
-  ];
+  return Uri.https('cinejoy.to', '/watch/movie/$tmdbId');
 }
 
 Uri cinesrcPlaybackUrl({

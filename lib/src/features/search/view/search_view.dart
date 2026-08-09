@@ -106,17 +106,35 @@ class _SearchViewState extends ConsumerState<SearchView> {
                   children: [
                     if (widget.showBack)
                       IconButton(
+                        key: const ValueKey('search-back-button'),
                         onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        color: Colors.white,
+                        icon: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: VeilColors.panel.withValues(
+                            alpha: .72,
+                          ),
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: .20),
+                          ),
+                          minimumSize: const Size.square(38),
+                          maximumSize: const Size.square(38),
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: const CircleBorder(),
+                        ),
                       )
                     else
                       const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Search',
                         style: const TextStyle(
-                          fontSize: 26,
+                          fontSize: 20,
                           fontWeight: FontWeight.w900,
                         ),
                       ),

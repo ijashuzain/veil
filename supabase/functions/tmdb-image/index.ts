@@ -11,6 +11,7 @@ const allowedSizes = new Set([
   'w92',
   'w154',
   'w185',
+  'w200',
   'w342',
   'w500',
   'w780',

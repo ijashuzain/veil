@@ -3,6 +3,7 @@ abstract class RoutePaths {
   static const resetPassword = '/reset-password';
   static const home = '/';
   static const detail = '/detail/:id';
+  static const provider = '/provider/:id';
   static const player = '/player/:id';
   static const search = '/search';
   static const alerts = '/alerts';

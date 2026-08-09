@@ -41,7 +41,7 @@ final class AlertsViewModelProvider
   }
 }
 
-String _$alertsViewModelHash() => r'4066f1ff894378be8a3996f472fc8f258864802f';
+String _$alertsViewModelHash() => r'311012fc64d21c9ee2a038df91405e7516d3310f';
 
 abstract class _$AlertsViewModel extends $Notifier<AlertsViewState> {
   AlertsViewState build();

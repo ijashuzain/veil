@@ -69,11 +69,10 @@ class VeilLayout {
   }
 
   static double homeHeroHeight(BuildContext context) {
-    return switch (VeilBreakpoint.of(context)) {
-      VeilBreakpoint.mobile => 216,
-      VeilBreakpoint.tablet => 280,
-      VeilBreakpoint.desktop => 320,
-    };
+    final size = MediaQuery.sizeOf(context);
+    if (VeilBreakpoint.of(context).isDesktop) return 465;
+    if (VeilBreakpoint.of(context).isTablet) return 450;
+    return (size.height * .51).clamp(420.0, 510.0);
   }
 
   static int posterGridColumns(BuildContext context) {

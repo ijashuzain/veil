@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,13 +14,13 @@ import 'package:veil/src/features/detail/utils/playback_entry_url.dart';
 import 'package:veil/src/features/detail/view_model/detail_view_model/detail_view_model.dart';
 import 'package:veil/src/features/detail/widgets/detail_playback_server_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_rating_panel.dart';
+import 'package:veil/src/features/detail/widgets/detail_recommendation_rails.dart';
 import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_suggestion_sheet.dart';
 import 'package:veil/src/features/detail/widgets/detail_social_action_sheet.dart';
-import 'package:veil/src/features/embeded_player/utils/compact_web_player_policy.dart';
-import 'package:veil/src/features/embeded_player/utils/external_player_launcher.dart';
-import 'package:veil/src/features/embeded_player/utils/redirect_url_extractor.dart';
-import 'package:veil/src/features/embeded_player/view/player.dart';
+import 'package:veil/src/features/embeded_player/utils/playback_launcher.dart';
+import 'package:veil/src/features/embeded_player/utils/playback_target.dart';
+import 'package:veil/src/features/playback_history/view_model/playback_history_view_model.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
@@ -34,12 +33,9 @@ import 'package:veil/src/shared/components/veil_toast.dart';
 import 'package:veil/src/shared/layout/adaptive_content.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 import 'package:veil/src/shared/models/content_item.dart';
+import 'package:veil/src/shared/models/playback_request.dart';
 
-typedef RedirectUrlExtractor = Future<Uri> Function(String url);
 typedef ClipLauncher = Future<bool> Function(Uri url);
-typedef ExternalPlayerLauncher = Future<bool> Function(List<Uri> urls);
-typedef ExternalPlaybackPolicy =
-    bool Function({required bool isWeb, required double viewportWidth});
 
 class DetailView extends ConsumerStatefulWidget {
   const DetailView({
@@ -47,19 +43,15 @@ class DetailView extends ConsumerStatefulWidget {
     required this.item,
     this.onBack,
     this.onPlay,
-    this.redirectUrlExtractor = extractRedirectUrl,
     this.clipLauncher,
-    this.externalPlayerLauncher = openExternalPlayerCandidates,
-    this.externalPlaybackPolicy = shouldOpenPlayerExternally,
+    this.playbackLauncher = launchPlaybackRequest,
   });
 
   final ContentItem item;
   final VoidCallback? onBack;
   final VoidCallback? onPlay;
-  final RedirectUrlExtractor redirectUrlExtractor;
   final ClipLauncher? clipLauncher;
-  final ExternalPlayerLauncher externalPlayerLauncher;
-  final ExternalPlaybackPolicy externalPlaybackPolicy;
+  final PlaybackRequestLauncher playbackLauncher;
 
   @override
   ConsumerState<DetailView> createState() => _DetailViewState();
@@ -67,7 +59,7 @@ class DetailView extends ConsumerStatefulWidget {
 
 class _DetailViewState extends ConsumerState<DetailView> {
   var _tab = 'Clips';
-  var _isExtractingRedirectUrl = false;
+  var _isLaunchingPlayback = false;
 
   @override
   Widget build(BuildContext context) {
@@ -281,10 +273,10 @@ class _DetailViewState extends ConsumerState<DetailView> {
                           width: double.infinity,
                           child: FilledButton.icon(
                             key: const ValueKey('premium-play-fab'),
-                            onPressed: _isExtractingRedirectUrl
+                            onPressed: _isLaunchingPlayback
                                 ? null
                                 : () => _openPlaybackServerSheet(detail),
-                            icon: _isExtractingRedirectUrl
+                            icon: _isLaunchingPlayback
                                 ? const SizedBox.square(
                                     dimension: 18,
                                     child: CircularProgressIndicator(
@@ -294,7 +286,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
                                   )
                                 : const Icon(Icons.play_arrow_rounded),
                             label: Text(
-                              _isExtractingRedirectUrl ? 'Loading' : 'Play',
+                              _isLaunchingPlayback ? 'Loading' : 'Play',
                             ),
                             style: FilledButton.styleFrom(
                               backgroundColor: VeilColors.red,
@@ -373,6 +365,11 @@ class _DetailViewState extends ConsumerState<DetailView> {
                         },
                         onOpenClip: _openClip,
                       ),
+                      DetailRecommendationRails(
+                        recommendations: detail.recommendations,
+                        similar: detail.similar,
+                        currentItem: item,
+                      ),
                     ],
                   ),
                 ),
@@ -385,7 +382,7 @@ class _DetailViewState extends ConsumerState<DetailView> {
   }
 
   void _openPlaybackServerSheet(ContentDetail detail) {
-    if (_isExtractingRedirectUrl) return;
+    if (_isLaunchingPlayback) return;
 
     final item = detail.item;
     final hasImdbId = item.imdbId?.trim().isNotEmpty ?? false;
@@ -410,131 +407,42 @@ class _DetailViewState extends ConsumerState<DetailView> {
           year: item.year,
           onServerOne: () {
             Navigator.of(sheetContext).pop();
-            _openVidsrcServerPlayerFromDetail(detail);
+            _selectPlayback(detail, PlaybackServer.one, pickEpisode: true);
           },
           onServerTwo: () {
             Navigator.of(sheetContext).pop();
-            _openPlayImdbServerPlayer(item);
+            _selectPlayback(detail, PlaybackServer.two, pickEpisode: true);
           },
           onServerThree: () {
             Navigator.of(sheetContext).pop();
-            _openCinesrcServerPlayer(item);
+            _selectPlayback(detail, PlaybackServer.three);
           },
           onServerFour: () {
             Navigator.of(sheetContext).pop();
-            _openVidlinkServerPlayerFromDetail(detail);
+            _selectPlayback(detail, PlaybackServer.four, pickEpisode: true);
           },
         );
       },
     );
   }
 
-  Future<void> _openPlayImdbServerPlayer(ContentItem item) async {
-    if (_isExtractingRedirectUrl) return;
-
-    final imdbId = item.imdbId?.trim();
-    if (imdbId == null || imdbId.isEmpty) {
-      showVeilToast(context, 'IMDb id is not available for this title yet.');
-      debugPrint(
-        'Cannot open player because IMDb id is missing for ${item.id}',
-      );
+  void _selectPlayback(
+    ContentDetail detail,
+    PlaybackServer server, {
+    bool pickEpisode = false,
+  }) {
+    if (pickEpisode && isTvPlaybackContent(detail.item.type)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _openEpisodeSheet(detail, server);
+      });
       return;
     }
 
-    setState(() => _isExtractingRedirectUrl = true);
-
-    final entryUrl = playbackEntryUrl(
-      imdbId: imdbId,
-      isWeb: kIsWeb,
-      contentType: item.type,
-    );
-    final fallbackUrls = playbackFallbackUrls(
-      imdbId: imdbId,
-      tmdbId: item.remoteId,
-      contentType: item.type,
-    );
-    try {
-      Uri embedUrl;
-      if (kIsWeb) {
-        debugPrint('Opening browser player URL for $imdbId');
-        embedUrl = entryUrl;
-      } else {
-        debugPrint('Extracting redirect URL for $imdbId');
-        embedUrl = await widget.redirectUrlExtractor(entryUrl.toString());
-      }
-      if (!mounted) return;
-
-      await _openResolvedPlayerUrl(
-        contentId: imdbId,
-        embedUrl: embedUrl,
-        fallbackUrls: fallbackUrls,
-      );
-    } catch (error) {
-      debugPrint('Cannot resolve player URL for $imdbId: $error');
-      if (mounted) {
-        showVeilToast(context, 'Player is not available right now.');
-      }
-      return;
-    } finally {
-      if (mounted) {
-        setState(() => _isExtractingRedirectUrl = false);
-      }
-    }
+    _launchPlayback(PlaybackRequest(item: detail.item, server: server));
   }
 
-  Future<void> _openCinesrcServerPlayer(ContentItem item) async {
-    if (_isExtractingRedirectUrl) return;
-
-    final tmdbId = item.remoteId;
-    if (tmdbId == null || tmdbId <= 0) {
-      showVeilToast(context, 'TMDB id is not available for this title yet.');
-      debugPrint(
-        'Cannot open cinesrc player because TMDB id is missing for ${item.id}',
-      );
-      return;
-    }
-
-    setState(() => _isExtractingRedirectUrl = true);
-
-    try {
-      final embedUrl = cinesrcPlaybackUrl(
-        tmdbId: tmdbId,
-        contentType: item.type,
-      );
-      debugPrint('Opening cinesrc player URL for $tmdbId');
-      await _openResolvedPlayerUrl(
-        contentId: '$tmdbId',
-        embedUrl: embedUrl,
-        fallbackUrls: const [],
-        forceEmbedded: true,
-      );
-    } catch (error) {
-      debugPrint('Cannot open cinesrc player URL for $tmdbId: $error');
-      if (mounted) {
-        showVeilToast(context, 'Player is not available right now.');
-      }
-      return;
-    } finally {
-      if (mounted) {
-        setState(() => _isExtractingRedirectUrl = false);
-      }
-    }
-  }
-
-  void _openVidsrcServerPlayerFromDetail(ContentDetail detail) {
-    final item = detail.item;
-    if (!isTvPlaybackContent(item.type)) {
-      _openVidsrcServerPlayer(item);
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _openVidsrcEpisodeSheet(detail);
-    });
-  }
-
-  void _openVidsrcEpisodeSheet(ContentDetail detail) {
+  void _openEpisodeSheet(ContentDetail detail, PlaybackServer server) {
     final item = detail.item;
     showVeilBottomSheet<void>(
       context: context,
@@ -547,171 +455,55 @@ class _DetailViewState extends ConsumerState<DetailView> {
           episodes: detail.episodes,
           onPlay: (season, episode) {
             Navigator.of(sheetContext).pop();
-            _openVidsrcServerPlayer(item, season: season, episode: episode);
+            _launchPlayback(
+              PlaybackRequest(
+                item: item,
+                server: server,
+                season: season,
+                episode: episode,
+              ),
+            );
           },
         );
       },
     );
   }
 
-  Future<void> _openVidsrcServerPlayer(
-    ContentItem item, {
-    int season = 1,
-    int episode = 1,
-  }) async {
-    if (_isExtractingRedirectUrl) return;
+  Future<void> _launchPlayback(PlaybackRequest request) async {
+    if (_isLaunchingPlayback) return;
 
-    final embedUrl = vidsrcPlaybackUrl(
-      tmdbId: item.remoteId,
-      imdbId: item.imdbId,
-      contentType: item.type,
-      season: season,
-      episode: episode,
-    );
-    if (embedUrl == null) {
-      showVeilToast(
-        context,
-        'Playback id is not available for this title yet.',
-      );
+    if (playbackTargetFor(request) == null) {
+      final message = request.server == PlaybackServer.one
+          ? 'Playback id is not available for this title yet.'
+          : 'TMDB id is not available for this title yet.';
+      showVeilToast(context, message);
       debugPrint(
-        'Cannot open Vidsrc player because playback ids are missing for '
-        '${item.id}',
+        'Cannot open ${request.server.name} player because playback ids are '
+        'missing for ${request.item.id}',
       );
       return;
     }
 
-    setState(() => _isExtractingRedirectUrl = true);
+    setState(() => _isLaunchingPlayback = true);
     try {
-      debugPrint('Opening Vidsrc player URL for ${embedUrl.host}');
-      await _openResolvedPlayerUrl(
-        contentId: item.remoteId?.toString() ?? item.imdbId?.trim() ?? item.id,
-        embedUrl: embedUrl,
-        fallbackUrls: const [],
-        forceEmbedded: true,
-        loadAsPage: true,
-      );
+      final opened = await widget.playbackLauncher(context, request);
+      if (opened) {
+        await ref
+            .read(playbackHistoryViewModelProvider.notifier)
+            .record(request);
+      } else if (mounted) {
+        showVeilToast(context, 'Player is not available right now.');
+      }
     } catch (error) {
-      debugPrint('Cannot open Vidsrc player URL: $error');
+      debugPrint('Cannot open ${request.server.name} player: $error');
       if (mounted) {
         showVeilToast(context, 'Player is not available right now.');
       }
     } finally {
       if (mounted) {
-        setState(() => _isExtractingRedirectUrl = false);
+        setState(() => _isLaunchingPlayback = false);
       }
     }
-  }
-
-  void _openVidlinkServerPlayerFromDetail(ContentDetail detail) {
-    final item = detail.item;
-    if (!isTvPlaybackContent(item.type)) {
-      _openVidlinkServerPlayer(item);
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _openVidlinkEpisodeSheet(detail);
-    });
-  }
-
-  void _openVidlinkEpisodeSheet(ContentDetail detail) {
-    final item = detail.item;
-    showVeilBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return DetailEpisodeSelectionSheet(
-          title: item.title,
-          year: item.year,
-          seasons: detail.seasons,
-          episodes: detail.episodes,
-          onPlay: (season, episode) {
-            Navigator.of(sheetContext).pop();
-            _openVidlinkServerPlayer(item, season: season, episode: episode);
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _openVidlinkServerPlayer(
-    ContentItem item, {
-    int season = 1,
-    int episode = 1,
-  }) async {
-    if (_isExtractingRedirectUrl) return;
-
-    final embedUrl = vidlinkPlaybackUrl(
-      tmdbId: item.remoteId,
-      contentType: item.type,
-      season: season,
-      episode: episode,
-    );
-    if (embedUrl == null) {
-      showVeilToast(context, 'TMDB id is not available for this title yet.');
-      debugPrint(
-        'Cannot open VidLink player because TMDB id is missing for ${item.id}',
-      );
-      return;
-    }
-
-    setState(() => _isExtractingRedirectUrl = true);
-    try {
-      debugPrint('Opening VidLink player URL for ${embedUrl.host}');
-      await _openResolvedPlayerUrl(
-        contentId: '${item.remoteId}',
-        embedUrl: embedUrl,
-        fallbackUrls: const [],
-        forceEmbedded: true,
-        loadAsPage: true,
-      );
-    } catch (error) {
-      debugPrint('Cannot open VidLink player URL: $error');
-      if (mounted) {
-        showVeilToast(context, 'Player is not available right now.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isExtractingRedirectUrl = false);
-      }
-    }
-  }
-
-  Future<void> _openResolvedPlayerUrl({
-    required String contentId,
-    required Uri embedUrl,
-    required List<Uri> fallbackUrls,
-    bool forceEmbedded = false,
-    bool loadAsPage = false,
-  }) async {
-    final viewportWidth = MediaQuery.sizeOf(context).width;
-    if (!forceEmbedded &&
-        widget.externalPlaybackPolicy(
-          isWeb: kIsWeb,
-          viewportWidth: viewportWidth,
-        )) {
-      final launchUrls = playbackLaunchUrls(
-        primaryUrl: embedUrl,
-        fallbackUrls: fallbackUrls,
-      );
-      debugPrint('Opening compact browser player URL for $contentId');
-      final opened = await widget.externalPlayerLauncher(launchUrls);
-      if (!opened && mounted) {
-        showVeilToast(context, 'Player is not available right now.');
-      }
-      return;
-    }
-
-    Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
-        builder: (_) => FullscreenLandscapeWebPlayer(
-          url: embedUrl.toString(),
-          fallbackUrls: fallbackUrls,
-          loadAsPage: loadAsPage,
-        ),
-      ),
-    );
   }
 
   void _openSocialActionSheet(

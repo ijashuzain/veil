@@ -15,6 +15,7 @@ const allowedRoutes = new Set([
   'search',
   'trending',
   'tv',
+  'watch',
 ]);
 
 type TmdbAuth =

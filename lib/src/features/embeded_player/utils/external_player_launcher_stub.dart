@@ -5,3 +5,7 @@ Future<bool> openExternalPlayer(String url) async {
 Future<bool> openExternalPlayerCandidates(List<Uri> urls) async {
   return false;
 }
+
+Future<bool> openExternalPlayerDirect(Uri url) async {
+  return false;
+}

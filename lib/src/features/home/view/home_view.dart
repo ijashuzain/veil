@@ -1,42 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gap/gap.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/alerts/view_model/alerts_view_model.dart';
 import 'package:veil/src/features/auth/utils/auth_display_name.dart';
 import 'package:veil/src/features/auth/view_model/auth_view_model/auth_view_model.dart';
+import 'package:veil/src/features/auth/view_model/premium_view_model/premium_view_model.dart';
 import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
+import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
+import 'package:veil/src/features/detail/widgets/detail_social_action_sheet.dart';
+import 'package:veil/src/features/detail/widgets/detail_suggestion_sheet.dart';
+import 'package:veil/src/features/embeded_player/utils/playback_launcher.dart';
 import 'package:veil/src/features/home/view_model/home_view_model/home_view_model.dart';
+import 'package:veil/src/features/home/widgets/continue_watching_section.dart';
+import 'package:veil/src/features/home/widgets/curated_collection_section.dart';
+import 'package:veil/src/features/home/widgets/home_cinematic_hero.dart';
+import 'package:veil/src/features/home/widgets/watch_provider_section.dart';
+import 'package:veil/src/features/playback_history/models/playback_history_entry.dart';
+import 'package:veil/src/features/playback_history/view_model/playback_history_view_model.dart';
+import 'package:veil/src/features/social/repository/social_repository.dart';
+import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
-import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/components/section_header.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
-import 'package:veil/src/shared/models/content_item.dart';
+import 'package:veil/src/shared/components/veil_sheet.dart';
+import 'package:veil/src/shared/components/veil_toast.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
+import 'package:veil/src/shared/models/content_item.dart';
+
+const _categoryHeight = 52.0;
+const _categoryHeroOverlap = 32.0;
 
 class HomeView extends ConsumerStatefulWidget {
-  const HomeView({super.key});
+  const HomeView({super.key, this.playbackLauncher = launchPlaybackRequest});
+
+  final PlaybackRequestLauncher playbackLauncher;
 
   @override
   ConsumerState<HomeView> createState() => _HomeViewState();
 }
 
 class _HomeViewState extends ConsumerState<HomeView> {
+  var _editingContinueWatching = false;
+  var _isLaunchingHistory = false;
+  var _categoryPinned = false;
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(homeViewModelProvider);
-    final featured = state.featured;
+    ref.watch(socialLibraryViewModelProvider);
+    final heroItems = state.globalTrending.take(5).toList(growable: false);
+    final historyEntries = ref.watch(playbackHistoryViewModelProvider);
     final isLoading = state.loadStatus is StatusLoading;
     final selectedGenre = state.selectedGenre;
     final unreadAlerts = ref.watch(alertsViewModelProvider).unreadCount;
     final topInset = MediaQuery.paddingOf(context).top;
-    final gutter = VeilLayout.pageGutter(context);
     final heroHeight = VeilLayout.homeHeroHeight(context);
-    final name = authDisplayName(
-      ref.watch(authViewModelProvider).user,
-      fallback: 'there',
+    final categoryTabs = _CategoryTabs(
+      genres: state.genres,
+      selected: selectedGenre,
+      onChanged: (genre) =>
+          ref.read(homeViewModelProvider.notifier).selectGenre(genre),
     );
 
     return Scaffold(
@@ -50,315 +75,340 @@ class _HomeViewState extends ConsumerState<HomeView> {
             stops: [0, .46, 1],
           ),
         ),
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _handleScrollNotification,
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    gutter,
-                    topInset + 14,
-                    gutter,
-                    8,
+        child: Stack(
+          children: [
+            NotificationListener<ScrollNotification>(
+              onNotification: _handleScrollNotification,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _HeroCategoryOverlap(
+                      heroHeight: heroHeight,
+                      hero: heroItems.isEmpty
+                          ? const _HeroSkeleton()
+                          : HomeCinematicHero(
+                              items: heroItems,
+                              height: heroHeight,
+                              unreadAlerts: unreadAlerts,
+                              onSearch: () => const SearchRoute().push(context),
+                              onAlerts: () => const AlertsRoute().push(context),
+                              onView: (featured) => DetailRoute(
+                                id: featured.id,
+                                $extra: featured,
+                              ).push(context),
+                              onQuickAdd: _openHeroSocialActions,
+                            ),
+                      categoryTabs: _categoryPinned ? null : categoryTabs,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Gap(8),
-                            const Text(
-                              'Tonight on Veil',
-                              style: TextStyle(
-                                color: VeilColors.gold,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Hello, $name',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -.4,
-                              ),
-                            ),
-                          ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 22)),
+                  if (selectedGenre != null) ...[
+                    SliverToBoxAdapter(
+                      child: _SelectedGenreSeeAll(
+                        title: selectedGenre.name,
+                        genreId: selectedGenre.id,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                    if (state.genreResults.isEmpty &&
+                        state.genreStatus is StatusLoading)
+                      const _GenreListSkeleton()
+                    else if (state.genreResults.isEmpty)
+                      SliverToBoxAdapter(
+                        child: _GenreEmptyState(
+                          message: state.genreStatus.errorMessage.isEmpty
+                              ? 'No titles found here yet.'
+                              : state.genreStatus.errorMessage,
+                          onRetry: () => ref
+                              .read(homeViewModelProvider.notifier)
+                              .selectGenre(selectedGenre),
                         ),
+                      )
+                    else
+                      _GenreResultList(items: state.genreResults),
+                    SliverToBoxAdapter(
+                      child: _GenrePaginationFooter(
+                        loading: state.genreLoadingMore,
+                        canLoadMore: state.genreCanLoadMore,
+                        onLoadMore: () => ref
+                            .read(homeViewModelProvider.notifier)
+                            .loadMoreSelectedGenre(),
                       ),
-                      ActionCircle(
-                        icon: Icons.search_rounded,
-                        onTap: () => const SearchRoute().push(context),
-                      ),
-                      const SizedBox(width: 8),
-                      ActionCircle(
-                        icon: Icons.notifications_none_rounded,
-                        badge: unreadAlerts > 0,
-                        onTap: () => const AlertsRoute().push(context),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(gutter, 4, gutter, 0),
-                  child: featured == null
-                      ? const _HeroSkeleton()
-                      : GestureDetector(
-                          onTap: () => DetailRoute(
-                            id: featured.id,
-                            $extra: featured,
-                          ).push(context),
-                          child: BackdropArt(
-                            item: featured,
-                            width: double.infinity,
-                            height: heroHeight,
-                            radius: 28,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _HeroBadge(),
-                                  const Spacer(),
-                                  Text(
-                                    featured.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 31,
-                                      fontWeight: FontWeight.w900,
-                                      height: .98,
-                                      letterSpacing: -.7,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    featured.subtitle.toUpperCase(),
-                                    style: const TextStyle(
-                                      color: VeilColors.text2,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 2.8,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 9),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 5,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.star_rounded,
-                                        color: VeilColors.gold,
-                                        size: 14,
-                                      ),
-                                      Text(
-                                        featured.rating.toStringAsFixed(1),
-                                        style: const TextStyle(
-                                          color: VeilColors.text2,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const Text(
-                                        '·',
-                                        style: TextStyle(
-                                          color: VeilColors.text4,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${featured.year}',
-                                        style: const TextStyle(
-                                          color: VeilColors.text2,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const Text(
-                                        '·',
-                                        style: TextStyle(
-                                          color: VeilColors.text4,
-                                        ),
-                                      ),
-                                      Text(
-                                        featured.genre.split('/').first.trim(),
-                                        style: const TextStyle(
-                                          color: VeilColors.text2,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      const _HeroDots(),
-                                      const Spacer(),
-                                      DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: VeilColors.red,
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                        ),
-                                        child: const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 7,
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.play_arrow_rounded,
-                                                color: Colors.black,
-                                                size: 15,
-                                              ),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'View',
-                                                style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                    ),
+                  ] else ...[
+                    if (historyEntries.isNotEmpty) ...[
+                      SliverToBoxAdapter(
+                        child: ContinueWatchingSection(
+                          entries: historyEntries,
+                          editing: _editingContinueWatching,
+                          onPlay: _playHistoryEntry,
+                          onRemove: _removeHistoryEntry,
+                          onToggleEditing: () => setState(
+                            () => _editingContinueWatching =
+                                !_editingContinueWatching,
                           ),
                         ),
-                ),
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _CategoryHeaderDelegate(
-                  topInset: topInset,
-                  child: _CategoryTabs(
-                    genres: state.genres,
-                    selected: selectedGenre,
-                    onChanged: (genre) => ref
-                        .read(homeViewModelProvider.notifier)
-                        .selectGenre(genre),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 22)),
-              if (selectedGenre != null) ...[
-                SliverToBoxAdapter(
-                  child: _SelectedGenreSeeAll(
-                    title: selectedGenre.name,
-                    genreId: selectedGenre.id,
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                if (state.genreResults.isEmpty &&
-                    state.genreStatus is StatusLoading)
-                  const _GenreListSkeleton()
-                else if (state.genreResults.isEmpty)
-                  SliverToBoxAdapter(
-                    child: _GenreEmptyState(
-                      message: state.genreStatus.errorMessage.isEmpty
-                          ? 'No titles found here yet.'
-                          : state.genreStatus.errorMessage,
-                      onRetry: () => ref
-                          .read(homeViewModelProvider.notifier)
-                          .selectGenre(selectedGenre),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    ],
+                    const SliverToBoxAdapter(child: WatchProviderSection()),
+                    SliverToBoxAdapter(
+                      child: _LazyPosterRail(
+                        title: 'Global trending',
+                        section: 'trending',
+                        items: state.globalTrending,
+                        loading: isLoading,
+                        ranked: true,
+                      ),
                     ),
-                  )
-                else
-                  _GenreResultList(items: state.genreResults),
-                SliverToBoxAdapter(
-                  child: _GenrePaginationFooter(
-                    loading: state.genreLoadingMore,
-                    canLoadMore: state.genreCanLoadMore,
-                    onLoadMore: () => ref
-                        .read(homeViewModelProvider.notifier)
-                        .loadMoreSelectedGenre(),
-                  ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    SliverToBoxAdapter(
+                      child: _LazyPosterRail(
+                        title: 'New this week',
+                        section: 'upcoming',
+                        items: state.newThisWeek,
+                        loading: isLoading,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    const SliverToBoxAdapter(child: CuratedCollectionSection()),
+                    SliverToBoxAdapter(
+                      child: _LazyPosterRail(
+                        title: 'Popular movies',
+                        section: 'popular_movies',
+                        items: state.popularMovies,
+                        loading: isLoading,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    SliverToBoxAdapter(
+                      child: _LazyPosterRail(
+                        title: 'Top rated movies',
+                        section: 'top_rated_movies',
+                        items: state.topRatedMovies,
+                        loading: isLoading,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    SliverToBoxAdapter(
+                      child: _LazyPosterRail(
+                        title: 'Top rated TV',
+                        section: 'top_rated_tv',
+                        items: state.topRatedTv,
+                        loading: isLoading,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    SliverToBoxAdapter(
+                      child: _LazyPosterRail(
+                        title: 'Airing today',
+                        section: 'airing_today',
+                        items: state.airingToday,
+                        loading: isLoading,
+                      ),
+                    ),
+                  ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              ),
+            ),
+            if (_categoryPinned)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _PinnedCategoryBar(
+                  topInset: topInset,
+                  child: categoryTabs,
                 ),
-              ] else ...[
-                SliverToBoxAdapter(
-                  child: _LazyPosterRail(
-                    title: 'Global trending',
-                    section: 'trending',
-                    items: state.globalTrending,
-                    loading: isLoading,
-                    ranked: true,
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 26)),
-                SliverToBoxAdapter(
-                  child: _LazyPosterRail(
-                    title: 'New this week',
-                    section: 'upcoming',
-                    items: state.newThisWeek,
-                    loading: isLoading,
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 26)),
-                SliverToBoxAdapter(
-                  child: _LazyPosterRail(
-                    title: 'Popular movies',
-                    section: 'popular_movies',
-                    items: state.popularMovies,
-                    loading: isLoading,
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 26)),
-                SliverToBoxAdapter(
-                  child: _LazyPosterRail(
-                    title: 'Top rated movies',
-                    section: 'top_rated_movies',
-                    items: state.topRatedMovies,
-                    loading: isLoading,
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 26)),
-                SliverToBoxAdapter(
-                  child: _LazyPosterRail(
-                    title: 'Top rated TV',
-                    section: 'top_rated_tv',
-                    items: state.topRatedTv,
-                    loading: isLoading,
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 26)),
-                SliverToBoxAdapter(
-                  child: _LazyPosterRail(
-                    title: 'Airing today',
-                    section: 'airing_today',
-                    items: state.airingToday,
-                    loading: isLoading,
-                  ),
-                ),
-              ],
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
   }
 
+  void _openHeroSocialActions(ContentItem item) {
+    final socialState = ref.read(socialLibraryViewModelProvider);
+    final mediaType = _socialMediaType(item);
+    final userEntry = socialState.entries
+        .where(
+          (entry) =>
+              entry.tmdbId == item.remoteId && entry.mediaType == mediaType,
+        )
+        .firstOrNull;
+    final isWatched = userEntry?.watchedOn != null;
+    final isFavorite = socialState.entries.any(
+      (entry) =>
+          entry.isFavorite &&
+          entry.tmdbId == item.remoteId &&
+          entry.mediaType == mediaType,
+    );
+    final isInWatchlist = socialState.entries.any(
+      (entry) =>
+          entry.inWatchlist &&
+          entry.tmdbId == item.remoteId &&
+          entry.mediaType == mediaType,
+    );
+
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final social = ref.read(socialLibraryViewModelProvider.notifier);
+        return DetailSocialActionSheet(
+          item: item,
+          isWatched: isWatched,
+          isFavorite: isFavorite,
+          isInWatchlist: isInWatchlist,
+          rating: userEntry?.rating ?? 0,
+          onSetWatched: ({required watched, required rating}) async {
+            await social.setWatched(item, watched: watched, rating: rating);
+            if (!mounted) return;
+            showVeilToast(
+              context,
+              watched ? 'Marked watched' : 'Removed from watched',
+            );
+          },
+          onToggleFavorite: () => social.toggleFavorite(item),
+          onSetWatchlist: ({required inWatchlist}) {
+            return social.setWatchlist(item, inWatchlist: inWatchlist);
+          },
+          onRate: ({required rating}) async {
+            await social.rate(item, rating: rating);
+            if (!mounted) return;
+            showVeilToast(context, 'Rating saved');
+          },
+          onOpenReview: ({required rating}) {
+            Navigator.of(sheetContext).pop();
+            _openHeroReviewSheet(item, initialRating: rating);
+          },
+          onOpenSuggest: () {
+            Navigator.of(sheetContext).pop();
+            _openHeroSuggestionSheet(item);
+          },
+        );
+      },
+    );
+  }
+
+  void _openHeroReviewSheet(ContentItem item, {double initialRating = 0}) {
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) {
+        return DetailReviewSheet(
+          item: item,
+          initialRating: initialRating,
+          initialWatchTag: 'first-time',
+          onSave: ({required rating, required review, required tags}) async {
+            await ref
+                .read(socialLibraryViewModelProvider.notifier)
+                .rateReview(item, rating: rating, review: review, tags: tags);
+            if (!mounted) return;
+            showVeilToast(context, 'Review saved');
+          },
+        );
+      },
+    );
+  }
+
+  void _openHeroSuggestionSheet(ContentItem item) {
+    showVeilBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) {
+        return DetailSuggestionSheet(
+          item: item,
+          currentUserId: ref.read(socialRepositoryProvider).currentUserId,
+          loadFriends: () async {
+            final repository = ref.read(socialRepositoryProvider);
+            return repository.friendProfiles(repository.currentUserId);
+          },
+          onSuggest: (recipientIds) async {
+            await ref
+                .read(socialRepositoryProvider)
+                .suggestMovie(
+                  item,
+                  recipientIds: recipientIds,
+                  senderDisplayName: authDisplayName(
+                    ref.read(authViewModelProvider).user,
+                  ),
+                );
+            if (!mounted) return;
+            showVeilToast(context, 'Suggestion sent to friends');
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _playHistoryEntry(PlaybackHistoryEntry entry) async {
+    if (_isLaunchingHistory) return;
+    _isLaunchingHistory = true;
+    try {
+      final isPremium = await ref.read(currentUserIsPremiumProvider.future);
+      if (!mounted) return;
+      if (!isPremium) {
+        showVeilToast(
+          context,
+          'Premium access is required to continue watching.',
+        );
+        return;
+      }
+
+      final request = entry.toRequest();
+      final opened = await widget.playbackLauncher(context, request);
+      if (!opened) {
+        if (mounted) {
+          showVeilToast(context, 'Player is not available right now.');
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      try {
+        await ref
+            .read(playbackHistoryViewModelProvider.notifier)
+            .record(request);
+      } catch (error) {
+        debugPrint('Cannot update playback history: $error');
+        if (mounted) {
+          showVeilToast(context, 'Could not update Continue Watching.');
+        }
+      }
+    } catch (error) {
+      debugPrint('Cannot relaunch ${entry.entryKey}: $error');
+      if (mounted) {
+        showVeilToast(context, 'Player is not available right now.');
+      }
+    } finally {
+      _isLaunchingHistory = false;
+    }
+  }
+
+  Future<void> _removeHistoryEntry(String entryKey) async {
+    await ref.read(playbackHistoryViewModelProvider.notifier).remove(entryKey);
+    if (!mounted) return;
+    if (ref.read(playbackHistoryViewModelProvider).isNotEmpty) {
+      return;
+    }
+    setState(() => _editingContinueWatching = false);
+  }
+
   bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification.metrics.axis != Axis.vertical ||
-        notification.metrics.extentAfter > 520) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+
+    final shouldPin =
+        notification.metrics.pixels >=
+        VeilLayout.homeHeroHeight(context) -
+            _categoryHeroOverlap -
+            MediaQuery.paddingOf(context).top;
+    if (shouldPin != _categoryPinned) {
+      setState(() => _categoryPinned = shouldPin);
+    }
+
+    if (notification.metrics.extentAfter > 520) {
       return false;
     }
 
@@ -375,67 +425,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
   }
 }
 
-class _HeroBadge extends StatelessWidget {
-  const _HeroBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: VeilColors.red,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: VeilColors.red.withValues(alpha: .24),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.circle, color: Colors.black, size: 6),
-            SizedBox(width: 6),
-            Text(
-              'Featured',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroDots extends StatelessWidget {
-  const _HeroDots();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var index = 0; index < 3; index++) ...[
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: index == 0 ? 18 : 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: index == 0 ? VeilColors.gold : Colors.white24,
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-          if (index != 2) const SizedBox(width: 6),
-        ],
-      ],
-    );
-  }
+String _socialMediaType(ContentItem item) {
+  if (item.mediaType == 'tv') return 'tv';
+  if (item.type.toLowerCase().contains('tv')) return 'tv';
+  return 'movie';
 }
 
 class _HeroSkeleton extends StatelessWidget {
@@ -444,9 +437,68 @@ class _HeroSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SkeletonBox(
+      key: const ValueKey('home-hero-skeleton'),
       width: double.infinity,
       height: VeilLayout.homeHeroHeight(context),
-      radius: 22,
+      radius: 0,
+    );
+  }
+}
+
+class _HeroCategoryOverlap extends StatelessWidget {
+  const _HeroCategoryOverlap({
+    required this.heroHeight,
+    required this.hero,
+    required this.categoryTabs,
+  });
+
+  final double heroHeight;
+  final Widget hero;
+  final Widget? categoryTabs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey('home-hero-category-overlap'),
+      height: heroHeight + _categoryHeight - _categoryHeroOverlap,
+      child: Stack(
+        children: [
+          hero,
+          if (categoryTabs case final categoryTabs?)
+            Positioned(
+              top: heroHeight - _categoryHeroOverlap,
+              left: 0,
+              right: 0,
+              height: _categoryHeight,
+              child: categoryTabs,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinnedCategoryBar extends StatelessWidget {
+  const _PinnedCategoryBar({required this.topInset, required this.child});
+
+  final double topInset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey('home-pinned-category-bar'),
+      height: topInset + _categoryHeight,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: VeilColors.panel,
+          border: Border(bottom: BorderSide(color: VeilColors.hairline)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(top: topInset),
+          child: child,
+        ),
+      ),
     );
   }
 }
@@ -493,132 +545,27 @@ class _GenreResultList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final breakpoint = VeilBreakpoint.of(context);
-    final gutter = VeilLayout.pageGutter(context);
-    if (breakpoint.isDesktop) {
-      return SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: gutter),
-        sliver: SliverGrid.builder(
-          itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 18,
-            crossAxisSpacing: 18,
-            childAspectRatio: 3.5,
-          ),
-          itemBuilder: (context, index) => _GenreResultTile(item: items[index]),
-        ),
-      );
-    }
     return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: gutter),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate((context, index) {
+      padding: EdgeInsets.symmetric(horizontal: VeilLayout.pageGutter(context)),
+      sliver: SliverGrid.builder(
+        key: const ValueKey('home-genre-grid'),
+        itemCount: items.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: VeilLayout.posterGridColumns(context),
+          mainAxisSpacing: 20,
+          crossAxisSpacing: 12,
+          childAspectRatio: .49,
+        ),
+        itemBuilder: (context, index) {
           final item = items[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: _GenreResultTile(item: item),
+          return PosterCard(
+            key: ValueKey('genre-result-${item.id}'),
+            item: item,
+            width: double.infinity,
+            height: 160,
+            onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
           );
-        }, childCount: items.length),
-      ),
-    );
-  }
-}
-
-class _GenreResultTile extends StatelessWidget {
-  const _GenreResultTile({required this.item});
-
-  final ContentItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final year = item.year > 0 ? '${item.year}' : item.type;
-    final genre = item.genre.split('/').first.trim();
-    return GestureDetector(
-      key: ValueKey('genre-result-${item.id}'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: VeilColors.panel.withValues(alpha: .62),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: VeilColors.hairline),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PosterArt(
-                item: item,
-                width: 82,
-                height: 124,
-                radius: 10,
-                showTitle: false,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        height: 1.08,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      '$year / $genre',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: VeilColors.text3,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: VeilColors.gold,
-                          size: 15,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.rating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            color: VeilColors.text2,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      item.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: VeilColors.text3,
-                        fontSize: 12,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        },
       ),
     );
   }
@@ -629,34 +576,32 @@ class _GenreListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final columns = VeilLayout.posterGridColumns(context);
     return SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: VeilLayout.pageGutter(context)),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate((context, index) {
-          return const Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: Row(
-              children: [
-                SkeletonBox(width: 82, height: 124, radius: 10),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SkeletonBox(width: double.infinity, height: 18),
-                      SizedBox(height: 12),
-                      SkeletonBox(width: 150, height: 12),
-                      SizedBox(height: 16),
-                      SkeletonBox(width: 72, height: 12),
-                      SizedBox(height: 18),
-                      SkeletonBox(width: double.infinity, height: 12),
-                    ],
-                  ),
-                ),
-              ],
+      sliver: SliverGrid.builder(
+        key: const ValueKey('home-genre-loading-grid'),
+        itemCount: columns * 2,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: 20,
+          crossAxisSpacing: 12,
+          childAspectRatio: .49,
+        ),
+        itemBuilder: (_, index) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SkeletonBox(
+              key: ValueKey('home-genre-loading-$index'),
+              height: 160,
+              radius: 14,
             ),
-          );
-        }, childCount: 4),
+            const SizedBox(height: 10),
+            const SkeletonLine(height: 12),
+            const SizedBox(height: 7),
+            const SkeletonLine(height: 10),
+          ],
+        ),
       ),
     );
   }
@@ -869,6 +814,7 @@ class _CategoryTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [const TmdbGenre(id: -1, name: 'All'), ...genres];
     return SingleChildScrollView(
+      key: const ValueKey('home-category-tabs'),
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(horizontal: VeilLayout.pageGutter(context)),
       child: Row(
@@ -925,45 +871,5 @@ class _GenreTabLabel extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _CategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _CategoryHeaderDelegate({required this.child, required this.topInset});
-
-  final Widget child;
-  final double topInset;
-
-  @override
-  double get minExtent => topInset + 52;
-
-  @override
-  double get maxExtent => topInset + 52;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: VeilColors.bg0.withValues(alpha: .92),
-        border: Border(
-          bottom: BorderSide(
-            color: overlapsContent ? VeilColors.hairline : Colors.transparent,
-          ),
-        ),
-      ),
-      child: Padding(
-        padding: EdgeInsets.only(top: topInset),
-        child: Align(alignment: Alignment.bottomLeft, child: child),
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant _CategoryHeaderDelegate oldDelegate) {
-    return oldDelegate.child != child || oldDelegate.topInset != topInset;
   }
 }

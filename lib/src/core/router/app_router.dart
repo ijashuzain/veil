@@ -4,6 +4,7 @@ import 'package:veil/src/core/router/route_paths.dart';
 import 'package:veil/src/features/alerts/view/alerts_view.dart';
 import 'package:veil/src/features/auth/view/reset_password_view.dart';
 import 'package:veil/src/features/catalog/view/see_all_view.dart';
+import 'package:veil/src/features/catalog/view/provider_view.dart';
 import 'package:veil/src/features/detail/view/detail_view.dart';
 import 'package:veil/src/features/onboarding/view/onboarding_view.dart';
 import 'package:veil/src/features/player/view/player_view.dart';
@@ -150,6 +151,20 @@ class DetailRoute extends GoRouteData with $DetailRoute {
   @override
   Widget build(BuildContext context, GoRouterState state) {
     return DetailView(item: $extra ?? VeilCatalog.byId(id));
+  }
+}
+
+@TypedGoRoute<ProviderRoute>(path: RoutePaths.provider)
+class ProviderRoute extends GoRouteData with $ProviderRoute {
+  const ProviderRoute({required this.id, this.name, this.logoPath});
+
+  final int id;
+  final String? name;
+  final String? logoPath;
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) {
+    return ProviderView(providerId: id, providerName: name, logoPath: logoPath);
   }
 }
 

@@ -271,6 +271,10 @@ class _FullscreenLandscapeWebPlayerState
 
   bool _isAllowedPlayerPagePath(Uri uri) {
     if (uri.path.startsWith('/embed/')) return true;
+    if (uri.host == 'cinejoy.to') {
+      return uri.path.startsWith('/watch/movie/') ||
+          uri.path.startsWith('/watch/tv/');
+    }
     if (uri.host == 'vidlink.pro') {
       return uri.path.startsWith('/movie/') || uri.path.startsWith('/tv/');
     }

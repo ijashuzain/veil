@@ -10,6 +10,7 @@ List<RouteBase> get $appRoutes => [
   $onboardingRoute,
   $veilShellRoute,
   $detailRoute,
+  $providerRoute,
   $playerRoute,
   $searchRoute,
   $alertsRoute,
@@ -96,6 +97,43 @@ mixin $DetailRoute on GoRouteData {
   @override
   void replace(BuildContext context) =>
       context.replace(location, extra: _self.$extra);
+}
+
+RouteBase get $providerRoute => GoRouteData.$route(
+  path: '/provider/:id',
+  factory: $ProviderRoute._fromState,
+);
+
+mixin $ProviderRoute on GoRouteData {
+  static ProviderRoute _fromState(GoRouterState state) => ProviderRoute(
+    id: int.parse(state.pathParameters['id']!),
+    name: state.uri.queryParameters['name'],
+    logoPath: state.uri.queryParameters['logo-path'],
+  );
+
+  ProviderRoute get _self => this as ProviderRoute;
+
+  @override
+  String get location => GoRouteData.$location(
+    '/provider/${Uri.encodeComponent(_self.id.toString())}',
+    queryParams: {
+      if (_self.name != null) 'name': _self.name,
+      if (_self.logoPath != null) 'logo-path': _self.logoPath,
+    },
+  );
+
+  @override
+  void go(BuildContext context) => context.go(location);
+
+  @override
+  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
+
+  @override
+  void pushReplacement(BuildContext context) =>
+      context.pushReplacement(location);
+
+  @override
+  void replace(BuildContext context) => context.replace(location);
 }
 
 RouteBase get $playerRoute =>

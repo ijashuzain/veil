@@ -40,22 +40,12 @@ class PosterCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Stack(
-                children: [
-                  PosterArt(
-                    item: item,
-                    width: width,
-                    height: height,
-                    radius: 14,
-                    showTitle: false,
-                  ),
-                  if (showMeta)
-                    Positioned(
-                      left: 7,
-                      top: 7,
-                      child: _PosterRatingChip(rating: item.rating),
-                    ),
-                ],
+              child: PosterArt(
+                item: item,
+                width: width,
+                height: height,
+                radius: 14,
+                showTitle: false,
               ),
             ),
             if (showMeta) ...[
@@ -106,74 +96,6 @@ class PosterCard extends StatelessWidget {
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ContinueCard extends StatelessWidget {
-  const ContinueCard({super.key, required this.item, this.onTap});
-
-  final ContentItem item;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 196,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                BackdropArt(
-                  item: item,
-                  width: 196,
-                  height: 112,
-                  radius: 12,
-                  child: Center(
-                    child: _RoundPlayButton(size: 38, iconSize: 18),
-                  ),
-                ),
-                Positioned(
-                  right: 8,
-                  bottom: 8,
-                  child: _OverlayLabel(item.progressLabel),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(12),
-                    ),
-                    child: LinearProgressIndicator(
-                      value: item.progress,
-                      minHeight: 3,
-                      backgroundColor: Colors.white.withValues(alpha: .16),
-                      color: VeilColors.red,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              item.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 2),
-            const Text(
-              'S1 · E3',
-              style: TextStyle(color: VeilColors.text3, fontSize: 11),
-            ),
           ],
         ),
       ),
@@ -267,93 +189,6 @@ class ActionCircle extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _PosterRatingChip extends StatelessWidget {
-  const _PosterRatingChip({required this.rating});
-
-  final double rating;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .68),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: .18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.star_rounded, color: VeilColors.gold, size: 11),
-            const SizedBox(width: 3),
-            Text(
-              rating.toStringAsFixed(1),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RoundPlayButton extends StatelessWidget {
-  const _RoundPlayButton({required this.size, required this.iconSize});
-
-  final double size;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .56),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: .22)),
-      ),
-      child: Icon(
-        Icons.play_arrow_rounded,
-        color: Colors.white,
-        size: iconSize,
-      ),
-    );
-  }
-}
-
-class _OverlayLabel extends StatelessWidget {
-  const _OverlayLabel(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .62),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
     );
   }
 }

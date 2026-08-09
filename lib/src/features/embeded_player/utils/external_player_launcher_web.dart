@@ -27,6 +27,11 @@ Future<bool> openExternalPlayerCandidates(List<Uri> urls) async {
   return true;
 }
 
+Future<bool> openExternalPlayerDirect(Uri url) async {
+  _assignLocation(url.toString().toJS);
+  return true;
+}
+
 Future<int?> _directStatusCodeForUrl(Uri url) async {
   try {
     final response = await html.HttpRequest.request(

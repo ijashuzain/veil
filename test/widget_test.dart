@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,17 +18,32 @@ import 'package:veil/src/features/auth/repository/auth_repository.dart';
 import 'package:veil/src/features/auth/view_model/premium_view_model/premium_view_model.dart';
 import 'package:veil/src/features/auth/view_model/auth_view_model/auth_view_model.dart';
 import 'package:veil/src/features/alerts/view/alerts_view.dart';
+import 'package:veil/src/features/alerts/view_model/alerts_view_model.dart';
 import 'package:veil/src/features/catalog/models/content_detail/content_detail.dart';
+import 'package:veil/src/features/catalog/models/curated_collection.dart';
+import 'package:veil/src/features/catalog/models/tmdb_watch_provider.dart';
+import 'package:veil/src/features/catalog/view/provider_view.dart';
 import 'package:veil/src/features/catalog/view/see_all_view.dart';
+import 'package:veil/src/features/catalog/view_model/curated_collection_providers.dart';
+import 'package:veil/src/features/catalog/view_model/provider_catalog_providers.dart';
 import 'package:veil/src/features/home/view_model/home_view_model/home_view_model.dart';
 import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
 import 'package:veil/src/features/detail/utils/playback_entry_url.dart';
 import 'package:veil/src/features/detail/view/detail_view.dart';
 import 'package:veil/src/features/detail/view_model/detail_view_model/detail_view_model.dart';
+import 'package:veil/src/features/detail/widgets/detail_recommendation_rails.dart';
+import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
+import 'package:veil/src/features/detail/widgets/detail_social_action_sheet.dart';
+import 'package:veil/src/features/detail/widgets/detail_suggestion_sheet.dart';
 import 'package:veil/src/features/embeded_player/view/direct_video_player.dart';
 import 'package:veil/src/features/embeded_player/view/player.dart';
-import 'package:veil/src/features/embeded_player/utils/redirect_url_extractor.dart';
 import 'package:veil/src/features/embeded_player/utils/compact_web_player_policy.dart';
+import 'package:veil/src/features/home/view/home_view.dart';
+import 'package:veil/src/features/home/widgets/curated_collection_section.dart';
+import 'package:veil/src/features/home/widgets/watch_provider_section.dart';
+import 'package:veil/src/features/playback_history/models/playback_history_entry.dart';
+import 'package:veil/src/features/playback_history/repository/playback_history_repository.dart';
+import 'package:veil/src/features/playback_history/view_model/playback_history_view_model.dart';
 import 'package:veil/src/features/profile/view/profile_view.dart';
 import 'package:veil/src/features/reviews/view/reviews_view.dart';
 import 'package:veil/src/features/search/view/search_view.dart';
@@ -40,10 +56,23 @@ import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/features/user_profile/view/user_profile_view.dart';
 import 'package:veil/src/shared/models/content_item.dart';
+import 'package:veil/src/shared/models/playback_request.dart';
+import 'package:veil/src/shared/models/alert_item.dart';
+import 'package:veil/src/shared/components/content_cards.dart';
+import 'package:veil/src/shared/components/poster_art.dart';
+import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/components/veil_filter_chips.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
 void main() {
+  final emptyAlertsOverride = alertsViewModelProvider.overrideWithValue(
+    const AlertsViewState(),
+  );
+  final emptyHomeDiscoveryOverrides = [
+    watchProvidersProvider.overrideWith((ref) async => const []),
+    curatedCollectionsProvider.overrideWith((ref) async => const []),
+  ];
+
   setUp(() {
     WebViewPlatform.instance = _FakeWebViewPlatform();
   });
@@ -51,7 +80,10 @@ void main() {
   testWidgets('onboarding describes a movie logging app', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(),
       ),
     );
@@ -64,7 +96,10 @@ void main() {
   testWidgets('sign up asks for a display name', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(),
       ),
     );
@@ -81,7 +116,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(),
       ),
     );
@@ -141,7 +179,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(),
       ),
     );
@@ -159,6 +200,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           authRepositoryProvider.overrideWithValue(
             _SessionAuthRepository(_user(displayName: 'Ijas Huzain')),
@@ -170,7 +212,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.text('Tonight on Veil'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-cinematic-hero')), findsOneWidget);
     expect(find.text('Log every film\nyou watch'), findsNothing);
   });
 
@@ -178,6 +220,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           authRepositoryProvider.overrideWithValue(
             _FailingAuthRepository('Invalid login credentials'),
@@ -201,7 +244,10 @@ void main() {
   testWidgets('login password field toggles visibility', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(),
       ),
     );
@@ -271,6 +317,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           searchViewModelProvider.overrideWithValue(
             const SearchViewState(
@@ -284,7 +331,14 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.text('Tonight on Veil'), findsOneWidget);
+    expect(find.text('Tonight on Veil'), findsNothing);
+    expect(find.textContaining('Hello,'), findsNothing);
+    expect(find.byKey(const ValueKey('home-cinematic-hero')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Global trending'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Global trending'), findsOneWidget);
     expect(find.text('Continue watching'), findsNothing);
     expect(find.text('Browse by mood'), findsNothing);
@@ -292,9 +346,13 @@ void main() {
     expect(find.text('Search'), findsNothing);
     expect(find.text('Alerts'), findsNothing);
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Black Panther: Wakanda Forever'), findsWidgets);
 
-    await tester.tap(find.byIcon(Icons.search_rounded).first);
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, 1000),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byKey(const ValueKey('home-hero-search')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -302,12 +360,13 @@ void main() {
     expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
   });
 
-  testWidgets('home greeting uses the signed in user display name', (
+  testWidgets('home hero removes greeting regardless of signed in user', (
     tester,
   ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           authViewModelProvider.overrideWithValue(
             AuthViewState(user: _user(displayName: 'Ijas Huzain')),
@@ -318,44 +377,225 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.text('Hello, Ijas Huzain'), findsOneWidget);
+    expect(find.textContaining('Hello,'), findsNothing);
+    expect(find.text('Tonight on Veil'), findsNothing);
     expect(find.text('Hello, Aman'), findsNothing);
   });
 
-  testWidgets('selected home genre uses vertical results without a title', (
+  testWidgets(
+    'selected home genre uses phone poster grid without a title and opens Detail',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const selectedGenre = TmdbGenre(id: 99, name: 'Neo Noir');
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const HomeView()),
+          GoRoute(
+            path: RoutePaths.detail,
+            builder: (_, state) =>
+                Scaffold(body: Text('Opened ${state.pathParameters['id']}')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            emptyAlertsOverride,
+            authViewModelProvider.overrideWithValue(const AuthViewState()),
+            playbackHistoryViewModelProvider.overrideWithValue(const []),
+            homeViewModelProvider.overrideWithValue(
+              _homeState.copyWith(
+                globalTrending: const [_wakanda],
+                genres: const [selectedGenre],
+                selectedGenre: selectedGenre,
+                genreResults: const [_wakanda, _arcane],
+                genreStatus: const Status.success(),
+              ),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Neo Noir'), findsOneWidget);
+      expect(find.text('See all'), findsOneWidget);
+      final grid = tester.widget<SliverGrid>(
+        find.byKey(const ValueKey('home-genre-grid')),
+      );
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, 3);
+      expect(delegate.mainAxisSpacing, 20);
+      expect(delegate.crossAxisSpacing, 12);
+      expect(delegate.childAspectRatio, .49);
+      expect(find.byType(PosterCard), findsNWidgets(2));
+      expect(
+        find.byKey(const ValueKey('genre-result-movie-505642')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('genre-result-tv-94605')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+
+      for (final item in const [_wakanda, _arcane]) {
+        final card = tester.widget<PosterCard>(
+          find.byKey(ValueKey('genre-result-${item.id}')),
+        );
+        expect(card.onTap, isNotNull);
+      }
+
+      await tester.tap(find.byKey(const ValueKey('genre-result-movie-505642')));
+      await tester.pumpAndSettle();
+      expect(find.text('Opened movie-505642'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'selected home genre uses expanded poster grid without overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const selectedGenre = TmdbGenre(id: 99, name: 'Neo Noir');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            emptyAlertsOverride,
+            authViewModelProvider.overrideWithValue(const AuthViewState()),
+            playbackHistoryViewModelProvider.overrideWithValue(const []),
+            homeViewModelProvider.overrideWithValue(
+              _homeState.copyWith(
+                genres: const [selectedGenre],
+                selectedGenre: selectedGenre,
+                genreResults: const [_wakanda, _arcane],
+                genreStatus: const Status.success(),
+              ),
+            ),
+          ],
+          child: const MaterialApp(home: HomeView()),
+        ),
+      );
+      await tester.pump();
+
+      final grid = tester.widget<SliverGrid>(
+        find.byKey(const ValueKey('home-genre-grid')),
+      );
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, 6);
+      expect(delegate.childAspectRatio, .49);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('selected home genre loading uses responsive poster grid', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     const selectedGenre = TmdbGenre(id: 99, name: 'Neo Noir');
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          emptyAlertsOverride,
+          authViewModelProvider.overrideWithValue(const AuthViewState()),
+          playbackHistoryViewModelProvider.overrideWithValue(const []),
           homeViewModelProvider.overrideWithValue(
             _homeState.copyWith(
               genres: const [selectedGenre],
               selectedGenre: selectedGenre,
-              genreResults: const [_wakanda, _arcane],
-              genreStatus: const Status.success(),
+              genreResults: const [],
+              genreStatus: const Status.loading(),
             ),
           ),
         ],
-        child: const VeilApp(skipOnboarding: true),
+        child: const MaterialApp(home: HomeView()),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
 
-    expect(find.text('Neo Noir'), findsOneWidget);
-    expect(find.text('See all'), findsOneWidget);
+    var grid = tester.widget<SliverGrid>(
+      find.byKey(const ValueKey('home-genre-loading-grid')),
+    );
+    var delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3);
+    expect(delegate.mainAxisSpacing, 20);
+    expect(delegate.crossAxisSpacing, 12);
+    expect(delegate.childAspectRatio, .49);
+    expect(find.byType(SkeletonBox), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = const Size(1200, 900);
+    await tester.pump();
+
+    grid = tester.widget<SliverGrid>(
+      find.byKey(const ValueKey('home-genre-loading-grid')),
+    );
+    delegate = grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 6);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('selected home genre pagination keeps appended posters visible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _PagedHomeTmdbRepository({
+      1: const [_wakanda],
+      2: const [_arcane],
+      3: const [],
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          emptyAlertsOverride,
+          authViewModelProvider.overrideWithValue(const AuthViewState()),
+          playbackHistoryViewModelProvider.overrideWithValue(const []),
+          tmdbRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Action'));
+    await tester.pump();
+    await tester.pump();
+
     expect(
       find.byKey(const ValueKey('genre-result-movie-505642')),
       findsOneWidget,
     );
+    expect(find.text('Load more'), findsOneWidget);
 
-    final horizontalLists = tester
-        .widgetList<ListView>(find.byType(ListView))
-        .where((list) => list.scrollDirection == Axis.horizontal)
-        .length;
-    expect(horizontalLists, 0);
+    await tester.tap(find.text('Load more'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(repository.requestedPages, [1, 2]);
+    expect(
+      find.byKey(const ValueKey('genre-result-movie-505642')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('genre-result-tv-94605')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('pinned home genres stay below the status bar', (tester) async {
@@ -367,26 +607,41 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(skipOnboarding: true),
       ),
     );
     await tester.pump(const Duration(milliseconds: 250));
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -360));
+    final categories = find.byKey(const ValueKey('home-category-tabs'));
+    expect(categories, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-pinned-category-bar')),
+      findsNothing,
+    );
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
+    expect(categories, findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('All').first).dy,
-      greaterThanOrEqualTo(47),
+      find.byKey(const ValueKey('home-pinned-category-bar')),
+      findsOneWidget,
     );
+    expect(tester.getTopLeft(categories).dy, closeTo(47, .01));
   });
 
   testWidgets('profile shows support and account links', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(skipOnboarding: true),
       ),
     );
@@ -413,7 +668,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(skipOnboarding: true),
       ),
     );
@@ -443,7 +701,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [homeViewModelProvider.overrideWithValue(_homeState)],
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+        ],
         child: const VeilApp(skipOnboarding: true),
       ),
     );
@@ -469,8 +730,11 @@ void main() {
     expect(find.text('Manual overlay route'), findsOneWidget);
   });
 
-  testWidgets('opens detail and fullscreen web player', (tester) async {
+  testWidgets('detail server two launches movie playback request', (
+    tester,
+  ) async {
     final enrichedItem = _wakanda.copyWith(imdbId: 'tt9114286');
+    PlaybackRequest? launched;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -483,8 +747,10 @@ void main() {
         child: MaterialApp(
           home: DetailView(
             item: _wakanda,
-            redirectUrlExtractor: (_) async =>
-                Uri.parse('https://streamimdb.ru/embed/movie/tt9114286'),
+            playbackLauncher: (_, request) async {
+              launched = request;
+              return true;
+            },
           ),
         ),
       ),
@@ -505,21 +771,137 @@ void main() {
     expect(find.text('Server 1'), findsOneWidget);
     expect(find.text('Server 2'), findsOneWidget);
     expect(find.text('Server 3'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('detail-playback-server-panel')),
+        matching: find.textContaining('Cinejoy'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Current source'), findsNothing);
     expect(find.text('vidsrc.to'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('playback-server-2')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.byType(FullscreenLandscapeWebPlayer), findsOneWidget);
-    expect(find.byIcon(Icons.close), findsOneWidget);
-    final player = tester.widget<FullscreenLandscapeWebPlayer>(
-      find.byType(FullscreenLandscapeWebPlayer),
+    expect(launched?.server, PlaybackServer.two);
+    expect(launched?.item.remoteId, 505642);
+    expect(launched?.season, 1);
+    expect(launched?.episode, 1);
+  });
+
+  testWidgets('detail server two records successful playback request', (
+    tester,
+  ) async {
+    final historyRepository = _RecordingPlaybackHistoryRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+          authViewModelProvider.overrideWithValue(AuthViewState(user: _user())),
+          playbackHistoryRepositoryProvider.overrideWithValue(
+            historyRepository,
+          ),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _wakanda,
+            playbackLauncher: (_, request) async => true,
+          ),
+        ),
+      ),
     );
-    expect(player.fallbackUrls.map((url) => url.toString()), [
-      'https://vsembed.ru/embed/movie?imdb=tt9114286',
-    ]);
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    await tester.pump();
+
+    expect(historyRepository.requests, hasLength(1));
+    expect(historyRepository.requests.single.server, PlaybackServer.two);
+    expect(historyRepository.requests.single.item.remoteId, 505642);
+  });
+
+  testWidgets('detail server two does not record rejected playback request', (
+    tester,
+  ) async {
+    final historyRepository = _RecordingPlaybackHistoryRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+          authViewModelProvider.overrideWithValue(AuthViewState(user: _user())),
+          playbackHistoryRepositoryProvider.overrideWithValue(
+            historyRepository,
+          ),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _wakanda,
+            playbackLauncher: (_, request) async => false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    await tester.pump();
+
+    expect(historyRepository.requests, isEmpty);
+    expect(find.text('Player is not available right now.'), findsOneWidget);
+  });
+
+  testWidgets('detail server two does not record launcher exceptions', (
+    tester,
+  ) async {
+    final historyRepository = _RecordingPlaybackHistoryRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+          authViewModelProvider.overrideWithValue(AuthViewState(user: _user())),
+          playbackHistoryRepositoryProvider.overrideWithValue(
+            historyRepository,
+          ),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _wakanda,
+            playbackLauncher: (_, request) async {
+              throw StateError('launcher failed');
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    await tester.pump();
+
+    expect(historyRepository.requests, isEmpty);
+    expect(find.text('Player is not available right now.'), findsOneWidget);
   });
 
   testWidgets('detail hero uses title first and hides absent trending rank', (
@@ -550,6 +932,115 @@ void main() {
     expect(subtitle.style?.fontSize, 13);
     expect(find.text('THE BOYS'), findsNothing);
     expect(find.textContaining('ON TRENDING'), findsNothing);
+  });
+
+  testWidgets(
+    'detail recommendations show headings, dedupe, persist across tabs, and route taps',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final currentDuplicate = _wakanda.copyWith(id: 'current-copy');
+      final recommendationDuplicate = _arcane.copyWith(
+        id: 'recommendation-copy',
+        title: 'Duplicate recommendation',
+      );
+      final sameRemoteDifferentType = _arcane.copyWith(
+        id: 'movie-94605',
+        mediaType: 'movie',
+        type: 'Movie',
+        title: 'Arcane Movie',
+      );
+      final similarDuplicate = _historyMovie.copyWith(
+        id: 'similar-copy',
+        title: 'Duplicate similar',
+      );
+      final detail = ContentDetail(
+        item: _wakanda,
+        recommendations: [_arcane, currentDuplicate],
+        similar: [
+          recommendationDuplicate,
+          sameRemoteDifferentType,
+          _historyMovie,
+          similarDuplicate,
+          currentDuplicate,
+        ],
+      );
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const DetailView(item: _wakanda),
+          ),
+          GoRoute(
+            path: RoutePaths.detail,
+            builder: (_, state) =>
+                Scaffold(body: Text('Opened ${state.pathParameters['id']}')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            detailViewModelProvider(
+              _wakanda,
+            ).overrideWithValue(DetailViewState(detail: detail)),
+            currentUserIsPremiumProvider.overrideWith((ref) async => false),
+            socialLibraryViewModelProvider.overrideWithValue(
+              const SocialLibraryViewState(),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('Detail'));
+      await tester.pump();
+      await tester.tap(find.text('Detail'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Recommended for you'));
+      await tester.pump();
+
+      expect(find.byType(DetailRecommendationRails), findsOneWidget);
+      expect(find.text('Recommended for you'), findsOneWidget);
+      expect(find.text('More like this'), findsOneWidget);
+      expect(find.text(_arcane.title), findsOneWidget);
+      expect(find.text('Arcane Movie'), findsOneWidget);
+      expect(find.text(_historyMovie.title), findsOneWidget);
+      expect(find.text('Duplicate recommendation'), findsNothing);
+      expect(find.text('Duplicate similar'), findsNothing);
+      expect(find.text(_wakanda.title), findsOneWidget);
+      expect(find.byType(PosterCard), findsNWidgets(3));
+      expect(tester.takeException(), isNull);
+
+      await tester.ensureVisible(find.text(_arcane.title));
+      await tester.tap(find.text(_arcane.title));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Opened tv-94605'), findsOneWidget);
+    },
+  );
+
+  testWidgets('detail recommendations render nothing when empty', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: DetailRecommendationRails(recommendations: [], similar: []),
+        ),
+      ),
+    );
+
+    expect(find.byType(DetailRecommendationRails), findsOneWidget);
+    expect(find.text('Recommended for you'), findsNothing);
+    expect(find.text('More like this'), findsNothing);
+    expect(find.byType(PosterCard), findsNothing);
+    expect(find.byType(ListView), findsNothing);
   });
 
   testWidgets('detail shows TMDB-backed trending rank', (tester) async {
@@ -662,27 +1153,24 @@ void main() {
     expect(find.byKey(const ValueKey('premium-play-fab')), findsNothing);
   });
 
-  testWidgets('detail play button shows loading while resolving redirect', (
-    tester,
-  ) async {
-    final enrichedItem = _wakanda.copyWith(imdbId: 'tt9114286');
-    final redirectCompleter = Completer<Uri>();
-    var redirectCalls = 0;
+  testWidgets('detail server two launches selected tv episode', (tester) async {
+    const detail = ContentDetail(item: _arcane, seasons: 3, episodes: 24);
+    PlaybackRequest? launched;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          detailViewModelProvider(_wakanda).overrideWithValue(
-            DetailViewState(detail: ContentDetail.fallback(enrichedItem)),
-          ),
+          detailViewModelProvider(
+            _arcane,
+          ).overrideWithValue(const DetailViewState(detail: detail)),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
         child: MaterialApp(
           home: DetailView(
-            item: _wakanda,
-            redirectUrlExtractor: (_) {
-              redirectCalls += 1;
-              return redirectCompleter.future;
+            item: _arcane,
+            playbackLauncher: (_, request) async {
+              launched = request;
+              return true;
             },
           ),
         ),
@@ -693,39 +1181,46 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-
-    expect(find.text('Server 1'), findsOneWidget);
-
     await tester.tap(find.byKey(const ValueKey('playback-server-2')));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Loading'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('detail-season-episode-panel')),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.text('Loading'));
+    await tester.tap(find.byKey(const ValueKey('playback-season-increment')));
+    await tester.tap(find.byKey(const ValueKey('playback-episode-increment')));
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('playback-season-episode-play')),
+    );
     await tester.pump();
 
-    expect(redirectCalls, 1);
+    expect(launched?.server, PlaybackServer.two);
+    expect(launched?.item.remoteId, 94605);
+    expect(launched?.season, 2);
+    expect(launched?.episode, 2);
   });
 
-  testWidgets('detail play button uses enriched TMDB IMDb id', (tester) async {
-    String? requestedUrl;
-    final enrichedItem = _wakanda.copyWith(imdbId: 'tt16431404');
+  testWidgets('detail server two works without an IMDb id', (tester) async {
+    PlaybackRequest? launched;
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           detailViewModelProvider(_wakanda).overrideWithValue(
-            DetailViewState(detail: ContentDetail.fallback(enrichedItem)),
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
           ),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
         child: MaterialApp(
           home: DetailView(
             item: _wakanda,
-            redirectUrlExtractor: (url) async {
-              requestedUrl = url;
-              return Uri.parse('https://streamimdb.ru/embed/movie/tt16431404');
+            playbackLauncher: (_, request) async {
+              launched = request;
+              return true;
             },
           ),
         ),
@@ -736,10 +1231,13 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
+
     await tester.tap(find.byKey(const ValueKey('playback-server-2')));
     await tester.pump();
 
-    expect(requestedUrl, 'https://www.playimdb.com/title/tt16431404/');
+    expect(_wakanda.imdbId, isNull);
+    expect(launched?.server, PlaybackServer.two);
+    expect(launched?.item.remoteId, 505642);
   });
 
   testWidgets('detail server three opens cinesrc tv embed', (tester) async {
@@ -801,8 +1299,6 @@ void main() {
   testWidgets('detail server four opens movie VidLink in web player', (
     tester,
   ) async {
-    var launcherCalls = 0;
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -811,17 +1307,7 @@ void main() {
           ),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
-        child: MaterialApp(
-          home: DetailView(
-            item: _wakanda,
-            externalPlaybackPolicy:
-                ({required isWeb, required viewportWidth}) => true,
-            externalPlayerLauncher: (_) async {
-              launcherCalls += 1;
-              return true;
-            },
-          ),
-        ),
+        child: const MaterialApp(home: DetailView(item: _wakanda)),
       ),
     );
     await tester.pump();
@@ -833,7 +1319,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(launcherCalls, 0);
     expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
       find.byType(FullscreenLandscapeWebPlayer),
@@ -1044,8 +1529,6 @@ void main() {
   testWidgets('detail server one opens movie Vidsrc embed in web player', (
     tester,
   ) async {
-    var launcherCalls = 0;
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1054,17 +1537,7 @@ void main() {
           ),
           currentUserIsPremiumProvider.overrideWith((ref) async => true),
         ],
-        child: MaterialApp(
-          home: DetailView(
-            item: _wakanda,
-            externalPlaybackPolicy:
-                ({required isWeb, required viewportWidth}) => true,
-            externalPlayerLauncher: (_) async {
-              launcherCalls += 1;
-              return true;
-            },
-          ),
-        ),
+        child: const MaterialApp(home: DetailView(item: _wakanda)),
       ),
     );
     await tester.pump();
@@ -1076,7 +1549,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(launcherCalls, 0);
     expect(find.byType(FullscreenLandscapeDirectVideoPlayer), findsNothing);
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
       find.byType(FullscreenLandscapeWebPlayer),
@@ -1123,131 +1595,76 @@ void main() {
     },
   );
 
-  testWidgets(
-    'detail server three stays embedded when compact web externalizes',
-    (tester) async {
-      final enrichedItem = _arcane.copyWith(imdbId: 'tt0944947');
-      var launcherCalls = 0;
+  testWidgets('detail server three stays embedded', (tester) async {
+    final enrichedItem = _arcane.copyWith(imdbId: 'tt0944947');
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            detailViewModelProvider(_arcane).overrideWithValue(
-              DetailViewState(detail: ContentDetail.fallback(enrichedItem)),
-            ),
-            currentUserIsPremiumProvider.overrideWith((ref) async => true),
-          ],
-          child: MaterialApp(
-            home: DetailView(
-              item: _arcane,
-              externalPlaybackPolicy:
-                  ({required isWeb, required viewportWidth}) => true,
-              externalPlayerLauncher: (_) async {
-                launcherCalls += 1;
-                return true;
-              },
-            ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_arcane).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(enrichedItem)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: const MaterialApp(home: DetailView(item: _arcane)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-3')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final player = tester.widget<FullscreenLandscapeWebPlayer>(
+      find.byType(FullscreenLandscapeWebPlayer),
+    );
+    expect(player.url, 'https://cinesrc.st/embed/tv/94605?s=1&e=1');
+    expect(player.fallbackUrls, isEmpty);
+  });
+
+  testWidgets('detail server two keeps play loading while launcher runs', (
+    tester,
+  ) async {
+    final launcherCompleter = Completer<bool>();
+    var launcherCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          detailViewModelProvider(_wakanda).overrideWithValue(
+            DetailViewState(detail: ContentDetail.fallback(_wakanda)),
+          ),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: MaterialApp(
+          home: DetailView(
+            item: _wakanda,
+            playbackLauncher: (_, request) {
+              launcherCalls += 1;
+              return launcherCompleter.future;
+            },
           ),
         ),
-      );
-      await tester.pump();
-
-      await tester.tap(find.text('Play'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.tap(find.byKey(const ValueKey('playback-server-3')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
-
-      expect(launcherCalls, 0);
-      final player = tester.widget<FullscreenLandscapeWebPlayer>(
-        find.byType(FullscreenLandscapeWebPlayer),
-      );
-      expect(player.url, 'https://cinesrc.st/embed/tv/94605?s=1&e=1');
-      expect(player.fallbackUrls, isEmpty);
-    },
-  );
-
-  testWidgets(
-    'detail play button stays loading while external urls are checked',
-    (tester) async {
-      final enrichedItem = _wakanda.copyWith(imdbId: 'tt9114286');
-      final launcherCompleter = Completer<bool>();
-      var launcherCalls = 0;
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            detailViewModelProvider(_wakanda).overrideWithValue(
-              DetailViewState(detail: ContentDetail.fallback(enrichedItem)),
-            ),
-            currentUserIsPremiumProvider.overrideWith((ref) async => true),
-          ],
-          child: MaterialApp(
-            home: DetailView(
-              item: _wakanda,
-              redirectUrlExtractor: (_) async =>
-                  Uri.parse('https://streamimdb.ru/embed/movie/tt9114286'),
-              externalPlaybackPolicy:
-                  ({required isWeb, required viewportWidth}) => true,
-              externalPlayerLauncher: (_) {
-                launcherCalls += 1;
-                return launcherCompleter.future;
-              },
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      await tester.tap(find.text('Play'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.tap(find.byKey(const ValueKey('playback-server-2')));
-      await tester.pump();
-
-      expect(launcherCalls, 1);
-      expect(find.text('Loading'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
-      launcherCompleter.complete(true);
-      await tester.pump();
-    },
-  );
-
-  test(
-    'redirect extractor skips browser-forbidden prefetch on web path',
-    () async {
-      final uri = await extractRedirectUrl(
-        'https://www.playimdb.com/title/tt1190634/',
-        skipNetwork: true,
-      );
-
-      expect(uri.toString(), 'https://playimdb.com/title/tt1190634/');
-    },
-  );
-
-  test('web playback entry url bypasses the tracker wrapper', () {
-    expect(
-      playbackEntryUrl(
-        imdbId: 'tt28650488',
-        isWeb: true,
-        contentType: 'Movie',
-      ).toString(),
-      'https://streamimdb.ru/embed/movie/tt28650488',
+      ),
     );
-    expect(
-      playbackEntryUrl(
-        imdbId: 'tt1190634',
-        isWeb: true,
-        contentType: 'TV Show',
-      ).toString(),
-      'https://streamimdb.ru/embed/tv/tt1190634',
-    );
-    expect(
-      playbackEntryUrl(imdbId: 'tt28650488', isWeb: false).toString(),
-      'https://www.playimdb.com/title/tt28650488/',
-    );
+    await tester.pump();
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    await tester.pump();
+
+    expect(launcherCalls, 1);
+    expect(find.text('Loading'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    launcherCompleter.complete(true);
+    await tester.pump();
+    expect(find.text('Play'), findsOneWidget);
   });
 
   test('cinesrc playback urls use movie and tv tmdb embeds', () {
@@ -1381,42 +1798,6 @@ void main() {
     );
   });
 
-  test('playback fallback urls only include vsembed for movies', () {
-    expect(
-      playbackFallbackUrls(
-        imdbId: 'tt8385148',
-        tmdbId: 522931,
-        contentType: 'Movie',
-      ).map((url) => url.toString()),
-      ['https://vsembed.ru/embed/movie?imdb=tt8385148'],
-    );
-  });
-
-  test('playback fallback urls only include vsembed for episodes', () {
-    expect(
-      playbackFallbackUrls(
-        imdbId: 'tt13157618',
-        tmdbId: 114472,
-        contentType: 'TV Show',
-        season: 1,
-        episode: 2,
-      ).map((url) => url.toString()),
-      ['https://vsembed.ru/embed/tv?imdb=tt13157618&season=1&episode=2'],
-    );
-  });
-
-  test('playback fallback urls keep existing vsembed tv episode shape', () {
-    expect(
-      playbackFallbackUrls(
-        imdbId: 'tt0944947',
-        contentType: 'TV Show',
-        season: 2,
-        episode: 1,
-      ).first.toString(),
-      'https://vsembed.ru/embed/tv?imdb=tt0944947&season=2&episode=1',
-    );
-  });
-
   testWidgets('mobile player loads vsembed fallback after current url 404', (
     tester,
   ) async {
@@ -1517,6 +1898,58 @@ void main() {
         ),
       ),
       NavigationDecision.navigate,
+    );
+  });
+
+  testWidgets('server two mobile player allows Cinejoy watch paths', (
+    tester,
+  ) async {
+    final platform = _FakeWebViewPlatform();
+    WebViewPlatform.instance = platform;
+    final cinejoyUrl = Uri.parse('https://cinejoy.to/watch/movie/1284041');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FullscreenLandscapeWebPlayer(
+          url: cinejoyUrl.toString(),
+          loadAsPage: true,
+          showCloseButton: false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(platform.controller.htmlLoads, isEmpty);
+    expect(platform.controller.requestLoads, [cinejoyUrl]);
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        NavigationRequest(url: cinejoyUrl.toString(), isMainFrame: true),
+      ),
+      NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://cinejoy.to/watch/tv/94997/2/2',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://cinejoy.to/browse',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.prevent,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(url: 'https://ad.example/', isMainFrame: true),
+      ),
+      NavigationDecision.prevent,
     );
   });
 
@@ -2157,6 +2590,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           searchViewModelProvider.overrideWithValue(
             const SearchViewState(
@@ -2177,6 +2611,38 @@ void main() {
     expect(find.text('Top results'), findsOneWidget);
     expect(find.text('Arcane'), findsWidgets);
     expect(find.text('Science Fiction'), findsOneWidget);
+  });
+
+  testWidgets('search back button uses Veil glass navigation style', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          searchViewModelProvider.overrideWithValue(const SearchViewState()),
+          socialLibraryViewModelProvider.overrideWithValue(
+            const SocialLibraryViewState(),
+          ),
+        ],
+        child: const MaterialApp(home: SearchView(showBack: true)),
+      ),
+    );
+    await tester.pump();
+
+    final button = tester.widget<IconButton>(
+      find.byKey(const ValueKey('search-back-button')),
+    );
+    expect(button.style?.shape?.resolve({}), isA<CircleBorder>());
+    expect(
+      button.style?.backgroundColor?.resolve({}),
+      VeilColors.panel.withValues(alpha: .72),
+    );
+    expect(button.style?.minimumSize?.resolve({}), const Size.square(38));
+    expect(button.style?.maximumSize?.resolve({}), const Size.square(38));
+    expect(
+      button.style?.side?.resolve({})?.color,
+      Colors.white.withValues(alpha: .20),
+    );
   });
 
   testWidgets('search scopes between all, users, and films', (tester) async {
@@ -2776,6 +3242,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           authViewModelProvider.overrideWithValue(
             AuthViewState(user: _user(displayName: 'Ijas Huzain')),
@@ -2786,9 +3253,72 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 250));
 
+    final navigation = find.byKey(const ValueKey('mobile-shell-navigation'));
+    final homePill = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey('shell-tab-home')),
+    );
+    final decoration = homePill.decoration! as BoxDecoration;
+    final border = decoration.border! as Border;
+
     expect(find.byType(NavigationRail), findsNothing);
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.byIcon(Icons.menu_book_rounded), findsOneWidget);
+    expect(navigation, findsOneWidget);
+    expect(
+      find.descendant(of: navigation, matching: find.text('Home')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: navigation, matching: find.text('Diary')),
+      findsNothing,
+    );
+    for (final icon in const [
+      Icons.home_rounded,
+      Icons.menu_book_rounded,
+      Icons.rate_review_outlined,
+      Icons.person_outline_rounded,
+    ]) {
+      expect(
+        find.descendant(of: navigation, matching: find.byIcon(icon)),
+        findsOneWidget,
+      );
+    }
+    expect(decoration.color, Colors.white.withValues(alpha: .16));
+    expect(decoration.color, isNot(VeilColors.red));
+    expect(border.top.color, Colors.white24);
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: navigation,
+              matching: find.byIcon(Icons.home_rounded),
+            ),
+          )
+          .color,
+      Colors.white,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(of: navigation, matching: find.text('Home')),
+          )
+          .style
+          ?.color,
+      Colors.white,
+    );
+    expect(tester.getRect(navigation).left, greaterThanOrEqualTo(0));
+    expect(tester.getRect(navigation).right, lessThanOrEqualTo(390));
+
+    await tester.tap(find.byKey(const ValueKey('shell-tab-reviews')));
+    await tester.pump();
+
+    expect(
+      find.descendant(of: navigation, matching: find.text('Reviews')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: navigation, matching: find.text('Home')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('responsive shell uses navigation rail on desktop', (
@@ -2801,6 +3331,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           authViewModelProvider.overrideWithValue(
             AuthViewState(user: _user(displayName: 'Ijas Huzain')),
@@ -2816,6 +3347,1938 @@ void main() {
     expect(find.text('Diary'), findsOneWidget);
   });
 
+  testWidgets('poster card rating renders only below title', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(child: PosterCard(item: _wakanda)),
+        ),
+      ),
+    );
+
+    expect(find.text(_wakanda.rating.toStringAsFixed(1)), findsOneWidget);
+    expect(find.byIcon(Icons.star_rounded), findsOneWidget);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(child: PosterCard(item: _wakanda, showMeta: false)),
+        ),
+      ),
+    );
+
+    expect(find.text(_wakanda.rating.toStringAsFixed(1)), findsNothing);
+    expect(find.byIcon(Icons.star_rounded), findsNothing);
+  });
+
+  testWidgets('provider screen watches and shows only selected tab', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final repository = _ProviderCatalogTmdbRepository((request) {
+      return switch (request.mediaType) {
+        'movie' => const [_wakanda],
+        'tv' => const [_arcane],
+        _ => fail('Unexpected provider request: $request'),
+      };
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [tmdbRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          home: ProviderView(providerId: 8, providerName: 'Netflix'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(repository.requests, [(providerId: 8, mediaType: 'movie', page: 1)]);
+    expect(find.byType(CustomScrollView), findsOneWidget);
+    expect(find.byKey(const ValueKey('provider-media-tabs')), findsOneWidget);
+    expect(
+      tester
+          .widget<SliverPersistentHeader>(
+            find.byKey(const ValueKey('provider-media-tabs-header')),
+          )
+          .pinned,
+      isTrue,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('provider-media-tabs-header')),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Streaming catalog'), findsNothing);
+    expect(find.textContaining('Streaming availability'), findsNothing);
+    expect(find.textContaining('Catalog data by TMDB'), findsNothing);
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.title, isNotNull);
+    expect(appBar.backgroundColor, Colors.transparent);
+    expect(appBar.scrolledUnderElevation, 0);
+    final backButton = tester.widget<IconButton>(
+      find.byKey(const ValueKey('provider-back-button')),
+    );
+    expect(backButton.style?.shape?.resolve({}), isA<CircleBorder>());
+    expect(
+      backButton.style?.backgroundColor?.resolve({}),
+      VeilColors.panel.withValues(alpha: .72),
+    );
+    expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+
+    final logo = tester.widget<Container>(
+      find.byKey(const ValueKey('provider-header-logo')),
+    );
+    expect(logo.padding, isNull);
+    final logoDecoration = logo.decoration! as BoxDecoration;
+    expect(logoDecoration.color, isNull);
+
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(find.text(_arcane.title), findsNothing);
+    expect(find.byKey(const ValueKey('provider-tab-movies')), findsOneWidget);
+    expect(find.byKey(const ValueKey('provider-tab-tv')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('provider-tab-tv')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(repository.requests, [
+      (providerId: 8, mediaType: 'movie', page: 1),
+      (providerId: 8, mediaType: 'tv', page: 1),
+    ]);
+    expect(find.text(_wakanda.title), findsNothing);
+    expect(find.text(_arcane.title), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('provider-tab-movies')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(repository.requests, [
+      (providerId: 8, mediaType: 'movie', page: 1),
+      (providerId: 8, mediaType: 'tv', page: 1),
+    ]);
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(find.text(_arcane.title), findsNothing);
+  });
+
+  testWidgets('provider compact identity follows catalog scroll', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const providerName =
+        'A Provider Name Long Enough To Require Compact Title Ellipsis';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tmdbRepositoryProvider.overrideWithValue(
+            _ProviderCatalogTmdbRepository(
+              (_) => _providerCatalogItems('provider-collapse', 30),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ProviderView(providerId: 8, providerName: providerName),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final collapsedIdentity = find.byKey(
+      const ValueKey('provider-collapsed-identity'),
+    );
+    Opacity collapsedOpacity() => tester.widget<Opacity>(collapsedIdentity);
+    List<Transform> collapsedTransforms() => tester
+        .widgetList<Transform>(
+          find.descendant(
+            of: collapsedIdentity,
+            matching: find.byType(Transform),
+          ),
+        )
+        .toList();
+
+    expect(collapsedOpacity().opacity, 0);
+    expect(
+      tester
+          .widget<ExcludeSemantics>(
+            find.ancestor(
+              of: collapsedIdentity,
+              matching: find.byType(ExcludeSemantics),
+            ),
+          )
+          .excluding,
+      isTrue,
+    );
+    expect(collapsedTransforms()[0].transform.getTranslation().y, 8);
+    expect(collapsedTransforms()[1].transform.entry(0, 0), .94);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('provider-collapsed-logo'))),
+      const Size.square(38),
+    );
+    final collapsedName = tester.widget<Text>(
+      find.descendant(of: collapsedIdentity, matching: find.text(providerName)),
+    );
+    expect(collapsedName.maxLines, 1);
+    expect(collapsedName.overflow, TextOverflow.ellipsis);
+    final initialHeaderTop = tester
+        .getTopLeft(find.byKey(const ValueKey('provider-header-logo')))
+        .dy;
+
+    await tester.drag(
+      find.byKey(const ValueKey('provider-catalog-list')),
+      const Offset(0, -60),
+    );
+    await tester.pump();
+
+    expect(collapsedOpacity().opacity, closeTo(60 / 88, .001));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('provider-header-logo'))).dy,
+      lessThan(initialHeaderTop),
+    );
+
+    await tester.drag(
+      find.byKey(const ValueKey('provider-catalog-list')),
+      const Offset(0, -120),
+    );
+    await tester.pump();
+
+    expect(collapsedOpacity().opacity, 1);
+    expect(
+      tester
+          .widget<ExcludeSemantics>(
+            find.ancestor(
+              of: collapsedIdentity,
+              matching: find.byType(ExcludeSemantics),
+            ),
+          )
+          .excluding,
+      isFalse,
+    );
+    expect(collapsedTransforms()[0].transform.getTranslation().y, 0);
+    expect(collapsedTransforms()[1].transform.entry(0, 0), 1);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('provider-media-tabs'))).dy,
+      closeTo(tester.getBottomLeft(find.byType(AppBar)).dy + 12, .01),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('provider screen handles selected empty error and retry states', (
+    tester,
+  ) async {
+    var tvLoads = 0;
+    final repository = _ProviderCatalogTmdbRepository((request) {
+      if (request.mediaType == 'movie') return const [];
+      tvLoads += 1;
+      if (tvLoads == 1) throw StateError('TV unavailable');
+      return const [_arcane];
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [tmdbRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          home: ProviderView(providerId: 8, providerName: 'Netflix'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('No movies available in the US.'), findsOneWidget);
+    expect(find.text('No TV series available in the US.'), findsNothing);
+    expect(
+      repository.requests
+          .where((request) => request.mediaType == 'movie')
+          .length,
+      1,
+    );
+    expect(tvLoads, 0);
+
+    await tester.tap(find.byKey(const ValueKey('provider-tab-tv')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('No movies available in the US.'), findsNothing);
+    expect(find.text('Unable to load TV Series.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('provider-tv-retry')), findsOneWidget);
+    expect(tvLoads, 1);
+
+    await tester.tap(find.byKey(const ValueKey('provider-tv-retry')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(tvLoads, 2);
+    expect(find.text(_arcane.title), findsOneWidget);
+    expect(find.byKey(const ValueKey('provider-tv-retry')), findsNothing);
+  });
+
+  testWidgets('provider screen grid uses responsive poster columns', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tmdbRepositoryProvider.overrideWithValue(
+            _ProviderCatalogTmdbRepository((_) => const [_wakanda, _arcane]),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ProviderView(providerId: 8, providerName: 'Netflix'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    var grid = tester.widget<SliverGrid>(
+      find.byKey(const ValueKey('provider-catalog-grid')),
+    );
+    var delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3);
+    expect(delegate.childAspectRatio, .49);
+    expect(find.byType(PosterCard), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = const Size(1200, 900);
+    await tester.pump();
+
+    grid = tester.widget<SliverGrid>(
+      find.byKey(const ValueKey('provider-catalog-grid')),
+    );
+    delegate = grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 6);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('provider screen loading skeleton matches poster grid', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final movies = Completer<List<ContentItem>>();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tmdbRepositoryProvider.overrideWithValue(
+            _ProviderCatalogTmdbRepository((_) => movies.future),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ProviderView(providerId: 8, providerName: 'Netflix'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final grid = tester.widget<SliverGrid>(
+      find.byKey(const ValueKey('provider-catalog-loading-grid')),
+    );
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3);
+    expect(delegate.mainAxisSpacing, 20);
+    expect(delegate.crossAxisSpacing, 12);
+    expect(delegate.childAspectRatio, .49);
+    expect(find.byType(SkeletonBox), findsWidgets);
+
+    movies.complete(const []);
+    await tester.pump();
+  });
+
+  testWidgets(
+    'provider screen loads page 2 once and preserves items for retry',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final page1 = _providerCatalogItems('provider-page-1', 30);
+      final firstPage2 = Completer<List<ContentItem>>();
+      var page2Attempts = 0;
+      final repository = _ProviderCatalogTmdbRepository((request) {
+        if (request.page == 1) return page1;
+        page2Attempts += 1;
+        if (page2Attempts == 1) return firstPage2.future;
+        return _providerCatalogItems('provider-page-2', 1);
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [tmdbRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(
+            home: ProviderView(providerId: 8, providerName: 'Netflix'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.drag(
+        find.byKey(const ValueKey('provider-catalog-list')),
+        const Offset(0, -3000),
+      );
+      await tester.pump();
+
+      expect(
+        repository.requests.where((request) => request.page == 2).length,
+        1,
+      );
+      expect(
+        find.byKey(const ValueKey('provider-load-more-progress')),
+        findsOneWidget,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ProviderView)),
+      );
+      final provider = providerCatalogProvider(8, 'movie');
+      expect(container.read(provider).items, page1);
+
+      firstPage2.completeError(StateError('page 2 unavailable'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(container.read(provider).items, page1);
+      expect(container.read(provider).loadMoreError, isNotEmpty);
+      expect(
+        find.byKey(const ValueKey('provider-catalog-grid')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('provider-load-more-retry')),
+        findsOneWidget,
+      );
+
+      final retry = find.byKey(const ValueKey('provider-load-more-retry'));
+      await tester.ensureVisible(retry);
+      await tester.pump();
+      await tester.tap(retry);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        repository.requests.where((request) => request.page == 2).length,
+        2,
+      );
+      expect(container.read(provider).items, hasLength(page1.length + 1));
+      expect(container.read(provider).loadMoreError, isEmpty);
+      expect(
+        find.byKey(const ValueKey('provider-load-more-retry')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('provider screen poster opens Detail without phone overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) =>
+              const ProviderView(providerId: 8, providerName: 'Netflix'),
+        ),
+        GoRoute(
+          path: RoutePaths.detail,
+          builder: (_, state) =>
+              Scaffold(body: Text('Opened ${state.pathParameters['id']}')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tmdbRepositoryProvider.overrideWithValue(
+            _ProviderCatalogTmdbRepository((_) => const [_wakanda]),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    await tester.tap(
+      find.byKey(const ValueKey('provider-catalog-item-movie-505642')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Opened movie-505642'), findsOneWidget);
+  });
+
+  testWidgets('home provider tester skips provider subscription', (
+    tester,
+  ) async {
+    var providerBuilds = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authViewModelProvider.overrideWithValue(
+            AuthViewState(user: _user(email: ' Tester@VexelLab.com ')),
+          ),
+          watchProvidersProvider.overrideWith((ref) async {
+            providerBuilds += 1;
+            return const [];
+          }),
+        ],
+        child: const MaterialApp(home: Scaffold(body: WatchProviderSection())),
+      ),
+    );
+    await tester.pump();
+
+    expect(providerBuilds, 0);
+    expect(find.byKey(const ValueKey('watch-provider-list')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('watch-provider-loading-list')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('home provider normal user loads compact cells', (tester) async {
+    var providerBuilds = 0;
+    const providers = [
+      TmdbWatchProvider(
+        id: 1,
+        name: 'Netflix',
+        logoPath: '/netflix.png',
+        displayPriority: 1,
+      ),
+      TmdbWatchProvider(
+        id: 2,
+        name: 'Prime Video',
+        logoPath: '',
+        displayPriority: 2,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authViewModelProvider.overrideWithValue(
+            AuthViewState(user: _user(email: 'viewer@example.com')),
+          ),
+          watchProvidersProvider.overrideWith((ref) async {
+            providerBuilds += 1;
+            return providers;
+          }),
+        ],
+        child: const MaterialApp(home: Scaffold(body: WatchProviderSection())),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(providerBuilds, 1);
+    expect(find.byKey(const ValueKey('watch-provider-list')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('watch-provider-1'))).width,
+      64,
+    );
+
+    final box = tester.widget<Container>(
+      find.byKey(const ValueKey('watch-provider-image-1')),
+    );
+    expect(box.constraints?.maxWidth, 58);
+    expect(box.constraints?.maxHeight, 58);
+    expect(box.padding, isNull);
+    expect(box.clipBehavior, Clip.antiAlias);
+    final decoration = box.decoration! as BoxDecoration;
+    expect(decoration.color, isNull);
+    expect(decoration.borderRadius, BorderRadius.circular(12));
+    final border = decoration.border! as Border;
+    expect(border.top.color, VeilColors.hairlineStrong);
+    expect(border.top.width, 1);
+
+    final image = tester.widget<CachedNetworkImage>(
+      find.descendant(
+        of: find.byKey(const ValueKey('watch-provider-image-1')),
+        matching: find.byType(CachedNetworkImage),
+      ),
+    );
+    expect(image.fit, BoxFit.cover);
+
+    final fallback = tester.widget<ColoredBox>(
+      find.descendant(
+        of: find.byKey(const ValueKey('watch-provider-image-2')),
+        matching: find.byType(ColoredBox),
+      ),
+    );
+    expect(fallback.color, VeilColors.bg3);
+    final fallbackText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('watch-provider-image-2')),
+        matching: find.text('P'),
+      ),
+    );
+    expect(fallbackText.style?.color, Colors.white);
+  });
+
+  testWidgets('home provider rail caps items and opens typed provider route', (
+    tester,
+  ) async {
+    final providers = [
+      for (var id = 1; id <= 13; id++)
+        TmdbWatchProvider(
+          id: id,
+          name: id == 1 ? 'Netflix' : 'Provider $id',
+          logoPath: '',
+          displayPriority: id,
+        ),
+    ];
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const HomeView()),
+        GoRoute(
+          path: RoutePaths.provider,
+          builder: (_, state) => Scaffold(
+            body: Text(
+              'Provider ${state.pathParameters['id']} '
+              '${state.uri.queryParameters['name']}',
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          homeViewModelProvider.overrideWithValue(_homeState),
+          watchProvidersProvider.overrideWith((ref) async => providers),
+          curatedCollectionsProvider.overrideWith((ref) async => const []),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('watch-provider-1')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Watch by provider'), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-retry')), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-1')), findsOneWidget);
+    final list = tester.widget<ListView>(
+      find.byKey(const ValueKey('watch-provider-list')),
+    );
+    final delegate = list.childrenDelegate as SliverChildBuilderDelegate;
+    expect(delegate.childCount, 12 * 2 - 1);
+
+    await tester.tap(find.byKey(const ValueKey('watch-provider-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Provider 1 Netflix'), findsOneWidget);
+  });
+
+  testWidgets('home provider loading shows skeleton rail without heading', (
+    tester,
+  ) async {
+    final providers = Completer<List<TmdbWatchProvider>>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          watchProvidersProvider.overrideWith((ref) => providers.future),
+        ],
+        child: const MaterialApp(home: Scaffold(body: WatchProviderSection())),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Watch by provider'), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-retry')), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-list')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('watch-provider-loading-list')),
+      findsOneWidget,
+    );
+    expect(find.byType(SkeletonBox), findsNWidgets(5));
+    for (var index = 0; index < 5; index++) {
+      final skeleton = tester.widget<SkeletonBox>(
+        find.byKey(ValueKey('watch-provider-loading-$index')),
+      );
+      expect(skeleton.width, 58);
+      expect(skeleton.height, 58);
+      expect(skeleton.radius, 12);
+    }
+
+    providers.complete(const []);
+    await tester.pump();
+  });
+
+  testWidgets('home provider error renders nothing', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          watchProvidersProvider.overrideWith(
+            (ref) async => throw StateError('Provider list unavailable'),
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: WatchProviderSection())),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Watch by provider'), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-retry')), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-list')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('watch-provider-loading-list')),
+      findsNothing,
+    );
+    expect(find.byType(SkeletonBox), findsNothing);
+  });
+
+  testWidgets('home provider failure remains isolated from primary rails', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          homeViewModelProvider.overrideWithValue(_homeState),
+          watchProvidersProvider.overrideWith(
+            (ref) async => throw StateError('Provider list unavailable'),
+          ),
+          curatedCollectionsProvider.overrideWith((ref) async => const []),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.scrollUntilVisible(
+      find.text('Global trending'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Watch by provider'), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-retry')), findsNothing);
+    expect(find.byKey(const ValueKey('watch-provider-list')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('watch-provider-loading-list')),
+      findsNothing,
+    );
+    expect(find.text('Global trending'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('curated metadata loading has no overall heading', (
+    tester,
+  ) async {
+    final collections = Completer<List<CuratedCollection>>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith((ref) => collections.future),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: CuratedCollectionSection()),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Curated collections'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('curated-collection-choices')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('curated-collection-retry')),
+      findsNothing,
+    );
+    expect(find.byType(SkeletonBox), findsNWidgets(3));
+
+    collections.complete(const []);
+    await tester.pump();
+  });
+
+  testWidgets('curated metadata error stays compact without overall heading', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => throw StateError('Collections unavailable'),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: CuratedCollectionSection()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Curated collections'), findsNothing);
+    expect(find.text('Curated collections are unavailable.'), findsNothing);
+    expect(find.text('Unable to load this collection.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('curated-collection-retry')),
+      findsOneWidget,
+    );
+    expect(find.byType(SkeletonBox), findsNothing);
+  });
+
+  testWidgets('curated selector loads only selected family and swaps rail', (
+    tester,
+  ) async {
+    var firstLoads = 0;
+    var secondLoads = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections,
+          ),
+          curatedCollectionItemsProvider('first').overrideWith((ref) async {
+            firstLoads += 1;
+            return const [_wakanda];
+          }),
+          curatedCollectionItemsProvider('second').overrideWith((ref) async {
+            secondLoads += 1;
+            return const [_arcane];
+          }),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: CuratedCollectionSection()),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(firstLoads, 1);
+    expect(secondLoads, 0);
+    expect(find.text('Curated collections'), findsNothing);
+    expect(find.text('First collection'), findsOneWidget);
+    expect(find.text('Second collection'), findsOneWidget);
+    expect(find.text('First collection description.'), findsNothing);
+    expect(find.text('Second collection description.'), findsNothing);
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(find.text(_arcane.title), findsNothing);
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-first')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey('curated-collection-choices')))
+          .bottom,
+      lessThan(
+        tester
+            .getRect(find.byKey(const ValueKey('curated-collection-items')))
+            .top,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('curated-collection-choice-second')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(firstLoads, 1);
+    expect(secondLoads, 1);
+    expect(find.text(_wakanda.title), findsNothing);
+    expect(find.text(_arcane.title), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-first')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-second')),
+      findsNothing,
+    );
+    expect(find.text('First collection description.'), findsNothing);
+    expect(find.text('Second collection description.'), findsNothing);
+  });
+
+  testWidgets('curated selection retains old posters until new data arrives', (
+    tester,
+  ) async {
+    final secondItems = Completer<List<ContentItem>>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections,
+          ),
+          curatedCollectionItemsProvider(
+            'first',
+          ).overrideWith((ref) async => const [_wakanda]),
+          curatedCollectionItemsProvider(
+            'second',
+          ).overrideWith((ref) => secondItems.future),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: CuratedCollectionSection()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('curated-collection-choice-second')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-first')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-second')),
+      findsNothing,
+    );
+    expect(find.text('First collection'), findsOneWidget);
+    expect(find.text('Second collection'), findsOneWidget);
+    expect(find.text('First collection description.'), findsNothing);
+    expect(find.text('Second collection description.'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('curated-collection-item-movie-505642')),
+      findsOneWidget,
+    );
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(find.text(_arcane.title), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    secondItems.complete(const [_arcane]);
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-first')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-second')),
+      findsNothing,
+    );
+    expect(find.text('First collection description.'), findsNothing);
+    expect(find.text('Second collection description.'), findsNothing);
+    expect(find.text(_wakanda.title), findsNothing);
+    expect(find.text(_arcane.title), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
+
+  testWidgets('curated selection error retains old rail and retries request', (
+    tester,
+  ) async {
+    var secondLoads = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections,
+          ),
+          curatedCollectionItemsProvider(
+            'first',
+          ).overrideWith((ref) async => const [_wakanda]),
+          curatedCollectionItemsProvider('second').overrideWith((ref) async {
+            secondLoads += 1;
+            if (secondLoads == 1) throw StateError('Collection unavailable');
+            return const [_arcane];
+          }),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: CuratedCollectionSection()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('curated-collection-choice-second')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(secondLoads, 1);
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-first')),
+      findsNothing,
+    );
+    expect(find.text('First collection description.'), findsNothing);
+    expect(find.text('Second collection description.'), findsNothing);
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(find.text(_arcane.title), findsNothing);
+    expect(
+      find.byKey(const ValueKey('curated-collection-retry')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('curated-collection-retry')));
+    await tester.pump();
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    await tester.pump();
+
+    expect(secondLoads, 2);
+    expect(
+      find.byKey(const ValueKey('curated-collection-heading-second')),
+      findsNothing,
+    );
+    expect(find.text(_wakanda.title), findsNothing);
+    expect(find.text(_arcane.title), findsOneWidget);
+  });
+
+  testWidgets('curated item failure retries locally and recovers', (
+    tester,
+  ) async {
+    var loads = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections.take(1).toList(),
+          ),
+          curatedCollectionItemsProvider('first').overrideWith((ref) async {
+            loads += 1;
+            if (loads == 1) throw StateError('Collection unavailable');
+            return const [_wakanda];
+          }),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: CuratedCollectionSection()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(loads, 1);
+    expect(
+      find.byKey(const ValueKey('curated-collection-retry')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('curated-collection-retry')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(loads, 2);
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('curated-collection-retry')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('curated refresh retains prior data with compact progress', (
+    tester,
+  ) async {
+    var loads = 0;
+    final refresh = Completer<List<ContentItem>>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections.take(1).toList(),
+          ),
+          curatedCollectionItemsProvider('first').overrideWith((ref) async {
+            loads += 1;
+            if (loads == 1) return const [_wakanda];
+            return refresh.future;
+          }),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: CuratedCollectionSection()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CuratedCollectionSection)),
+    );
+    container.invalidate(curatedCollectionItemsProvider('first'));
+    await tester.pump();
+
+    expect(find.text(_wakanda.title), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    refresh.complete(const [_arcane]);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text(_wakanda.title), findsNothing);
+    expect(find.text(_arcane.title), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
+
+  testWidgets('curated empty state remains local', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections.take(1).toList(),
+          ),
+          curatedCollectionItemsProvider(
+            'first',
+          ).overrideWith((ref) async => const []),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: CuratedCollectionSection()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('No curated titles available.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('curated Detail tap opens selected TMDB identity', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: CuratedCollectionSection()),
+        ),
+        GoRoute(
+          path: RoutePaths.detail,
+          builder: (_, state) =>
+              Scaffold(body: Text('Opened ${state.pathParameters['id']}')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections.take(1).toList(),
+          ),
+          curatedCollectionItemsProvider(
+            'first',
+          ).overrideWith((ref) async => const [_wakanda]),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('curated-collection-item-movie-505642')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Opened movie-505642'), findsOneWidget);
+  });
+
+  testWidgets('curated failure leaves existing Home rails available', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          watchProvidersProvider.overrideWith((ref) async => const []),
+          homeViewModelProvider.overrideWithValue(_homeState),
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections.take(1).toList(),
+          ),
+          curatedCollectionItemsProvider(
+            'first',
+          ).overrideWith((ref) async => throw StateError('Shegu unavailable')),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('curated-collection-retry')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(
+      find.byKey(const ValueKey('curated-collection-retry')),
+      findsOneWidget,
+    );
+    expect(find.text('Global trending'), findsOneWidget);
+    expect(find.text(_wakanda.title), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home keeps curated compact between new and popular', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          watchProvidersProvider.overrideWith((ref) async => const []),
+          homeViewModelProvider.overrideWithValue(_homeState),
+          curatedCollectionsProvider.overrideWith(
+            (ref) async => _curatedCollections,
+          ),
+          curatedCollectionItemsProvider(
+            'first',
+          ).overrideWith((ref) async => const [_wakanda, _arcane]),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Popular movies'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    final newThisWeekY = tester.getCenter(find.text('New this week')).dy;
+    final curatedTabsY = tester
+        .getCenter(find.byKey(const ValueKey('curated-collection-choices')))
+        .dy;
+    final popularMoviesY = tester.getCenter(find.text('Popular movies')).dy;
+    expect(newThisWeekY, lessThan(curatedTabsY));
+    expect(curatedTabsY, lessThan(popularMoviesY));
+    expect(find.text('Curated collections'), findsNothing);
+    expect(find.text('First collection description.'), findsNothing);
+    expect(find.text('Second collection description.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home hero is full bleed and complete on phone and desktop', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          playbackHistoryViewModelProvider.overrideWithValue(const []),
+          homeViewModelProvider.overrideWithValue(
+            const HomeViewState(
+              globalTrending: [_arcane],
+              genres: [TmdbGenre(id: 18, name: 'Drama')],
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+
+    void expectCinematicGeometry({
+      required double width,
+      required double height,
+    }) {
+      final hero = find.byKey(const ValueKey('home-cinematic-hero'));
+      final overlap = find.byKey(const ValueKey('home-hero-category-overlap'));
+      final categories = find.byKey(const ValueKey('home-category-tabs'));
+      final heroRect = tester.getRect(hero);
+      expect(heroRect.left, 0);
+      expect(heroRect.top, 0);
+      expect(heroRect.width, width);
+      expect(heroRect.height, closeTo(height, .01));
+      expect(categories, findsOneWidget);
+      expect(
+        tester.getTopLeft(categories).dy,
+        closeTo(heroRect.bottom - 32, .01),
+      );
+      expect(tester.getSize(categories).height, 52);
+      expect(tester.getSize(overlap).height, closeTo(height + 52 - 32, .01));
+      final backdrop = tester.widget<BackdropArt>(
+        find.descendant(of: hero, matching: find.byType(BackdropArt)).first,
+      );
+      expect(backdrop.radius, 0);
+      expect(backdrop.width, double.infinity);
+      expect(backdrop.height, closeTo(height, .01));
+    }
+
+    expectCinematicGeometry(width: 390, height: 844 * .51);
+    expect(find.text('Tonight on Veil'), findsNothing);
+    expect(find.textContaining('Hello,'), findsNothing);
+    expect(find.byKey(const ValueKey('home-hero-logo')), findsNothing);
+    expect(find.byKey(const ValueKey('home-hero-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-hero-alerts')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-hero-view')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-hero-add')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('home-hero-view'))).height,
+      44,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('home-hero-add'))),
+      const Size.square(44),
+    );
+    expect(find.byTooltip('Add to Veil'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-hero-info')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('home-hero-horizontal-vignette')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-hero-bottom-blend')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-hero-top-contrast')),
+      findsOneWidget,
+    );
+    expect(find.text('View'), findsOneWidget);
+    expect(find.text('Play'), findsNothing);
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-hero-dots')), findsNothing);
+    expect(find.byKey(const ValueKey('home-hero-dot-0')), findsNothing);
+    expect(find.text('ARCANE'), findsOneWidget);
+    final overview = tester.widget<Text>(find.text(_arcane.description));
+    expect(overview.maxLines, 3);
+    expect(tester.takeException(), isNull);
+
+    tester.view.physicalSize = const Size(1200, 900);
+    await tester.pump();
+
+    expectCinematicGeometry(width: 1200, height: 465);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home hero skeleton is full bleed with zero radius', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          playbackHistoryViewModelProvider.overrideWithValue(const []),
+          homeViewModelProvider.overrideWithValue(const HomeViewState()),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+
+    final skeletonFinder = find.byKey(const ValueKey('home-hero-skeleton'));
+    final skeleton = tester.widget<SkeletonBox>(skeletonFinder);
+    expect(tester.getTopLeft(skeletonFinder), Offset.zero);
+    expect(tester.getSize(skeletonFinder).width, 390);
+    expect(tester.getSize(skeletonFinder).height, closeTo(844 * .51, .01));
+    expect(skeleton.radius, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'home hero quick add and actions preserve routes without playback',
+    (tester) async {
+      var playbackLaunches = 0;
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => HomeView(
+              playbackLauncher: (_, _) async {
+                playbackLaunches += 1;
+                return true;
+              },
+            ),
+          ),
+          GoRoute(
+            path: RoutePaths.detail,
+            builder: (_, state) =>
+                Scaffold(body: Text('Detail ${state.pathParameters['id']}')),
+          ),
+          GoRoute(
+            path: RoutePaths.search,
+            builder: (_, _) => const Scaffold(body: Text('Search destination')),
+          ),
+          GoRoute(
+            path: RoutePaths.alerts,
+            builder: (_, _) => const Scaffold(body: Text('Alerts destination')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            alertsViewModelProvider.overrideWithValue(
+              const AlertsViewState(
+                alerts: [
+                  AlertItem(
+                    content: _arcane,
+                    tag: 'TRENDING',
+                    title: 'Arcane is trending',
+                    time: 'Now',
+                    unread: true,
+                  ),
+                ],
+              ),
+            ),
+            ...emptyHomeDiscoveryOverrides,
+            playbackHistoryViewModelProvider.overrideWithValue(const []),
+            homeViewModelProvider.overrideWithValue(
+              const HomeViewState(globalTrending: [_arcane]),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pump();
+
+      final alertsControl = tester.widget<ActionCircle>(
+        find.byKey(const ValueKey('home-hero-alerts')),
+      );
+      expect(alertsControl.badge, isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('home-hero-view')));
+      await tester.pumpAndSettle();
+      expect(find.text('Detail tv-94605'), findsOneWidget);
+      router.go('/');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('home-hero-add')));
+      await tester.pump();
+      expect(router.routeInformationProvider.value.uri.path, '/');
+      expect(playbackLaunches, 0);
+      expect(
+        find.byKey(const ValueKey('detail-social-action-panel')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('home-hero-search')));
+      await tester.pumpAndSettle();
+      expect(find.text('Search destination'), findsOneWidget);
+      router.go('/');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('home-hero-alerts')));
+      await tester.pumpAndSettle();
+      expect(find.text('Alerts destination'), findsOneWidget);
+    },
+  );
+
+  testWidgets('home hero quick add seeds unified social action panel', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStorage.init();
+    final repository = SocialRepository();
+    await repository.setWatched(_wakanda, watched: true, rating: 4);
+    await repository.toggleFavorite(_wakanda);
+
+    await _pumpHomeHeroQuickAdd(tester, repository);
+    await tester.tap(find.byKey(const ValueKey('home-hero-add')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.byKey(const ValueKey('detail-social-action-panel')),
+      findsOneWidget,
+    );
+    for (final label in const [
+      'Watched',
+      'Favorite',
+      'Watchlist',
+      'Rate',
+      'Review',
+      'Suggest',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+    final sheet = tester.widget<DetailSocialActionSheet>(
+      find.byType(DetailSocialActionSheet),
+    );
+    expect(sheet.item.id, _wakanda.id);
+    expect(sheet.isWatched, isTrue);
+    expect(sheet.isFavorite, isTrue);
+    expect(sheet.isInWatchlist, isFalse);
+    expect(sheet.rating, 4);
+    expect(find.byType(DetailView), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home hero quick add wires social library mutations', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStorage.init();
+    final repository = SocialRepository();
+
+    await _pumpHomeHeroQuickAdd(tester, repository);
+    await tester.tap(find.byKey(const ValueKey('home-hero-add')));
+    await tester.pump();
+    final sheet = tester.widget<DetailSocialActionSheet>(
+      find.byType(DetailSocialActionSheet),
+    );
+
+    await sheet.onSetWatched(watched: true, rating: 3.5);
+    var entry = (await repository.entries()).single;
+    expect(entry.watchedOn, isNotNull);
+    expect(entry.rating, 3.5);
+
+    await sheet.onToggleFavorite();
+    entry = (await repository.entries()).single;
+    expect(entry.isFavorite, isTrue);
+
+    await sheet.onSetWatchlist(inWatchlist: true);
+    entry = (await repository.entries()).single;
+    expect(entry.inWatchlist, isTrue);
+    expect(entry.watchedOn, isNull);
+    expect(entry.rating, 0);
+
+    await sheet.onRate(rating: 4.5);
+    entry = (await repository.entries()).single;
+    expect(entry.inWatchlist, isFalse);
+    expect(entry.watchedOn, isNotNull);
+    expect(entry.rating, 4.5);
+    expect(entry.isFavorite, isTrue);
+  });
+
+  testWidgets('home hero quick add opens review and suggestion flows', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStorage.init();
+    final repository = SocialRepository();
+    await repository.rate(_wakanda, rating: 4);
+
+    await _pumpHomeHeroQuickAdd(tester, repository);
+    await tester.tap(find.byKey(const ValueKey('home-hero-add')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('Review'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.byKey(const ValueKey('detail-social-action-panel')),
+      findsNothing,
+    );
+    final reviewSheet = tester.widget<DetailReviewSheet>(
+      find.byType(DetailReviewSheet),
+    );
+    expect(reviewSheet.item.id, _wakanda.id);
+    expect(reviewSheet.initialRating, 4);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Tags, comma separated'),
+      'festival, drama',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Add review...'),
+      'Still powerful.',
+    );
+    await tester.tap(find.text('Rewatch'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('detail-review-save')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final saved = (await repository.entries()).single;
+    expect(saved.review, 'Still powerful.');
+    expect(saved.rating, 4);
+    expect(saved.tags, containsAll(['rewatch', 'festival', 'drama']));
+    expect(saved.watchedOn, isNotNull);
+    expect(saved.inWatchlist, isFalse);
+
+    await tester.tap(find.byKey(const ValueKey('home-hero-add')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('Suggest'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final suggestionSheet = tester.widget<DetailSuggestionSheet>(
+      find.byType(DetailSuggestionSheet),
+    );
+    expect(suggestionSheet.item.id, _wakanda.id);
+    expect(find.text('No friends yet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home hero rotates and wraps across top five without dots', (
+    tester,
+  ) async {
+    final heroItems = [
+      for (var index = 1; index <= 6; index++) _heroItem(index),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(
+            HomeViewState(globalTrending: heroItems),
+          ),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('HERO 1'), findsOneWidget);
+    final switcher = tester.widget<AnimatedSwitcher>(
+      find.byKey(const ValueKey('home-hero-switcher')),
+    );
+    expect(switcher.duration, const Duration(milliseconds: 500));
+    for (var index = 0; index < 5; index++) {
+      expect(find.byKey(ValueKey('home-hero-dot-$index')), findsNothing);
+    }
+    expect(find.byKey(const ValueKey('home-hero-dot-5')), findsNothing);
+
+    for (final title in const [
+      'HERO 2',
+      'HERO 3',
+      'HERO 4',
+      'HERO 5',
+      'HERO 1',
+    ]) {
+      await tester.pump(const Duration(seconds: 7));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text(title), findsOneWidget);
+    }
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 8));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home hero fade respects reduced motion', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(
+            HomeViewState(globalTrending: [_heroItem(1), _heroItem(2)]),
+          ),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: HomeView(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final switcher = tester.widget<AnimatedSwitcher>(
+      find.byKey(const ValueKey('home-hero-switcher')),
+    );
+    expect(switcher.duration, Duration.zero);
+
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pump();
+    expect(find.text('HERO 2'), findsOneWidget);
+  });
+
+  testWidgets('home continue watching displays honest history and removes', (
+    tester,
+  ) async {
+    final repository = await _seedPlaybackHistory();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+          authViewModelProvider.overrideWithValue(AuthViewState(user: _user())),
+          playbackHistoryRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+
+    final edit = find.byKey(const ValueKey('continue-watching-edit'));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pump();
+
+    expect(find.text('Continue Watching'), findsOneWidget);
+    expect(find.text('Recently started'), findsOneWidget);
+    expect(find.text('S2 · E3'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.textContaining('left'), findsNothing);
+
+    await tester.tap(edit);
+    await tester.pump();
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('continue-watching-remove-${_historyMovieKey()}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey('continue-watching-remove-${_historyTvKey()}')),
+      findsOneWidget,
+    );
+
+    await tester.tap(edit);
+    await tester.pump();
+    expect(find.byIcon(Icons.edit_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsNothing);
+
+    await tester.tap(edit);
+    await tester.pump();
+    final removeMovie = find.byKey(
+      ValueKey('continue-watching-remove-${_historyMovieKey()}'),
+    );
+    await tester.tap(removeMovie);
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomeView)),
+    );
+    expect(container.read(playbackHistoryViewModelProvider), hasLength(1));
+    expect(find.text('History Movie'), findsNothing);
+    expect(find.text('History TV'), findsOneWidget);
+  });
+
+  testWidgets(
+    'home continue watching relaunches exact request and reorders on success',
+    (tester) async {
+      final repository = await _seedPlaybackHistory();
+      PlaybackRequest? launched;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            emptyAlertsOverride,
+            ...emptyHomeDiscoveryOverrides,
+            homeViewModelProvider.overrideWithValue(_homeState),
+            authViewModelProvider.overrideWithValue(
+              AuthViewState(user: _user()),
+            ),
+            playbackHistoryRepositoryProvider.overrideWithValue(repository),
+            currentUserIsPremiumProvider.overrideWith((ref) async => true),
+          ],
+          child: MaterialApp(
+            home: HomeView(
+              playbackLauncher: (_, request) async {
+                launched = request;
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final historyCard = find.byKey(
+        ValueKey('continue-watching-card-${_historyTvKey()}'),
+      );
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+      await tester.pump();
+
+      await tester.tap(historyCard);
+      await tester.pump();
+
+      expect(launched?.item.remoteId, _historyTv.remoteId);
+      expect(launched?.item.mediaType, 'tv');
+      expect(launched?.server, PlaybackServer.two);
+      expect(launched?.season, 2);
+      expect(launched?.episode, 3);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomeView)),
+      );
+      expect(
+        container.read(playbackHistoryViewModelProvider).first.tmdbId,
+        _historyTv.remoteId,
+      );
+    },
+  );
+
+  testWidgets('home continue watching blocks non-premium relaunch', (
+    tester,
+  ) async {
+    final repository = await _seedPlaybackHistory();
+    var launchCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+          authViewModelProvider.overrideWithValue(AuthViewState(user: _user())),
+          playbackHistoryRepositoryProvider.overrideWithValue(repository),
+          currentUserIsPremiumProvider.overrideWith((ref) async => false),
+        ],
+        child: MaterialApp(
+          home: HomeView(
+            playbackLauncher: (_, _) async {
+              launchCalls += 1;
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final historyCard = find.byKey(
+      ValueKey('continue-watching-card-${_historyMovieKey()}'),
+    );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pump();
+
+    await tester.tap(historyCard);
+    await tester.pump();
+
+    expect(launchCalls, 0);
+    expect(
+      find.text('Premium access is required to continue watching.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('home continue watching toasts when relaunch fails', (
+    tester,
+  ) async {
+    final repository = await _seedPlaybackHistory();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+          authViewModelProvider.overrideWithValue(AuthViewState(user: _user())),
+          playbackHistoryRepositoryProvider.overrideWithValue(repository),
+          currentUserIsPremiumProvider.overrideWith((ref) async => true),
+        ],
+        child: const MaterialApp(
+          home: HomeView(playbackLauncher: _rejectPlayback),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final historyCard = find.byKey(
+      ValueKey('continue-watching-card-${_historyMovieKey()}'),
+    );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pump();
+
+    await tester.tap(historyCard);
+    await tester.pump();
+
+    expect(find.text('Player is not available right now.'), findsOneWidget);
+  });
+
+  testWidgets('home continue watching is absent for empty history', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalStorage.init();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          emptyAlertsOverride,
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+          authViewModelProvider.overrideWithValue(AuthViewState(user: _user())),
+          playbackHistoryRepositoryProvider.overrideWithValue(
+            PlaybackHistoryRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: HomeView()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Continue Watching'), findsNothing);
+    expect(find.byKey(const ValueKey('continue-watching-edit')), findsNothing);
+  });
+
+  testWidgets(
+    'home continue watching renders on mobile and desktop without overflow',
+    (tester) async {
+      final repository = await _seedPlaybackHistory();
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            emptyAlertsOverride,
+            ...emptyHomeDiscoveryOverrides,
+            homeViewModelProvider.overrideWithValue(_homeState),
+            authViewModelProvider.overrideWithValue(
+              AuthViewState(user: _user()),
+            ),
+            playbackHistoryRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(home: HomeView()),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Continue Watching'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      tester.view.physicalSize = const Size(1200, 900);
+      await tester.pump();
+      expect(find.text('Continue Watching'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('home renders primary feed on desktop without overflow', (
     tester,
   ) async {
@@ -2826,6 +5289,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...emptyHomeDiscoveryOverrides,
           homeViewModelProvider.overrideWithValue(_homeState),
           authViewModelProvider.overrideWithValue(
             AuthViewState(user: _user(displayName: 'Ijas Huzain')),
@@ -2837,7 +5301,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.text('Tonight on Veil'), findsOneWidget);
+    expect(find.text('Tonight on Veil'), findsNothing);
+    expect(find.byKey(const ValueKey('home-cinematic-hero')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Global trending'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Global trending'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -2887,6 +5357,21 @@ void main() {
   });
 }
 
+const _curatedCollections = [
+  CuratedCollection(
+    id: 'first',
+    title: 'First collection',
+    description: 'First collection description.',
+    tags: ['movies'],
+  ),
+  CuratedCollection(
+    id: 'second',
+    title: 'Second collection',
+    description: 'Second collection description.',
+    tags: ['tv'],
+  ),
+];
+
 const _wakanda = ContentItem(
   id: 'movie-505642',
   remoteId: 505642,
@@ -2920,6 +5405,36 @@ const _arcane = ContentItem(
   description: 'Two sisters fight from opposite sides of a divided city.',
 );
 
+const _historyMovie = ContentItem(
+  id: 'movie-1284041',
+  remoteId: 1284041,
+  mediaType: 'movie',
+  title: 'History Movie',
+  subtitle: 'Movie',
+  year: 2026,
+  genre: 'Drama',
+  type: 'Movie',
+  rating: 7.4,
+  palette: [Colors.black, Colors.red],
+  glyph: Icons.movie_rounded,
+  description: 'A movie playback history fixture.',
+);
+
+const _historyTv = ContentItem(
+  id: 'tv-94997',
+  remoteId: 94997,
+  mediaType: 'tv',
+  title: 'History TV',
+  subtitle: 'Series',
+  year: 2026,
+  genre: 'Mystery',
+  type: 'TV Show',
+  rating: 8.1,
+  palette: [Colors.black, Colors.blue],
+  glyph: Icons.live_tv_rounded,
+  description: 'A TV playback history fixture.',
+);
+
 const _homeState = HomeViewState(
   featured: _wakanda,
   globalTrending: [_wakanda, _arcane],
@@ -2933,6 +5448,98 @@ const _homeState = HomeViewState(
     TmdbGenre(id: 18, name: 'Drama'),
   ],
 );
+
+ContentItem _heroItem(int index) {
+  return ContentItem(
+    id: 'hero-$index',
+    remoteId: 1000 + index,
+    mediaType: 'movie',
+    title: 'Hero $index',
+    subtitle: 'Movie',
+    year: 2026,
+    genre: 'Drama',
+    type: 'Movie',
+    rating: 7,
+    palette: const [Colors.black, Colors.red],
+    glyph: Icons.movie_rounded,
+    description: 'Hero fixture $index.',
+  );
+}
+
+Future<void> _pumpHomeHeroQuickAdd(
+  WidgetTester tester,
+  SocialRepository repository,
+) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        alertsViewModelProvider.overrideWithValue(const AlertsViewState()),
+        watchProvidersProvider.overrideWith((ref) async => const []),
+        curatedCollectionsProvider.overrideWith((ref) async => const []),
+        playbackHistoryViewModelProvider.overrideWithValue(const []),
+        homeViewModelProvider.overrideWithValue(
+          const HomeViewState(globalTrending: [_wakanda]),
+        ),
+        socialRepositoryProvider.overrideWithValue(repository),
+      ],
+      child: const MaterialApp(
+        home: HomeView(playbackLauncher: _rejectPlayback),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+}
+
+Future<PlaybackHistoryRepository> _seedPlaybackHistory() async {
+  final movieEntry = PlaybackHistoryEntry.fromRequest(
+    const PlaybackRequest(item: _historyMovie, server: PlaybackServer.four),
+    DateTime.utc(2026, 8, 8, 13),
+  );
+  final tvEntry = PlaybackHistoryEntry.fromRequest(
+    const PlaybackRequest(
+      item: _historyTv,
+      server: PlaybackServer.two,
+      season: 2,
+      episode: 3,
+    ),
+    DateTime.utc(2026, 8, 8, 12),
+  );
+  SharedPreferences.setMockInitialValues({
+    PlaybackHistoryRepository.storageKeyFor('user-1'): jsonEncode([
+      movieEntry.toJson(),
+      tvEntry.toJson(),
+    ]),
+  });
+  await LocalStorage.init();
+  return PlaybackHistoryRepository(now: () => DateTime.utc(2026, 8, 8, 14));
+}
+
+String _historyMovieKey() {
+  return PlaybackHistoryEntry.fromRequest(
+    const PlaybackRequest(item: _historyMovie, server: PlaybackServer.four),
+    DateTime.utc(2026),
+  ).entryKey;
+}
+
+String _historyTvKey() {
+  return PlaybackHistoryEntry.fromRequest(
+    const PlaybackRequest(
+      item: _historyTv,
+      server: PlaybackServer.two,
+      season: 2,
+      episode: 3,
+    ),
+    DateTime.utc(2026),
+  ).entryKey;
+}
+
+Future<bool> _rejectPlayback(
+  BuildContext context,
+  PlaybackRequest request,
+) async {
+  return false;
+}
 
 User _user({String? displayName, String email = 'ijas@example.com'}) {
   return User(
@@ -2963,6 +5570,53 @@ SocialEntry _socialEntry(
   );
 }
 
+typedef _ProviderCatalogRequest = ({
+  int providerId,
+  String mediaType,
+  int page,
+});
+
+List<ContentItem> _providerCatalogItems(String prefix, int count) {
+  return List.generate(
+    count,
+    (index) => ContentItem(
+      id: '$prefix-$index',
+      remoteId: 700000 + index,
+      mediaType: 'movie',
+      title: 'Provider title $index',
+      subtitle: 'Movie',
+      year: 2026,
+      genre: 'Drama',
+      type: 'Movie',
+      rating: 7,
+      palette: const [Colors.black, Colors.blueGrey],
+      glyph: Icons.movie_rounded,
+      description: 'Provider catalog fixture.',
+    ),
+  );
+}
+
+class _ProviderCatalogTmdbRepository extends TmdbRepository {
+  _ProviderCatalogTmdbRepository(this.handler)
+    : super(api: Api(), usesServerProxy: true);
+
+  final FutureOr<List<ContentItem>> Function(_ProviderCatalogRequest request)
+  handler;
+  final List<_ProviderCatalogRequest> requests = [];
+
+  @override
+  Future<List<ContentItem>> discoverByProvider({
+    required int providerId,
+    required String mediaType,
+    String region = 'US',
+    int page = 1,
+  }) async {
+    final request = (providerId: providerId, mediaType: mediaType, page: page);
+    requests.add(request);
+    return handler(request);
+  }
+}
+
 class _FailingAuthRepository extends AuthRepository {
   const _FailingAuthRepository(this.message);
 
@@ -2980,6 +5634,22 @@ class _FailingAuthRepository extends AuthRepository {
     required String password,
   }) async {
     throw AuthException(message);
+  }
+}
+
+class _RecordingPlaybackHistoryRepository extends PlaybackHistoryRepository {
+  final requests = <PlaybackRequest>[];
+
+  @override
+  List<PlaybackHistoryEntry> load(String userId) => const [];
+
+  @override
+  Future<List<PlaybackHistoryEntry>> record(
+    String userId,
+    PlaybackRequest request,
+  ) async {
+    requests.add(request);
+    return const [];
   }
 }
 
@@ -3063,6 +5733,47 @@ class _FakeTmdbRepository extends TmdbRepository {
 
   @override
   Future<List<ContentItem>> search(String query) async => const [_arcane];
+}
+
+class _PagedHomeTmdbRepository extends TmdbRepository {
+  _PagedHomeTmdbRepository(this.pages) : super(api: Api());
+
+  final Map<int, List<ContentItem>> pages;
+  final List<int> requestedPages = [];
+
+  @override
+  Future<List<ContentItem>> trending() async => const [];
+
+  @override
+  Future<List<ContentItem>> upcomingMovies() async => const [];
+
+  @override
+  Future<List<ContentItem>> popularMovies() async => const [];
+
+  @override
+  Future<List<ContentItem>> topRatedMovies() async => const [];
+
+  @override
+  Future<List<ContentItem>> topRatedTv() async => const [];
+
+  @override
+  Future<List<ContentItem>> airingTodayTv() async => const [];
+
+  @override
+  Future<List<TmdbGenre>> genresDetailed() async {
+    return const [TmdbGenre(id: 28, name: 'Action')];
+  }
+
+  @override
+  Future<List<ContentItem>> sectionPage(
+    String section, {
+    int page = 1,
+    int? genreId,
+    double minRating = 0,
+  }) async {
+    requestedPages.add(page);
+    return pages[page] ?? const [];
+  }
 }
 
 class _FakeWebViewPlatform extends WebViewPlatform {

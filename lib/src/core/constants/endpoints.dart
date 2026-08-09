@@ -19,6 +19,8 @@ class Endpoints {
   static String get searchMovie => '$tmdbBaseUrl/search/movie';
   static String get genreMovieList => '$tmdbBaseUrl/genre/movie/list';
   static String get genreTvList => '$tmdbBaseUrl/genre/tv/list';
+  static String get watchProvidersMovie => '$tmdbBaseUrl/watch/providers/movie';
+  static String get watchProvidersTv => '$tmdbBaseUrl/watch/providers/tv';
   static String get discoverMovie => '$tmdbBaseUrl/discover/movie';
   static String get discoverTv => '$tmdbBaseUrl/discover/tv';
 

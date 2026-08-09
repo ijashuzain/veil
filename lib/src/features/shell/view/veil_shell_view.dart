@@ -55,6 +55,7 @@ class _VeilShellViewState extends State<VeilShellView> {
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                   child: Container(
+                    key: const ValueKey('mobile-shell-navigation'),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 8,
@@ -289,28 +290,29 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.black : VeilColors.text3;
+    final color = selected ? Colors.white : VeilColors.text3;
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: AnimatedContainer(
+        key: ValueKey('shell-tab-${label.toLowerCase()}'),
         duration: const Duration(milliseconds: 180),
         padding: EdgeInsets.symmetric(
           horizontal: selected ? 14 : 12,
           vertical: 11,
         ),
         decoration: BoxDecoration(
-          color: selected ? VeilColors.red : Colors.transparent,
+          color: selected
+              ? Colors.white.withValues(alpha: .16)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: selected
-                ? VeilColors.gold.withValues(alpha: .45)
-                : Colors.transparent,
+            color: selected ? Colors.white24 : Colors.transparent,
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: VeilColors.red.withValues(alpha: .30),
+                    color: Colors.black.withValues(alpha: .28),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
@@ -326,7 +328,7 @@ class _TabButton extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.black,
+                  color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
                 ),

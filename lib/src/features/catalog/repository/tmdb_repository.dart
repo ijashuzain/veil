@@ -6,6 +6,7 @@ import 'package:veil/src/core/constants/endpoints.dart';
 import 'package:veil/src/features/auth/view_model/auth_view_model/auth_view_model.dart';
 import 'package:veil/src/features/catalog/models/content_detail/content_detail.dart';
 import 'package:veil/src/features/catalog/models/tmdb_media/tmdb_media.dart';
+import 'package:veil/src/features/catalog/models/tmdb_watch_provider.dart';
 import 'package:veil/src/shared/models/content_item.dart';
 
 part 'tmdb_repository.g.dart';
@@ -132,6 +133,78 @@ class TmdbRepository {
 
   Future<List<ContentItem>> onTheAirTv() {
     return _getMediaList(Endpoints.tvOnTheAir, mediaType: 'tv');
+  }
+
+  Future<List<TmdbWatchProvider>> watchProviders({String region = 'US'}) async {
+    _ensureCredentials();
+    final responses = await Future.wait([
+      api.general.get<Map<String, dynamic>>(
+        Endpoints.watchProvidersMovie,
+        queryParameters: _query({'language': 'en-US', 'watch_region': region}),
+        options: _options(),
+      ),
+      api.general.get<Map<String, dynamic>>(
+        Endpoints.watchProvidersTv,
+        queryParameters: _query({'language': 'en-US', 'watch_region': region}),
+        options: _options(),
+      ),
+    ]);
+
+    final providersById = <int, TmdbWatchProvider>{};
+    for (final response in responses) {
+      final results = response.data?['results'];
+      if (results is! List) continue;
+      for (final json in results.whereType<Map<String, dynamic>>()) {
+        final provider = _watchProviderFromJson(json, region);
+        if (provider == null) continue;
+        final existing = providersById[provider.id];
+        if (existing == null) {
+          providersById[provider.id] = provider;
+          continue;
+        }
+        providersById[provider.id] = TmdbWatchProvider(
+          id: existing.id,
+          name: existing.name,
+          logoPath: existing.logoPath.isNotEmpty
+              ? existing.logoPath
+              : provider.logoPath,
+          displayPriority: existing.displayPriority < provider.displayPriority
+              ? existing.displayPriority
+              : provider.displayPriority,
+        );
+      }
+    }
+
+    final providers = providersById.values.toList();
+    providers.sort((left, right) {
+      final priority = left.displayPriority.compareTo(right.displayPriority);
+      if (priority != 0) return priority;
+      return left.name.toLowerCase().compareTo(right.name.toLowerCase());
+    });
+    return providers;
+  }
+
+  Future<List<ContentItem>> discoverByProvider({
+    required int providerId,
+    required String mediaType,
+    String region = 'US',
+    int page = 1,
+  }) {
+    if (mediaType != 'movie' && mediaType != 'tv') {
+      throw ArgumentError.value(mediaType, 'mediaType', 'Must be movie or tv.');
+    }
+    return _getMediaList(
+      mediaType == 'movie' ? Endpoints.discoverMovie : Endpoints.discoverTv,
+      mediaType: mediaType,
+      queryParameters: {
+        'watch_region': region,
+        'with_watch_providers': providerId,
+        'with_watch_monetization_types': 'flatrate|free|ads',
+        'include_adult': false,
+        'sort_by': 'popularity.desc',
+        'page': page,
+      },
+    );
   }
 
   Future<List<String>> genres() async {
@@ -340,6 +413,29 @@ class TmdbRepository {
         .where((item) => item.remoteId != null)
         .toList();
     return _filterItemsForCurrentUser(items);
+  }
+
+  TmdbWatchProvider? _watchProviderFromJson(
+    Map<String, dynamic> json,
+    String region,
+  ) {
+    final id = _int(json['provider_id']);
+    final name = _string(json['provider_name'])?.trim() ?? '';
+    if (id <= 0 || name.isEmpty) return null;
+
+    final regionalPriorities = json['display_priorities'];
+    final regionalPriority = regionalPriorities is Map
+        ? regionalPriorities[region]
+        : null;
+    final displayPriority = regionalPriority == null
+        ? _int(json['display_priority'])
+        : _int(regionalPriority);
+    return TmdbWatchProvider(
+      id: id,
+      name: name,
+      logoPath: _string(json['logo_path'])?.trim() ?? '',
+      displayPriority: displayPriority,
+    );
   }
 
   Future<ContentItem?> _tryResolve(
