@@ -27,6 +27,7 @@ import 'package:veil/src/features/social/view_model/social_library_view_model/so
 import 'package:veil/src/features/social/widgets/review_thread_sheet.dart';
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
+import 'package:veil/src/shared/components/ads/native_template_ad.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/components/veil_toast.dart';
@@ -337,6 +338,10 @@ class _DetailViewState extends ConsumerState<DetailView> {
                           fontSize: 14,
                           height: 1.55,
                         ),
+                      ),
+                      const SizedBox(height: 18),
+                      const NativeTemplateAd(
+                        key: ValueKey('detail-native-after-description'),
                       ),
                       const SizedBox(height: 18),
                       _Tabs(

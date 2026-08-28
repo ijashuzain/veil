@@ -30,7 +30,7 @@
 
 ## Runtime Config And Data
 - Runtime constants live in `lib/src/core/config/app_environment.dart`; `.env` and `.env.*` are gitignored and not loaded by current app code.
-- Dart defines supported by code: `TMDB_READ_ACCESS_TOKEN`, `TMDB_API_KEY`, `TMDB_BASE_URL`, `TMDB_IMAGE_BASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PASSWORD_RESET_REDIRECT_URL`.
+- Dart defines supported by code: `TMDB_READ_ACCESS_TOKEN`, `TMDB_API_KEY`, `TMDB_BASE_URL`, `TMDB_IMAGE_BASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PASSWORD_RESET_REDIRECT_URL`, `ADMOB_ANDROID_BANNER_AD_UNIT_ID`, `ADMOB_IOS_BANNER_AD_UNIT_ID`, `ADMOB_ANDROID_NATIVE_AD_UNIT_ID`, `ADMOB_IOS_NATIVE_AD_UNIT_ID`.
 - By default, TMDB requests go through Supabase edge-function proxies derived from `SUPABASE_URL`; direct TMDB mode needs a TMDB token or API key.
 - `SupabaseService.client` can be null if Supabase is unconfigured or init fails; social/auth repositories and tests rely on local SharedPreferences fallback paths.
 - `tester@vexellab.com` is a special account in `TmdbRepository` that hides Disney/Pixar content; keep this behavior covered by tests.

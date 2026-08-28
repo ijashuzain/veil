@@ -22,6 +22,8 @@ import 'package:veil/src/features/playback_history/view_model/playback_history_v
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
+import 'package:veil/src/shared/components/ads/native_template_ad.dart';
+import 'package:veil/src/shared/components/ads/native_ad_sliver_grid.dart';
 import 'package:veil/src/shared/components/section_header.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
@@ -168,6 +170,17 @@ class _HomeViewState extends ConsumerState<HomeView> {
                         section: 'upcoming',
                         items: state.newThisWeek,
                         loading: isLoading,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: VeilLayout.pageGutter(context),
+                      ),
+                      sliver: const SliverToBoxAdapter(
+                        child: NativeTemplateAd(
+                          key: ValueKey('home-native-after-second-rail'),
+                        ),
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 26)),
@@ -545,28 +558,28 @@ class _GenreResultList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: VeilLayout.pageGutter(context)),
-      sliver: SliverGrid.builder(
-        key: const ValueKey('home-genre-grid'),
-        itemCount: items.length,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: VeilLayout.posterGridColumns(context),
-          mainAxisSpacing: 20,
-          crossAxisSpacing: 12,
-          childAspectRatio: .49,
-        ),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return PosterCard(
-            key: ValueKey('genre-result-${item.id}'),
-            item: item,
-            width: double.infinity,
-            height: 160,
-            onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
-          );
-        },
+    final gutter = VeilLayout.pageGutter(context);
+    return NativeAdSliverGrid<ContentItem>(
+      items: items,
+      keyPrefix: 'home-genre',
+      gridKey: const ValueKey('home-genre-grid'),
+      padding: EdgeInsets.symmetric(horizontal: gutter),
+      adPadding: EdgeInsets.fromLTRB(gutter, 20, gutter, 20),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: VeilLayout.posterGridColumns(context),
+        mainAxisSpacing: 20,
+        crossAxisSpacing: 12,
+        childAspectRatio: .49,
       ),
+      itemBuilder: (context, item, index) {
+        return PosterCard(
+          key: ValueKey('genre-result-${item.id}'),
+          item: item,
+          width: double.infinity,
+          height: 160,
+          onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
+        );
+      },
     );
   }
 }

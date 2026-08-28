@@ -9,8 +9,10 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide LocalStorage;
 import 'package:veil/app/services/api_services/api_service.dart';
+import 'package:veil/app/services/ad_services/ad_service.dart';
 import 'package:veil/app/services/local_storage_services/local_storage_services.dart';
 import 'package:veil/main.dart';
+import 'package:veil/src/core/providers/ad_providers.dart';
 import 'package:veil/src/core/router/route_paths.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/core/utils/status/status.dart';
@@ -656,7 +658,33 @@ void main() {
     expect(find.text('Disconnect TMDB'), findsNothing);
     expect(find.text('Letterboxd Import/Export'), findsOneWidget);
     expect(find.text('Support & Safety'), findsOneWidget);
+    expect(find.text('Privacy choices'), findsNothing);
     expect(find.textContaining('This product uses TMDB'), findsNothing);
+  });
+
+  testWidgets('profile exposes required AdMob privacy choices', (tester) async {
+    final adService = _PrivacyAdService();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...emptyHomeDiscoveryOverrides,
+          homeViewModelProvider.overrideWithValue(_homeState),
+          adServiceProvider.overrideWithValue(adService),
+        ],
+        child: const VeilApp(skipOnboarding: true),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.tap(find.byIcon(Icons.person_outline_rounded));
+    await tester.pump();
+
+    expect(find.text('Privacy choices'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-adaptive-banner')), findsNothing);
+    await tester.tap(find.text('Privacy choices'));
+    await tester.pump();
+    expect(adService.privacyCalls, 1);
   });
 
   testWidgets('app router stays stable through responsive metric changes', (
@@ -932,6 +960,10 @@ void main() {
     expect(subtitle.style?.fontSize, 13);
     expect(find.text('THE BOYS'), findsNothing);
     expect(find.textContaining('ON TRENDING'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('detail-native-after-description')),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -3262,6 +3294,7 @@ void main() {
 
     expect(find.byType(NavigationRail), findsNothing);
     expect(navigation, findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-adaptive-banner')), findsOneWidget);
     expect(
       find.descendant(of: navigation, matching: find.text('Home')),
       findsOneWidget,
@@ -3318,6 +3351,7 @@ void main() {
       find.descendant(of: navigation, matching: find.text('Home')),
       findsNothing,
     );
+
     expect(tester.takeException(), isNull);
   });
 
@@ -3345,6 +3379,7 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Diary'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-adaptive-banner')), findsOneWidget);
   });
 
   testWidgets('poster card rating renders only below title', (tester) async {
@@ -3754,7 +3789,10 @@ void main() {
       expect(container.read(provider).items, page1);
       expect(container.read(provider).loadMoreError, isNotEmpty);
       expect(
-        find.byKey(const ValueKey('provider-catalog-grid')),
+        find.byKey(
+          const ValueKey('provider-catalog-ad-grid'),
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
       expect(
@@ -5773,6 +5811,27 @@ class _PagedHomeTmdbRepository extends TmdbRepository {
   }) async {
     requestedPages.add(page);
     return pages[page] ?? const [];
+  }
+}
+
+class _PrivacyAdService implements AdService {
+  var privacyCalls = 0;
+
+  @override
+  Future<AdState> initialize() async {
+    return const AdState(canRequestAds: false, privacyOptionsRequired: true);
+  }
+
+  @override
+  Future<LoadedAd?> loadAdaptiveBanner(double width) async => null;
+
+  @override
+  Future<LoadedAd?> loadNative() async => null;
+
+  @override
+  Future<AdState> showPrivacyOptions() async {
+    privacyCalls += 1;
+    return initialize();
   }
 }
 

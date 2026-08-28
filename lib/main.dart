@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:the_responsive_builder/the_responsive_builder.dart';
 import 'package:veil/app/services/local_storage_services/local_storage_services.dart';
 import 'package:veil/app/services/supabase_services/supabase_service.dart';
+import 'package:veil/src/core/providers/ad_providers.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/services/shorebird_update_service.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
@@ -52,6 +55,16 @@ class _VeilAppState extends State<VeilApp> {
       (kIsWeb
           ? const NoopShorebirdUpdateService()
           : ShorebirdCodePushUpdateService());
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final container = ProviderScope.containerOf(context, listen: false);
+      unawaited(container.read(adControllerProvider.notifier).initialize());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

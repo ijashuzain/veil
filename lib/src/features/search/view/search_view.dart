@@ -11,6 +11,7 @@ import 'package:veil/src/features/search/view_model/search_view_model/search_vie
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/models/user_profile_summary.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/shared/components/ads/native_ad_list.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/components/veil_filter_chips.dart';
@@ -248,14 +249,13 @@ class _SearchViewState extends ConsumerState<SearchView> {
                 else
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        for (final item in visibleResults.take(8))
-                          _SearchResult(
-                            item: item,
-                            onTap: () => _openContentResult(item),
-                          ),
-                      ],
+                    child: NativeAdList<ContentItem>(
+                      items: visibleResults.take(8).toList(growable: false),
+                      keyPrefix: 'search-content',
+                      itemBuilder: (context, item, index) => _SearchResult(
+                        item: item,
+                        onTap: () => _openContentResult(item),
+                      ),
                     ),
                   ),
               ],

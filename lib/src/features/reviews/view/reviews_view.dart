@@ -8,6 +8,7 @@ import 'package:veil/src/features/social/view_model/social_library_view_model/so
 import 'package:veil/src/features/social/widgets/community_report_sheet.dart';
 import 'package:veil/src/features/social/widgets/review_thread_sheet.dart';
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
+import 'package:veil/src/shared/components/ads/native_ad_list.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/components/veil_toast.dart';
@@ -67,8 +68,12 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
                   if (reviews.isEmpty)
                     const _EmptyReviews()
                   else
-                    for (final review in reviews)
-                      SocialReviewCard(
+                    NativeAdList<SocialEntry>(
+                      items: reviews,
+                      keyPrefix: _tab == 0
+                          ? 'reviews-community'
+                          : 'reviews-personal',
+                      itemBuilder: (context, review, index) => SocialReviewCard(
                         review: review,
                         displayName: _reviewDisplayName(review),
                         onMovie: () {
@@ -95,6 +100,7 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
                                 _reviewDisplayName(review),
                               ),
                       ),
+                    ),
                 ],
               ),
             ),

@@ -9,6 +9,7 @@ import 'package:veil/src/features/social/models/user_relationship.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/features/social/widgets/community_report_sheet.dart';
+import 'package:veil/src/shared/components/ads/native_ad_list.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/components/veil_toast.dart';
@@ -521,11 +522,13 @@ class _ProfileTabContent extends StatelessWidget {
     return switch (tab) {
       _ProfileTab.following => _MemberList(
         users: following,
+        keyPrefix: 'user-profile-following',
         emptyText: 'Not following anyone yet',
         onRelationshipChanged: onRelationshipChanged,
       ),
       _ProfileTab.followers => _MemberList(
         users: followers,
+        keyPrefix: 'user-profile-followers',
         emptyText: 'No followers yet',
         onRelationshipChanged: onRelationshipChanged,
       ),
@@ -537,26 +540,27 @@ class _ProfileTabContent extends StatelessWidget {
 class _MemberList extends StatelessWidget {
   const _MemberList({
     required this.users,
+    required this.keyPrefix,
     required this.emptyText,
     required this.onRelationshipChanged,
   });
 
   final List<UserProfileSummary> users;
+  final String keyPrefix;
   final String emptyText;
   final Future<void> Function() onRelationshipChanged;
 
   @override
   Widget build(BuildContext context) {
     if (users.isEmpty) return _EmptyPanel(text: emptyText);
-    return Column(
-      children: [
-        for (final user in users)
-          _MemberRow(
-            key: ValueKey(user.userId),
-            user: user,
-            onRelationshipChanged: onRelationshipChanged,
-          ),
-      ],
+    return NativeAdList<UserProfileSummary>(
+      items: users,
+      keyPrefix: keyPrefix,
+      itemBuilder: (context, user, index) => _MemberRow(
+        key: ValueKey(user.userId),
+        user: user,
+        onRelationshipChanged: onRelationshipChanged,
+      ),
     );
   }
 }
@@ -724,40 +728,39 @@ class _ActivityList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) return const _EmptyPanel(text: 'No activity yet');
-    return Column(
-      children: [
-        for (final entry in entries.take(8))
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: VeilColors.panel,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: VeilColors.hairline),
+    return NativeAdList<SocialEntry>(
+      items: entries.take(8).toList(growable: false),
+      keyPrefix: 'user-profile-activity',
+      itemBuilder: (context, entry, index) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: VeilColors.panel,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: VeilColors.hairline),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              entry.review.trim().isEmpty
+                  ? Icons.visibility_rounded
+                  : Icons.rate_review_rounded,
+              color: VeilColors.red,
             ),
-            child: Row(
-              children: [
-                Icon(
-                  entry.review.trim().isEmpty
-                      ? Icons.visibility_rounded
-                      : Icons.rate_review_rounded,
-                  color: VeilColors.red,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    entry.review.trim().isEmpty
-                        ? 'Watched ${entry.title}'
-                        : 'Reviewed ${entry.title}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                entry.review.trim().isEmpty
+                    ? 'Watched ${entry.title}'
+                    : 'Reviewed ${entry.title}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

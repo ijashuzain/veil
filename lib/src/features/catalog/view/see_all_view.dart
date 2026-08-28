@@ -5,6 +5,7 @@ import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
+import 'package:veil/src/shared/components/ads/native_ad_sliver_grid.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
@@ -350,26 +351,26 @@ class _ContentGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SliverToBoxAdapter(child: _EmptyState());
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: VeilLayout.pageGutter(context)),
-      sliver: SliverGrid.builder(
-        itemCount: items.length,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: VeilLayout.posterGridColumns(context),
-          mainAxisSpacing: 24,
-          crossAxisSpacing: VeilBreakpoint.of(context).isMobile ? 12 : 16,
-          childAspectRatio: VeilBreakpoint.of(context).isDesktop ? .52 : .49,
-        ),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return PosterCard(
-            item: item,
-            width: double.infinity,
-            height: 160,
-            onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
-          );
-        },
+    final gutter = VeilLayout.pageGutter(context);
+    return NativeAdSliverGrid<ContentItem>(
+      items: items,
+      keyPrefix: 'see-all',
+      padding: EdgeInsets.symmetric(horizontal: gutter),
+      adPadding: EdgeInsets.fromLTRB(gutter, 20, gutter, 20),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: VeilLayout.posterGridColumns(context),
+        mainAxisSpacing: 24,
+        crossAxisSpacing: VeilBreakpoint.of(context).isMobile ? 12 : 16,
+        childAspectRatio: VeilBreakpoint.of(context).isDesktop ? .52 : .49,
       ),
+      itemBuilder: (context, item, index) {
+        return PosterCard(
+          item: item,
+          width: double.infinity,
+          height: 160,
+          onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
+        );
+      },
     );
   }
 }

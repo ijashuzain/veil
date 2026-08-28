@@ -14,6 +14,26 @@ class AppEnvironment {
 
   static const tmdbAttributionUrl = 'https://www.themoviedb.org/';
 
+  static const admobAndroidBannerAdUnitId = String.fromEnvironment(
+    'ADMOB_ANDROID_BANNER_AD_UNIT_ID',
+    defaultValue: 'ca-app-pub-9567183629579117/6978075494',
+  );
+
+  static const admobIosBannerAdUnitId = String.fromEnvironment(
+    'ADMOB_IOS_BANNER_AD_UNIT_ID',
+    defaultValue: 'ca-app-pub-9567183629579117/1861480181',
+  );
+
+  static const admobAndroidNativeAdUnitId = String.fromEnvironment(
+    'ADMOB_ANDROID_NATIVE_AD_UNIT_ID',
+    defaultValue: 'ca-app-pub-9567183629579117/8848348916',
+  );
+
+  static const admobIosNativeAdUnitId = String.fromEnvironment(
+    'ADMOB_IOS_NATIVE_AD_UNIT_ID',
+    defaultValue: 'ca-app-pub-9567183629579117/9806207364',
+  );
+
   static const _tmdbReadAccessTokenFromEnv = String.fromEnvironment(
     'TMDB_READ_ACCESS_TOKEN',
   );

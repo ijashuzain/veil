@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:veil/src/core/config/app_environment.dart';
+import 'package:veil/src/core/providers/ad_providers.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/auth/utils/auth_display_name.dart';
@@ -38,6 +41,9 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     final social = ref.watch(socialLibraryViewModelProvider);
     final auth = ref.watch(authViewModelProvider);
     final authVm = ref.read(authViewModelProvider.notifier);
+    final privacyOptionsRequired = ref.watch(
+      adControllerProvider.select((state) => state.privacyOptionsRequired),
+    );
 
     return Scaffold(
       backgroundColor: VeilColors.bg0,
@@ -102,6 +108,17 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                     label: 'Support & Safety',
                     onTap: () => _openExternalUrl(AppEnvironment.supportUrl),
                   ),
+                  if (privacyOptionsRequired)
+                    _SettingsRow(
+                      key: const ValueKey('privacy-choices-row'),
+                      icon: Icons.tune_rounded,
+                      label: 'Privacy choices',
+                      onTap: () => unawaited(
+                        ref
+                            .read(adControllerProvider.notifier)
+                            .showPrivacyOptions(),
+                      ),
+                    ),
                   _SettingsRow(
                     icon: Icons.privacy_tip_outlined,
                     label: 'Privacy Policy',

@@ -6,6 +6,7 @@ import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/alerts/view_model/alerts_view_model.dart';
 import 'package:veil/src/features/social/models/follow_request.dart';
 import 'package:veil/src/features/social/models/movie_suggestion.dart';
+import 'package:veil/src/shared/components/ads/native_ad_list.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/models/alert_item.dart';
@@ -40,6 +41,15 @@ class _AlertsViewState extends ConsumerState<AlertsView> {
     final subtitle = state.suggestionUnreadCount == 0
         ? '$unread new '
         : '$unread new  · ${state.suggestionUnreadCount} suggestions';
+    final alertTiles = <Widget>[
+      for (final request in followRequests)
+        _FollowRequestTile(request: request),
+      for (final alert in alerts) _TmdbAlertTile(alert: alert),
+    ];
+    final suggestionTiles = <Widget>[
+      for (final suggestion in suggestions)
+        _SuggestionTile(suggestion: suggestion),
+    ];
 
     return Scaffold(
       backgroundColor: VeilColors.bg1,
@@ -138,13 +148,18 @@ class _AlertsViewState extends ConsumerState<AlertsView> {
                   onAction: () =>
                       ref.read(alertsViewModelProvider.notifier).load(),
                 )
-              else if (_tab == _AlertsTab.alerts) ...[
-                for (final request in followRequests)
-                  _FollowRequestTile(request: request),
-                for (final alert in alerts) _TmdbAlertTile(alert: alert),
-              ] else
-                for (final suggestion in suggestions)
-                  _SuggestionTile(suggestion: suggestion),
+              else if (_tab == _AlertsTab.alerts)
+                NativeAdList<Widget>(
+                  items: alertTiles,
+                  keyPrefix: 'alerts-feed',
+                  itemBuilder: (context, item, index) => item,
+                )
+              else
+                NativeAdList<Widget>(
+                  items: suggestionTiles,
+                  keyPrefix: 'suggestions-feed',
+                  itemBuilder: (context, item, index) => item,
+                ),
             ],
           ),
         ),

@@ -6,6 +6,7 @@ import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/core/utils/status/status.dart';
 import 'package:veil/src/features/catalog/view_model/provider_catalog_providers.dart';
+import 'package:veil/src/shared/components/ads/native_ad_sliver_grid.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
@@ -464,28 +465,29 @@ class _ProviderCatalogGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: VeilLayout.pageGutter(context)),
-      sliver: SliverGrid.builder(
-        key: const ValueKey('provider-catalog-grid'),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: VeilLayout.posterGridColumns(context),
-          mainAxisSpacing: 20,
-          crossAxisSpacing: 12,
-          childAspectRatio: .49,
-        ),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return PosterCard(
-            key: ValueKey('provider-catalog-item-${item.id}'),
-            item: item,
-            width: double.infinity,
-            height: 160,
-            onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
-          );
-        },
+    final gutter = VeilLayout.pageGutter(context);
+    return NativeAdSliverGrid<ContentItem>(
+      key: const ValueKey('provider-catalog-ad-grid'),
+      items: items,
+      keyPrefix: 'provider',
+      gridKey: const ValueKey('provider-catalog-grid'),
+      padding: EdgeInsets.symmetric(horizontal: gutter),
+      adPadding: EdgeInsets.fromLTRB(gutter, 20, gutter, 20),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: VeilLayout.posterGridColumns(context),
+        mainAxisSpacing: 20,
+        crossAxisSpacing: 12,
+        childAspectRatio: .49,
       ),
+      itemBuilder: (context, item, index) {
+        return PosterCard(
+          key: ValueKey('provider-catalog-item-${item.id}'),
+          item: item,
+          width: double.infinity,
+          height: 160,
+          onTap: () => DetailRoute(id: item.id, $extra: item).push(context),
+        );
+      },
     );
   }
 }

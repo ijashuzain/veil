@@ -43,6 +43,8 @@ dependencies:
   json_annotation: ^4.11.0
   go_router: ^17.2.2
   dio: ^5.9.2
+  # 9.1.0 breaks iOS framework builds via GoogleMobileAds_Beta.h.
+  google_mobile_ads: 9.0.0
   shared_preferences: ^2.5.5
   the_responsive_builder: ^1.0.6+4
   gap: ^3.0.1

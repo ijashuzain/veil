@@ -12,6 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 .firebase/
+.superpowers/
 
 # IntelliJ related
 *.iml

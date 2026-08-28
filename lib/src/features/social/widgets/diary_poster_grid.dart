@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
+import 'package:veil/src/shared/components/ads/native_ad_sliver_grid.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/components/ratings_display.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
@@ -20,25 +21,25 @@ class DiaryPosterGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: VeilLayout.pageGutter(context)),
-      sliver: SliverGrid.builder(
-        itemCount: entries.length,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: VeilLayout.diaryGridColumns(context),
-          mainAxisSpacing: 15,
-          crossAxisSpacing: VeilBreakpoint.of(context).isMobile ? 9 : 14,
-          childAspectRatio: VeilBreakpoint.of(context).isDesktop ? .62 : .58,
-        ),
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-          return DiaryPosterGridTile(
-            key: ValueKey('diary-entry-${entry.id}'),
-            entry: entry,
-            footer: footer,
-          );
-        },
+    final gutter = VeilLayout.pageGutter(context);
+    return NativeAdSliverGrid<SocialEntry>(
+      items: entries,
+      keyPrefix: 'diary-${footer.name}',
+      padding: EdgeInsets.symmetric(horizontal: gutter),
+      adPadding: EdgeInsets.fromLTRB(gutter, 20, gutter, 20),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: VeilLayout.diaryGridColumns(context),
+        mainAxisSpacing: 15,
+        crossAxisSpacing: VeilBreakpoint.of(context).isMobile ? 9 : 14,
+        childAspectRatio: VeilBreakpoint.of(context).isDesktop ? .62 : .58,
       ),
+      itemBuilder: (context, entry, index) {
+        return DiaryPosterGridTile(
+          key: ValueKey('diary-entry-${entry.id}'),
+          entry: entry,
+          footer: footer,
+        );
+      },
     );
   }
 }
