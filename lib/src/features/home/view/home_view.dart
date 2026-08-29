@@ -22,8 +22,9 @@ import 'package:veil/src/features/playback_history/view_model/playback_history_v
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/shared/components/content_cards.dart';
-import 'package:veil/src/shared/components/ads/native_template_ad.dart';
+import 'package:veil/src/shared/components/ads/adaptive_banner_ad.dart';
 import 'package:veil/src/shared/components/ads/native_ad_sliver_grid.dart';
+import 'package:veil/src/shared/components/ads/native_template_ad.dart';
 import 'package:veil/src/shared/components/section_header.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
@@ -161,6 +162,17 @@ class _HomeViewState extends ConsumerState<HomeView> {
                         items: state.globalTrending,
                         loading: isLoading,
                         ranked: true,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 26)),
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: VeilLayout.pageGutter(context),
+                      ),
+                      sliver: const SliverToBoxAdapter(
+                        child: AdaptiveBannerAd(
+                          key: ValueKey('home-banner-after-trending'),
+                        ),
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 26)),

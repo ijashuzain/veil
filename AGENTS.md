@@ -41,7 +41,7 @@
 - Supabase edge functions live in `supabase/functions/tmdb`, `tmdb-image`, and `proxy`.
 - The HLS `proxy` function currently comments out its host allowlist, so do not assume `HLS_PROXY_ALLOWED_HOSTS` is enforced.
 - `firebase.json` configures SPA rewrites and no-store headers for core web artifacts.
-- `shorebird.yaml` is bundled as an asset, `auto_update` is false, and web uses `NoopShorebirdUpdateService`.
+- `shorebird.yaml` is bundled as an asset with `auto_update: true`; Shorebird updates Android/iOS in the background and applies patches on restart. Web remains on the separate Firebase deployment path.
 
 ## App Store Screenshots Tool
 - Work in `app-store-screenshots/`; use `bun install`, `bun dev`, and `bun run build` from that directory.

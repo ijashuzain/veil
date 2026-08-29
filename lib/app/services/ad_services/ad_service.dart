@@ -100,8 +100,28 @@ class GoogleAdService implements AdService {
   Future<AdState> _initialize() async {
     if (!supportsMobileAds) return AdState.disabled;
 
-    await _requestConsentInfoUpdate();
-    await _loadAndShowConsentFormIfRequired();
+    try {
+      await _requestConsentInfoUpdate();
+      await _loadAndShowConsentFormIfRequired();
+    } catch (error, stackTrace) {
+      debugPrint('[Ads] UMP consent unavailable: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      try {
+        final cachedState = await _readConsentState();
+        if (cachedState.canRequestAds || kReleaseMode) return cachedState;
+      } catch (cachedError) {
+        debugPrint('[Ads] Could not read cached consent: $cachedError');
+        if (kReleaseMode) return AdState.disabled;
+      }
+
+      // Debug/profile builds use only Google's test inventory. Keep local ad
+      // development usable before production UMP messages are configured.
+      await _initializeMobileAds();
+      debugPrint('[Ads] Using test-ad fallback after UMP failure.');
+      return const AdState(canRequestAds: true, privacyOptionsRequired: false);
+    }
+
     return _readConsentState();
   }
 
@@ -150,7 +170,8 @@ class GoogleAdService implements AdService {
             );
           }
         },
-        onAdFailedToLoad: (failedAd, _) async {
+        onAdFailedToLoad: (failedAd, error) async {
+          debugPrint('[Ads] Banner failed to load: $error');
           await failedAd.dispose();
           if (!completer.isCompleted) completer.complete(null);
         },
@@ -184,7 +205,8 @@ class GoogleAdService implements AdService {
             completer.complete(_GoogleLoadedAd(ad, const Size(450, 380)));
           }
         },
-        onAdFailedToLoad: (failedAd, _) async {
+        onAdFailedToLoad: (failedAd, error) async {
+          debugPrint('[Ads] Native ad failed to load: $error');
           await failedAd.dispose();
           if (!completer.isCompleted) completer.complete(null);
         },
@@ -253,16 +275,19 @@ class GoogleAdService implements AdService {
     final privacyStatus = await ConsentInformation.instance
         .getPrivacyOptionsRequirementStatus();
 
-    if (canRequestAds && !_mobileAdsInitialized) {
-      await MobileAds.instance.initialize();
-      _mobileAdsInitialized = true;
-    }
+    if (canRequestAds) await _initializeMobileAds();
 
     return AdState(
       canRequestAds: canRequestAds,
       privacyOptionsRequired:
           privacyStatus == PrivacyOptionsRequirementStatus.required,
     );
+  }
+
+  Future<void> _initializeMobileAds() async {
+    if (_mobileAdsInitialized) return;
+    await MobileAds.instance.initialize();
+    _mobileAdsInitialized = true;
   }
 }
 

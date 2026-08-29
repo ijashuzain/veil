@@ -9,6 +9,7 @@ import 'package:veil/src/features/social/widgets/community_report_sheet.dart';
 import 'package:veil/src/features/social/widgets/review_thread_sheet.dart';
 import 'package:veil/src/features/social/widgets/social_review_card.dart';
 import 'package:veil/src/shared/components/ads/native_ad_list.dart';
+import 'package:veil/src/shared/components/ads/native_template_ad.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
 import 'package:veil/src/shared/components/veil_toast.dart';
@@ -66,7 +67,20 @@ class _ReviewsViewState extends ConsumerState<ReviewsView> {
                   ),
                   const SizedBox(height: 18),
                   if (reviews.isEmpty)
-                    const _EmptyReviews()
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _EmptyReviews(),
+                        NativeTemplateAd(
+                          key: ValueKey(
+                            _tab == 0
+                                ? 'reviews-empty-native-community'
+                                : 'reviews-empty-native-personal',
+                          ),
+                          padding: const EdgeInsets.only(top: 18),
+                        ),
+                      ],
+                    )
                   else
                     NativeAdList<SocialEntry>(
                       items: reviews,

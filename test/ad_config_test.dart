@@ -45,4 +45,17 @@ void main() {
     expect(nativeAd, greaterThan(secondRail));
     expect(curated, greaterThan(nativeAd));
   });
+
+  test('Home banner scrolls between trending and new sections', () {
+    final source = File(
+      'lib/src/features/home/view/home_view.dart',
+    ).readAsStringSync();
+    final trending = source.indexOf("title: 'Global trending'");
+    final banner = source.indexOf('home-banner-after-trending');
+    final newThisWeek = source.indexOf("title: 'New this week'");
+
+    expect(trending, greaterThan(-1));
+    expect(banner, greaterThan(trending));
+    expect(newThisWeek, greaterThan(banner));
+  });
 }

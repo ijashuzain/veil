@@ -2349,6 +2349,31 @@ void main() {
     expect(delegate.childAspectRatio, .58);
   });
 
+  testWidgets('diary shows a native ad when selected list is empty', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          socialLibraryViewModelProvider.overrideWithValue(
+            const SocialLibraryViewState(),
+          ),
+        ],
+        child: const MaterialApp(home: DiaryView()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.byKey(
+        const ValueKey('diary-empty-native-watched'),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('reviews and alerts use diary segmented tab styling', (
     tester,
   ) async {
@@ -2365,6 +2390,10 @@ void main() {
     await tester.pump();
 
     _expectDiarySegmentStyle(tester, find.text('Community'));
+    expect(
+      find.byKey(const ValueKey('reviews-empty-native-community')),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -2643,6 +2672,43 @@ void main() {
     expect(find.text('Top results'), findsOneWidget);
     expect(find.text('Arcane'), findsWidgets);
     expect(find.text('Science Fiction'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('search-native-after-results')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('search inserts native ad after first three results', (
+    tester,
+  ) async {
+    final fourth = _wakanda.copyWith(id: 'fourth', title: 'Fourth Result');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          searchViewModelProvider.overrideWithValue(
+            SearchViewState(
+              results: [_wakanda, _arcane, _historyMovie, fourth],
+            ),
+          ),
+          socialLibraryViewModelProvider.overrideWithValue(
+            const SocialLibraryViewState(),
+          ),
+        ],
+        child: const MaterialApp(home: SearchView()),
+      ),
+    );
+    await tester.pump();
+
+    final ad = find.byKey(const ValueKey('search-native-after-results'));
+    expect(ad, findsOneWidget);
+    expect(
+      tester.getTopLeft(ad).dy,
+      greaterThan(tester.getTopLeft(find.text(_historyMovie.title)).dy),
+    );
+    expect(
+      tester.getTopLeft(ad).dy,
+      lessThan(tester.getTopLeft(find.text('Fourth Result')).dy),
+    );
   });
 
   testWidgets('search back button uses Veil glass navigation style', (
@@ -3294,7 +3360,7 @@ void main() {
 
     expect(find.byType(NavigationRail), findsNothing);
     expect(navigation, findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-adaptive-banner')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-adaptive-banner')), findsNothing);
     expect(
       find.descendant(of: navigation, matching: find.text('Home')),
       findsOneWidget,
@@ -3379,7 +3445,7 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Diary'), findsOneWidget);
-    expect(find.byKey(const ValueKey('shell-adaptive-banner')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shell-adaptive-banner')), findsNothing);
   });
 
   testWidgets('poster card rating renders only below title', (tester) async {

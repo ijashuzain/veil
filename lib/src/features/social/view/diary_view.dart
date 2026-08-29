@@ -5,6 +5,7 @@ import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
 import 'package:veil/src/features/social/widgets/diary_filter_sheet.dart';
 import 'package:veil/src/features/social/widgets/diary_poster_grid.dart';
+import 'package:veil/src/shared/components/ads/native_template_ad.dart';
 import 'package:veil/src/shared/components/veil_filter_chips.dart';
 import 'package:veil/src/shared/components/veil_segmented_tabs.dart';
 import 'package:veil/src/shared/components/veil_sheet.dart';
@@ -143,6 +144,13 @@ class _DiaryViewState extends ConsumerState<DiaryView> {
                     _DiaryTab.watchlist => DiaryGridFooter.year,
                     _DiaryTab.favorites => DiaryGridFooter.favorite,
                   },
+                ),
+              if (entries.isEmpty)
+                SliverToBoxAdapter(
+                  key: ValueKey('diary-empty-native-${_selectedTab.name}'),
+                  child: NativeTemplateAd(
+                    padding: EdgeInsets.fromLTRB(gutter, 18, gutter, 18),
+                  ),
                 ),
               const SliverToBoxAdapter(child: SizedBox(height: 118)),
             ],

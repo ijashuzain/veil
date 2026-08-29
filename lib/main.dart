@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:the_responsive_builder/the_responsive_builder.dart';
@@ -9,9 +8,7 @@ import 'package:veil/app/services/local_storage_services/local_storage_services.
 import 'package:veil/app/services/supabase_services/supabase_service.dart';
 import 'package:veil/src/core/providers/ad_providers.dart';
 import 'package:veil/src/core/router/app_router.dart';
-import 'package:veil/src/core/services/shorebird_update_service.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
-import 'package:veil/src/shared/components/shorebird_update_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,16 +27,10 @@ Future<void> main() async {
 }
 
 class VeilApp extends StatefulWidget {
-  const VeilApp({
-    super.key,
-    this.skipOnboarding = false,
-    this.initialUri,
-    this.shorebirdUpdateService,
-  });
+  const VeilApp({super.key, this.skipOnboarding = false, this.initialUri});
 
   final bool skipOnboarding;
   final Uri? initialUri;
-  final ShorebirdUpdateService? shorebirdUpdateService;
 
   @override
   State<VeilApp> createState() => _VeilAppState();
@@ -50,11 +41,6 @@ class _VeilAppState extends State<VeilApp> {
     skipOnboarding: widget.skipOnboarding,
     initialUri: widget.initialUri,
   );
-  late final _shorebirdUpdateService =
-      widget.shorebirdUpdateService ??
-      (kIsWeb
-          ? const NoopShorebirdUpdateService()
-          : ShorebirdCodePushUpdateService());
 
   @override
   void initState() {
@@ -77,12 +63,6 @@ class _VeilAppState extends State<VeilApp> {
           debugShowCheckedModeBanner: false,
           theme: VeilTheme.dark(),
           routerConfig: _router,
-          builder: (context, child) {
-            return ShorebirdUpdateGate(
-              updateService: _shorebirdUpdateService,
-              child: child ?? const SizedBox.shrink(),
-            );
-          },
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,

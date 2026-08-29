@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veil/app/services/ad_services/ad_service.dart';
 
@@ -19,7 +20,9 @@ class AdController extends Notifier<AdState> {
 
     try {
       state = await ref.read(adServiceProvider).initialize();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('[Ads] Initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       state = AdState.disabled;
     }
   }
@@ -27,7 +30,9 @@ class AdController extends Notifier<AdState> {
   Future<void> showPrivacyOptions() async {
     try {
       state = await ref.read(adServiceProvider).showPrivacyOptions();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('[Ads] Privacy options failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       state = AdState.disabled;
     }
   }

@@ -6,7 +6,6 @@ import 'package:veil/src/features/home/view/home_view.dart';
 import 'package:veil/src/features/profile/view/profile_view.dart';
 import 'package:veil/src/features/reviews/view/reviews_view.dart';
 import 'package:veil/src/features/social/view/diary_view.dart';
-import 'package:veil/src/shared/components/ads/adaptive_banner_ad.dart';
 import 'package:veil/src/shared/layout/veil_breakpoints.dart';
 
 class VeilShellView extends StatefulWidget {
@@ -26,7 +25,6 @@ class _VeilShellViewState extends State<VeilShellView> {
   @override
   Widget build(BuildContext context) {
     final breakpoint = VeilBreakpoint.of(context);
-    final showBanner = _activeIndex < 3;
     return Scaffold(
       extendBody: true,
       body: breakpoint.usesRail
@@ -34,19 +32,7 @@ class _VeilShellViewState extends State<VeilShellView> {
               children: [
                 Positioned.fill(
                   left: _desktopRailWidth + _desktopRailGap,
-                  child: Column(
-                    children: [
-                      Expanded(child: _TabStack(activeIndex: _activeIndex)),
-                      if (showBanner)
-                        const SafeArea(
-                          top: false,
-                          left: false,
-                          child: AdaptiveBannerAd(
-                            key: ValueKey('shell-adaptive-banner'),
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: _TabStack(activeIndex: _activeIndex),
                 ),
                 Positioned(
                   top: 12,
@@ -61,55 +47,46 @@ class _VeilShellViewState extends State<VeilShellView> {
             )
           : _TabStack(activeIndex: _activeIndex),
       bottomNavigationBar: breakpoint.isMobile
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showBanner)
-                  const AdaptiveBannerAd(
-                    key: ValueKey('shell-adaptive-banner'),
-                  ),
-                SafeArea(
-                  top: false,
-                  minimum: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                      child: Container(
-                        key: const ValueKey('mobile-shell-navigation'),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
+          ? SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                  child: Container(
+                    key: const ValueKey('mobile-shell-navigation'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: VeilColors.panel.withValues(alpha: .86),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: VeilColors.hairlineStrong),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .50),
+                          blurRadius: 30,
+                          offset: const Offset(0, 18),
                         ),
-                        decoration: BoxDecoration(
-                          color: VeilColors.panel.withValues(alpha: .86),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: VeilColors.hairlineStrong),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: .50),
-                              blurRadius: 30,
-                              offset: const Offset(0, 18),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            for (var index = 0; index < _tabs.length; index++)
-                              _TabButton(
-                                selected: _activeIndex == index,
-                                icon: _tabs[index].icon,
-                                label: _tabs[index].label,
-                                onTap: () => _selectTab(index),
-                              ),
-                          ],
-                        ),
-                      ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        for (var index = 0; index < _tabs.length; index++)
+                          _TabButton(
+                            selected: _activeIndex == index,
+                            icon: _tabs[index].icon,
+                            label: _tabs[index].label,
+                            onTap: () => _selectTab(index),
+                          ),
+                      ],
                     ),
                   ),
                 ),
-              ],
+              ),
             )
           : null,
     );

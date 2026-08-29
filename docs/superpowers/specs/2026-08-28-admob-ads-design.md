@@ -14,7 +14,7 @@ Monetize Veil on Android and iOS with Google AdMob anchored adaptive banners and
 - Show ads to every user, including premium users.
 - Include anchored adaptive banners and native ads only. Interstitial, rewarded, app-open, and custom native ads are out of scope.
 - Use Google medium native templates rather than Kotlin and Swift `NativeAdFactory` implementations.
-- Use balanced shell banner coverage plus native ads after every 12 organic items in eligible linear feeds and grids.
+- Use one inline Home banner plus native ads after every 12 organic items in eligible linear feeds and grids.
 - Keep onboarding, password recovery, fullscreen playback, own Profile, and settings ad-free.
 - Do not request App Tracking Transparency permission in this release.
 
@@ -81,12 +81,9 @@ No premium provider participates in ad visibility.
 
 ## Banner Placement
 
-- Show one anchored adaptive banner in the shell for Home, Diary, and Reviews tab indices.
-- Hide the shell banner on own Profile tab.
-- On compact layouts, place banner immediately above floating bottom navigation.
-- On tablet and desktop-width layouts running on Android or iOS, place banner at the bottom edge of shell content beside the navigation rail.
-- Keep one stable banner instance across eligible shell tab switches when width is unchanged.
-- Do not show persistent banners on pushed routes, detail, auth, recovery, settings, or playback.
+- Show one anchored adaptive banner in Home discovery mode between Global trending and New this week.
+- Keep the banner inside Home's scroll flow; it must not pin to navigation or viewport edges.
+- Do not show banners in Diary, Reviews, Profile, pushed routes, detail, auth, recovery, settings, or playback.
 
 ## Native Placement
 
@@ -97,15 +94,15 @@ No premium provider participates in ad visibility.
 - Repository requests, pagination offsets, result totals, poster indexes, and analytics semantics remain content-only.
 - Grid ads occupy a full-width sliver between 12-item grid chunks. They never impersonate poster-grid cells.
 - Segment/tab changes calculate frequency independently for the selected content collection.
-- Empty, loading, and error states contain no ad slots.
+- Empty Diary and Reviews states contain one native slot. Other empty, loading, and error states contain no ad slots.
 
 ### Screen Map
 
 - Home discovery mode: one native template after the second discovery rail because this mode is section-based rather than a linear feed.
 - Home selected-genre mode: full-width native template after every 12 posters.
-- Diary watched, watchlist, and favorites grids: full-width native template after every 12 posters.
-- Reviews community and personal feeds: native template after every 12 review cards.
-- Search results: native template after every 12 actual result items; none in empty or recent-search states.
+- Diary watched, watchlist, and favorites grids: full-width native template after every 12 posters, or one native template after the empty state.
+- Reviews community and personal feeds: native template after every 12 review cards, or one native template after the empty state.
+- Search results: one native template after the first three top results, or after all results when only one or two exist; none in empty or recent-search states.
 - See All catalogs: full-width native template after every 12 posters.
 - Provider movie and TV catalogs: full-width native template after every 12 posters while preserving pinned headers and pagination footers.
 - Alerts and suggestions: native template after every 12 tiles, independently per segment.
@@ -140,7 +137,7 @@ No premium provider participates in ad visibility.
 - Override ad service/readiness providers in widget tests so no real platform channel is called.
 - Test release/debug ad-unit selection independently from plugin loading.
 - Test ads are disabled on web and unsupported platforms.
-- Test shell banner appears on Home, Diary, and Reviews and not on Profile.
+- Test no shell-level banner exists and Home banner orders between Global trending and New this week.
 - Test native insertion after organic items 12 and 24 without changing item order or count.
 - Test Home discovery and Detail fixed native seams.
 - Test loading, denied-consent, consent-error, and ad-load-error states collapse to zero space.

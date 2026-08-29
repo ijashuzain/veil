@@ -51,7 +51,87 @@ flutter run \
   --dart-define=SUPABASE_ANON_KEY=your_publishable_or_anon_key
 ```
 
-## Development
+## Shorebird Mobile Releases
+
+Veil uses Shorebird automatic background updates on Android and iOS. Patches
+download without blocking launch and apply after the next process restart. Web
+deployments remain separate and continue through Firebase Hosting.
+
+Verify the authenticated account, app identity, and local configuration:
+
+```bash
+shorebird account whoami
+shorebird account apps
+shorebird releases list
+shorebird doctor
+```
+
+The first Shorebird-enabled store baseline is `1.0.4+9`. Validate each platform
+without registering a remote release:
+
+```bash
+shorebird release \
+  --platforms=android \
+  --flutter-version=3.41.1 \
+  --build-name=1.0.4 \
+  --build-number=9 \
+  --dry-run
+
+shorebird release \
+  --platforms=ios \
+  --flutter-version=3.41.1 \
+  --build-name=1.0.4 \
+  --build-number=9 \
+  --no-codesign \
+  --dry-run
+```
+
+After signing is validated, create the release artifacts and submit its AAB and
+IPA to Google Play and App Store Connect:
+
+```bash
+shorebird release \
+  --platforms=android,ios \
+  --flutter-version=3.41.1 \
+  --build-name=1.0.4 \
+  --build-number=9 \
+  --export-method=app-store
+```
+
+Before App Store submission, replace the default iOS launch image placeholder.
+If an unsigned Shorebird archive is distributed manually through Xcode, uncheck
+**Manage Version and Build Number** so Xcode does not change `1.0.4+9`; patches
+will not match a store build whose version was rewritten.
+
+Users can receive patches only after installing these Shorebird-built store
+binaries. Test every patch on `staging` before promoting it:
+
+```bash
+shorebird patch \
+  --platforms=android,ios \
+  --release-version=1.0.4+9 \
+  --track=staging
+
+shorebird preview \
+  --platform=android \
+  --release-version=1.0.4+9 \
+  --track=staging
+
+shorebird preview \
+  --platform=ios \
+  --release-version=1.0.4+9 \
+  --track=staging
+
+shorebird patches list --release-version=1.0.4+9
+shorebird patches promote --release-version=1.0.4+9 --patch-number=1
+```
+
+Use the Shorebird console to roll back a bad stable patch. Do not use
+`--allow-native-diffs` or `--allow-asset-diffs` to ship native SDK, manifest,
+plist, CocoaPods, Gradle, or asset changes; publish a new Shorebird release and
+store build instead. Release and patch commands must use identical Dart defines.
+
+## Code Generation
 
 Regenerate generated code after changing Riverpod, Freezed, or GoRouter files:
 

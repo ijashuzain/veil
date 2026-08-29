@@ -11,7 +11,7 @@ import 'package:veil/src/features/search/view_model/search_view_model/search_vie
 import 'package:veil/src/features/social/models/social_entry/social_entry.dart';
 import 'package:veil/src/features/social/models/user_profile_summary.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
-import 'package:veil/src/shared/components/ads/native_ad_list.dart';
+import 'package:veil/src/shared/components/ads/native_template_ad.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/components/veil_filter_chips.dart';
@@ -64,6 +64,10 @@ class _SearchViewState extends ConsumerState<SearchView> {
       _SearchScope.films => filmResults,
       _SearchScope.cast => castResults,
     };
+    final displayedResults = visibleResults.take(8).toList(growable: false);
+    final nativeAdAfterIndex = displayedResults.length < 3
+        ? displayedResults.length - 1
+        : 2;
     final scopeCounts = _SearchScopeCounts(
       all: users.length + results.length,
       users: users.length,
@@ -249,13 +253,25 @@ class _SearchViewState extends ConsumerState<SearchView> {
                 else
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: NativeAdList<ContentItem>(
-                      items: visibleResults.take(8).toList(growable: false),
-                      keyPrefix: 'search-content',
-                      itemBuilder: (context, item, index) => _SearchResult(
-                        item: item,
-                        onTap: () => _openContentResult(item),
-                      ),
+                    child: Column(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < displayedResults.length;
+                          index++
+                        ) ...[
+                          _SearchResult(
+                            item: displayedResults[index],
+                            onTap: () =>
+                                _openContentResult(displayedResults[index]),
+                          ),
+                          if (index == nativeAdAfterIndex)
+                            const NativeTemplateAd(
+                              key: ValueKey('search-native-after-results'),
+                              padding: EdgeInsets.symmetric(vertical: 18),
+                            ),
+                        ],
+                      ],
                     ),
                   ),
               ],
