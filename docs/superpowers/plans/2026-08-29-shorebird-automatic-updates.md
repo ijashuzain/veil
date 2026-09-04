@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Prepare Veil `1.0.4+9` as its first non-blocking Shorebird Android/iOS baseline.
+**Goal:** Prepare Veil `1.0.4+10` as its first non-blocking Shorebird Android/iOS baseline.
 
 **Architecture:** Shorebird's embedded engine owns background update checks through explicit `auto_update: true`. Manual Dart update orchestration and blocking UI are removed, leaving app startup unchanged and web independent.
 
@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Preserve app ID `c863524c-e4c2-45e8-9108-f217be692668`.
-- Set version `1.0.4+9`.
+- Set version `1.0.4+10`.
 - Do not register remote releases, patches, or upload store artifacts without explicit approval.
 - Preserve unrelated AdMob working-tree changes.
 - Do not use `--allow-native-diffs` or `--allow-asset-diffs` as a normal workflow.
@@ -47,9 +47,9 @@
 - Modify: `AGENTS.md`
 
 **Interfaces:**
-- Produces: Flutter-derived Android/iOS version `1.0.4+9` with no Xcode override conflict.
+- Produces: Flutter-derived Android/iOS version `1.0.4+10` with no Xcode override conflict.
 
-- [ ] Change `version: 1.0.3+8` to `version: 1.0.4+9`.
+- [ ] Change version to `1.0.4+10`; build `9` was already consumed by App Store review.
 - [ ] Remove all six hardcoded `FLUTTER_BUILD_NAME` and `FLUTTER_BUILD_NUMBER` assignments from Xcode configurations.
 - [ ] Update repository guidance to describe automatic updates and Shorebird-only mobile releases.
 - [ ] Run `shorebird doctor` and require zero project configuration issues.
@@ -63,7 +63,7 @@
 - Produces: exact release, patch, preview, and release-list commands.
 
 - [ ] Document account/app verification with `shorebird account whoami`, `shorebird account apps`, and `shorebird releases list`.
-- [ ] Document first release command with `--platforms=android,ios`, Flutter `3.41.1`, and build `1.0.4+9`.
+- [ ] Document first release command with `--platforms=android,ios`, Flutter `3.41.1`, and build `1.0.4+10`.
 - [ ] Document staging patch and per-platform preview commands.
 - [ ] Document stable promotion and native/asset limitations.
 
@@ -81,4 +81,4 @@
 - [ ] Run `flutter build ios --debug --no-codesign`.
 - [ ] Run `flutter build web --release`.
 - [ ] Run `shorebird doctor`.
-- [ ] Run Android and iOS `shorebird release --dry-run` validation with version `1.0.4+9`.
+- [ ] Run Android and iOS `shorebird release --dry-run` validation with version `1.0.4+10`.

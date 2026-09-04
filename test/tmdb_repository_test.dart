@@ -141,6 +141,170 @@ void main() {
     },
   );
 
+  test(
+    'TMDB repository hides Michael Jackson content for tester account',
+    () async {
+      final api = Api();
+      api.general.httpClientAdapter = _FakeAdapter((options) {
+        switch (options.path) {
+          case '$_tmdbProxyBaseUrl/trending/all/week':
+            return {
+              'results': [
+                {
+                  'id': 1,
+                  'media_type': 'movie',
+                  'title': "Michael Jackson's This Is It",
+                  'overview': 'Concert documentary.',
+                  'release_date': '2009-10-28',
+                },
+                {
+                  'id': 2,
+                  'media_type': 'movie',
+                  'title': 'Leaving Neverland',
+                  'overview': 'A documentary about Michael Jackson.',
+                  'release_date': '2019-01-25',
+                },
+                {
+                  'id': 3,
+                  'media_type': 'movie',
+                  'title': 'Moonwalker',
+                  'overview': 'A musical anthology.',
+                  'release_date': '1988-10-29',
+                },
+                {
+                  'id': 4,
+                  'media_type': 'movie',
+                  'title': 'Safe Movie',
+                  'overview': 'Unrelated content.',
+                  'release_date': '2026-01-01',
+                },
+              ],
+            };
+          case '$_tmdbProxyBaseUrl/movie/3':
+            expect(options.queryParameters['append_to_response'], 'credits');
+            return {
+              'production_companies': [
+                {'name': 'Ultimate Productions'},
+              ],
+              'credits': {
+                'cast': [
+                  {'name': 'Michael Jackson'},
+                ],
+              },
+            };
+          case '$_tmdbProxyBaseUrl/movie/4':
+            expect(options.queryParameters['append_to_response'], 'credits');
+            return {
+              'production_companies': [
+                {'name': 'Independent Studio'},
+              ],
+              'credits': {
+                'cast': [
+                  {'name': 'Unrelated Performer'},
+                ],
+              },
+            };
+        }
+        fail('Unexpected path: ${options.path}');
+      });
+
+      final repository = TmdbRepository(
+        api: api,
+        apiKey: 'api-key',
+        currentUserEmail: 'tester@vexellab.com',
+      );
+
+      final results = await repository.trending();
+
+      expect(results.map((item) => item.title), ['Safe Movie']);
+    },
+  );
+
+  test(
+    'TMDB repository keeps Michael Jackson content for other users',
+    () async {
+      final api = Api();
+      api.general.httpClientAdapter = _FakeAdapter((options) {
+        expect(options.path, '$_tmdbProxyBaseUrl/trending/all/week');
+        return {
+          'results': [
+            {
+              'id': 1,
+              'media_type': 'movie',
+              'title': "Michael Jackson's This Is It",
+              'overview': 'Concert documentary.',
+              'release_date': '2009-10-28',
+            },
+          ],
+        };
+      });
+
+      final repository = TmdbRepository(
+        api: api,
+        apiKey: 'api-key',
+        currentUserEmail: 'viewer@vexellab.com',
+      );
+
+      final results = await repository.trending();
+
+      expect(results.single.title, "Michael Jackson's This Is It");
+    },
+  );
+
+  test(
+    'TMDB search hides Michael Jackson references for tester account',
+    () async {
+      final api = Api();
+      api.general.httpClientAdapter = _FakeAdapter((options) {
+        switch (options.path) {
+          case '$_tmdbProxyBaseUrl/search/multi':
+            return {
+              'results': [
+                {
+                  'id': 287,
+                  'media_type': 'person',
+                  'name': 'Michael Jackson',
+                  'known_for_department': 'Acting',
+                },
+                {
+                  'id': 24961,
+                  'media_type': 'movie',
+                  'title': 'The Wiz',
+                  'overview': 'A musical featuring Michael Jackson.',
+                  'release_date': '1978-10-24',
+                },
+                {
+                  'id': 603,
+                  'media_type': 'movie',
+                  'title': 'The Matrix',
+                  'overview': 'A hacker learns the truth.',
+                  'release_date': '1999-03-31',
+                },
+              ],
+            };
+          case '$_tmdbProxyBaseUrl/movie/603':
+            return {
+              'production_companies': [
+                {'name': 'Village Roadshow Pictures'},
+              ],
+              'credits': {'cast': const []},
+            };
+        }
+        fail('Unexpected path: ${options.path}');
+      });
+
+      final repository = TmdbRepository(
+        api: api,
+        apiKey: 'api-key',
+        currentUserEmail: 'tester@vexellab.com',
+      );
+
+      final results = await repository.search('Michael Jackson');
+
+      expect(results.map((item) => item.title), ['The Matrix']);
+    },
+  );
+
   test('TMDB repository parses appended movie detail data', () async {
     final api = Api();
     api.general.httpClientAdapter = _FakeAdapter((options) {

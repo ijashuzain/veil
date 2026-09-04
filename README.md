@@ -66,7 +66,7 @@ shorebird releases list
 shorebird doctor
 ```
 
-The first Shorebird-enabled store baseline is `1.0.4+9`. Validate each platform
+The first Shorebird-enabled store baseline is `1.0.4+10`. Validate each platform
 without registering a remote release:
 
 ```bash
@@ -74,14 +74,14 @@ shorebird release \
   --platforms=android \
   --flutter-version=3.41.1 \
   --build-name=1.0.4 \
-  --build-number=9 \
+  --build-number=10 \
   --dry-run
 
 shorebird release \
   --platforms=ios \
   --flutter-version=3.41.1 \
   --build-name=1.0.4 \
-  --build-number=9 \
+  --build-number=10 \
   --no-codesign \
   --dry-run
 ```
@@ -94,13 +94,13 @@ shorebird release \
   --platforms=android,ios \
   --flutter-version=3.41.1 \
   --build-name=1.0.4 \
-  --build-number=9 \
+  --build-number=10 \
   --export-method=app-store
 ```
 
 Before App Store submission, replace the default iOS launch image placeholder.
 If an unsigned Shorebird archive is distributed manually through Xcode, uncheck
-**Manage Version and Build Number** so Xcode does not change `1.0.4+9`; patches
+**Manage Version and Build Number** so Xcode does not change `1.0.4+10`; patches
 will not match a store build whose version was rewritten.
 
 Users can receive patches only after installing these Shorebird-built store
@@ -109,21 +109,21 @@ binaries. Test every patch on `staging` before promoting it:
 ```bash
 shorebird patch \
   --platforms=android,ios \
-  --release-version=1.0.4+9 \
+  --release-version=1.0.4+10 \
   --track=staging
 
 shorebird preview \
   --platform=android \
-  --release-version=1.0.4+9 \
+  --release-version=1.0.4+10 \
   --track=staging
 
 shorebird preview \
   --platform=ios \
-  --release-version=1.0.4+9 \
+  --release-version=1.0.4+10 \
   --track=staging
 
-shorebird patches list --release-version=1.0.4+9
-shorebird patches promote --release-version=1.0.4+9 --patch-number=1
+shorebird patches list --release-version=1.0.4+10
+shorebird patches promote --release-version=1.0.4+10 --patch-number=1
 ```
 
 Use the Shorebird console to roll back a bad stable patch. Do not use

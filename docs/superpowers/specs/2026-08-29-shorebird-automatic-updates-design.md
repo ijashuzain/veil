@@ -5,14 +5,14 @@
 
 ## Goal
 
-Make `1.0.4+9` the first Shorebird-enabled Veil store baseline on Android and iOS, using non-blocking automatic background patch downloads.
+Make `1.0.4+10` the first Shorebird-enabled Veil store baseline on Android and iOS, using non-blocking automatic background patch downloads.
 
 ## Identity And Baseline
 
 - Shorebird app ID: `c863524c-e4c2-45e8-9108-f217be692668`.
 - Current Shorebird account owns this app and has no releases.
 - Old app ID `943315bc-081a-40bb-81a3-ede72d8a7d83` is inaccessible and must not be restored.
-- Bump Flutter version to `1.0.4+9` because installed `1.0.3+8` store binaries were built without the Shorebird engine and cannot receive patches.
+- Use `1.0.4+10` because build `9` was consumed by App Store review and was built without the Shorebird engine.
 - Native AdMob changes also require a new store baseline rather than a patch.
 
 ## Runtime Strategy
@@ -35,9 +35,9 @@ Make `1.0.4+9` the first Shorebird-enabled Veil store baseline on Android and iO
 ## Workflow
 
 - Validate locally with analyzer, tests, normal Android/iOS/web builds, `shorebird doctor`, and Shorebird release dry runs.
-- Create Android/iOS release artifacts with `shorebird release --platforms=android,ios --flutter-version=3.41.1 --build-name=1.0.4 --build-number=9` only after explicit approval.
+- Create Android/iOS release artifacts with `shorebird release --platforms=android,ios --flutter-version=3.41.1 --build-name=1.0.4 --build-number=10` only after explicit approval.
 - Upload the resulting AAB and IPA to Google Play and App Store Connect. Patches work only after those Shorebird-built binaries reach users.
-- Publish Dart-only patches with matching build defines and `shorebird patch --platforms=android,ios --release-version=1.0.4+9`.
+- Publish Dart-only patches with matching build defines and `shorebird patch --platforms=android,ios --release-version=1.0.4+10`.
 - Test patches on `staging`, preview them, then promote to stable.
 - Never bypass native or asset diff detection for changes users do not already have.
 

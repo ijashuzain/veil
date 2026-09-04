@@ -47,7 +47,7 @@ class TmdbRepository {
   final String apiKey;
   final bool usesServerProxy;
   final String currentUserEmail;
-  final Map<String, Future<bool>> _hiddenStudioMatches = {};
+  final Map<String, Future<bool>> _restrictedContentMatches = {};
 
   static const genreLookup = <int, String>{
     12: 'Adventure',
@@ -84,7 +84,7 @@ class TmdbRepository {
   bool get hasCredentials =>
       usesServerProxy || readAccessToken.isNotEmpty || apiKey.isNotEmpty;
 
-  bool get _shouldHideDisneyPixarContent {
+  bool get _shouldApplyTesterRestrictions {
     return currentUserEmail.trim().toLowerCase() == _testerRestrictedEmail;
   }
 
@@ -451,7 +451,7 @@ class TmdbRepository {
   Future<ContentDetail> _filterDetailForCurrentUser(
     ContentDetail detail,
   ) async {
-    if (!_shouldHideDisneyPixarContent) return detail;
+    if (!_shouldApplyTesterRestrictions) return detail;
 
     return detail.copyWith(
       recommendations: await _filterItemsForCurrentUser(detail.recommendations),
@@ -462,7 +462,7 @@ class TmdbRepository {
   Future<List<ContentItem>> _filterItemsForCurrentUser(
     List<ContentItem> items,
   ) async {
-    if (!_shouldHideDisneyPixarContent || items.isEmpty) return items;
+    if (!_shouldApplyTesterRestrictions || items.isEmpty) return items;
 
     final filtered = await Future.wait<ContentItem?>(
       items.map((item) async {
@@ -480,36 +480,47 @@ class TmdbRepository {
   }
 
   Future<bool> _shouldHideItem(ContentItem item) {
-    if (!_shouldHideDisneyPixarContent) return Future.value(false);
+    if (!_shouldApplyTesterRestrictions) return Future.value(false);
+
+    if (_containsMichaelJackson(item.title) ||
+        _containsMichaelJackson(item.subtitle) ||
+        _containsMichaelJackson(item.description)) {
+      return Future.value(true);
+    }
 
     final remoteId = item.remoteId;
     if (remoteId == null) return Future.value(false);
 
     final mediaType = _mediaType(item);
     final cacheKey = '$mediaType:$remoteId';
-    return _hiddenStudioMatches.putIfAbsent(
+    return _restrictedContentMatches.putIfAbsent(
       cacheKey,
-      () => _loadHiddenStudioMatch(remoteId: remoteId, mediaType: mediaType),
+      () =>
+          _loadRestrictedContentMatch(remoteId: remoteId, mediaType: mediaType),
     );
   }
 
-  Future<bool> _loadHiddenStudioMatch({
+  Future<bool> _loadRestrictedContentMatch({
     required int remoteId,
     required String mediaType,
   }) async {
     try {
       final response = await api.general.get<Map<String, dynamic>>(
         _detailEndpoint(mediaType, remoteId),
-        queryParameters: _query({'language': 'en-US'}),
+        queryParameters: _query({
+          'language': 'en-US',
+          'append_to_response': 'credits',
+        }),
         options: _options(),
       );
       final data = response.data;
       if (data == null) return false;
 
-      return _studioNamesForRestriction(
-        data,
-        mediaType,
-      ).any(_matchesHiddenStudioName);
+      return _containsRestrictedText(data) ||
+          _studioNamesForRestriction(
+            data,
+            mediaType,
+          ).any(_matchesHiddenStudioName);
     } on DioException {
       return false;
     }
@@ -535,6 +546,21 @@ class TmdbRepository {
   bool _matchesHiddenStudioName(String name) {
     final normalized = name.toLowerCase();
     return normalized.contains('disney') || normalized.contains('pixar');
+  }
+
+  bool _containsRestrictedText(Object? value) {
+    if (value is String) return _containsMichaelJackson(value);
+    if (value is Map) {
+      return value.values.any(_containsRestrictedText);
+    }
+    if (value is Iterable) {
+      return value.any(_containsRestrictedText);
+    }
+    return false;
+  }
+
+  bool _containsMichaelJackson(String value) {
+    return value.toLowerCase().contains('michael jackson');
   }
 
   Future<ContentItem?> _movieDetailItem(
