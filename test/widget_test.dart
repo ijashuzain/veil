@@ -1503,7 +1503,7 @@ void main() {
     );
     expect(
       player.url,
-      'https://vidsrc-embed.ru/embed/tv?tmdb=94605&season=2&episode=3&autoplay=1&autonext=1',
+      'https://vsembed.ru/embed/tv/94605/2/3',
     );
     expect(player.fallbackUrls, isEmpty);
     expect(player.loadAsPage, isTrue);
@@ -1552,7 +1552,7 @@ void main() {
     );
     expect(
       player.url,
-      'https://vidsrc-embed.ru/embed/tv?imdb=tt0944947&season=2&episode=3&autoplay=1&autonext=1',
+      'https://vsembed.ru/embed/tv/tt0944947/2/3',
     );
     expect(player.fallbackUrls, isEmpty);
     expect(player.loadAsPage, isTrue);
@@ -1587,7 +1587,7 @@ void main() {
     );
     expect(
       player.url,
-      'https://vidsrc-embed.ru/embed/movie?tmdb=505642&autoplay=1',
+      'https://vsembed.ru/embed/movie/505642',
     );
     expect(player.fallbackUrls, isEmpty);
     expect(player.loadAsPage, isTrue);
@@ -1718,7 +1718,7 @@ void main() {
   test('vidsrc playback urls use tmdb first and imdb fallback', () {
     expect(
       vidsrcPlaybackUrl(tmdbId: 505642, contentType: 'Movie').toString(),
-      'https://vidsrc-embed.ru/embed/movie?tmdb=505642&autoplay=1',
+      'https://vsembed.ru/embed/movie/505642',
     );
     expect(
       vidsrcPlaybackUrl(
@@ -1726,7 +1726,7 @@ void main() {
         imdbId: 'tt9114286',
         contentType: 'Movie',
       ).toString(),
-      'https://vidsrc-embed.ru/embed/movie?imdb=tt9114286&autoplay=1',
+      'https://vsembed.ru/embed/movie/tt9114286',
     );
     expect(
       vidsrcPlaybackUrl(
@@ -1736,7 +1736,7 @@ void main() {
         season: 2,
         episode: 3,
       ).toString(),
-      'https://vidsrc-embed.ru/embed/tv?tmdb=94605&season=2&episode=3&autoplay=1&autonext=1',
+      'https://vsembed.ru/embed/tv/94605/2/3',
     );
     expect(
       vidsrcPlaybackUrl(
@@ -1745,7 +1745,7 @@ void main() {
         season: 0,
         episode: -1,
       ).toString(),
-      'https://vidsrc-embed.ru/embed/tv?imdb=tt0944947&season=1&episode=1&autoplay=1&autonext=1',
+      'https://vsembed.ru/embed/tv/tt0944947/1/1',
     );
     expect(vidsrcPlaybackUrl(contentType: 'Movie'), isNull);
   });
@@ -1882,7 +1882,7 @@ void main() {
     final platform = _FakeWebViewPlatform();
     WebViewPlatform.instance = platform;
     final vidsrcUrl = Uri.parse(
-      'https://vidsrc-embed.ru/embed/movie?tmdb=505642&autoplay=1',
+      'https://vsembed.ru/embed/movie/505642',
     );
 
     await tester.pumpWidget(
@@ -1938,7 +1938,7 @@ void main() {
   ) async {
     final platform = _FakeWebViewPlatform();
     WebViewPlatform.instance = platform;
-    final cinejoyUrl = Uri.parse('https://cinejoy.to/watch/movie/1284041');
+    final cinejoyUrl = Uri.parse('https://cinejoy.pk/watch/movie/1284041');
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1962,7 +1962,7 @@ void main() {
     expect(
       await platform.navigationDelegate.onNavigationRequest?.call(
         const NavigationRequest(
-          url: 'https://cinejoy.to/watch/tv/94997/2/2',
+          url: 'https://cinejoy.pk/watch/tv/94997/2/2',
           isMainFrame: true,
         ),
       ),
@@ -1971,11 +1971,11 @@ void main() {
     expect(
       await platform.navigationDelegate.onNavigationRequest?.call(
         const NavigationRequest(
-          url: 'https://cinejoy.to/browse',
+          url: 'https://cinejoy.pk/browse',
           isMainFrame: true,
         ),
       ),
-      NavigationDecision.prevent,
+      NavigationDecision.navigate,
     );
     expect(
       await platform.navigationDelegate.onNavigationRequest?.call(
@@ -2030,7 +2030,16 @@ void main() {
           isMainFrame: true,
         ),
       ),
-      NavigationDecision.prevent,
+      NavigationDecision.navigate,
+    );
+    expect(
+      await platform.navigationDelegate.onNavigationRequest?.call(
+        const NavigationRequest(
+          url: 'https://cdn.vidlink.pro/player.js',
+          isMainFrame: true,
+        ),
+      ),
+      NavigationDecision.navigate,
     );
     expect(
       await platform.navigationDelegate.onNavigationRequest?.call(
@@ -2050,6 +2059,66 @@ void main() {
       ),
       NavigationDecision.navigate,
     );
+  });
+
+  testWidgets('mobile player offers a retry when the embed never finishes', (
+    tester,
+  ) async {
+    final platform = _FakeWebViewPlatform();
+    WebViewPlatform.instance = platform;
+    final vidlinkUrl = Uri.parse('https://vidlink.pro/movie/505642?player=jw');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FullscreenLandscapeWebPlayer(
+          url: vidlinkUrl.toString(),
+          loadAsPage: true,
+          showCloseButton: false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byKey(const ValueKey('embed-player-retry')), findsNothing);
+
+    await tester.pump(const Duration(seconds: 25));
+
+    expect(find.byKey(const ValueKey('embed-player-retry')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('embed-player-retry')));
+    await tester.pump();
+
+    expect(platform.controller.requestLoads, [vidlinkUrl, vidlinkUrl]);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('mobile player hides the loading overlay once the page loads', (
+    tester,
+  ) async {
+    final platform = _FakeWebViewPlatform();
+    WebViewPlatform.instance = platform;
+    final vidlinkUrl = Uri.parse('https://vidlink.pro/movie/505642?player=jw');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FullscreenLandscapeWebPlayer(
+          url: vidlinkUrl.toString(),
+          loadAsPage: true,
+          showCloseButton: false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    platform.navigationDelegate.onPageFinished?.call(vidlinkUrl.toString());
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.pump(const Duration(seconds: 25));
+
+    expect(find.byKey(const ValueKey('embed-player-retry')), findsNothing);
   });
 
   testWidgets('direct mobile player renders video html without an iframe', (
@@ -5970,6 +6039,7 @@ class _FakeNavigationDelegate extends PlatformNavigationDelegate {
 
   NavigationRequestCallback? onNavigationRequest;
   HttpResponseErrorCallback? onHttpError;
+  PageEventCallback? onPageFinished;
 
   @override
   Future<void> setOnNavigationRequest(
@@ -5982,7 +6052,9 @@ class _FakeNavigationDelegate extends PlatformNavigationDelegate {
   Future<void> setOnPageStarted(PageEventCallback onPageStarted) async {}
 
   @override
-  Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {}
+  Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {
+    this.onPageFinished = onPageFinished;
+  }
 
   @override
   Future<void> setOnHttpError(HttpResponseErrorCallback onHttpError) async {

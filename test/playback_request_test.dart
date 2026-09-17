@@ -21,7 +21,7 @@ void main() {
   test('cinejoy uses TMDB movie and episode paths', () {
     expect(
       cinejoyPlaybackUrl(tmdbId: 1284041, contentType: 'Movie').toString(),
-      'https://cinejoy.to/watch/movie/1284041',
+      'https://cinejoy.pk/watch/movie/1284041',
     );
     expect(
       cinejoyPlaybackUrl(
@@ -30,7 +30,7 @@ void main() {
         season: 0,
         episode: -2,
       ).toString(),
-      'https://cinejoy.to/watch/tv/94997/1/1',
+      'https://cinejoy.pk/watch/tv/94997/1/1',
     );
     expect(cinejoyPlaybackUrl(tmdbId: 0, contentType: 'Movie'), isNull);
   });
@@ -47,7 +47,7 @@ void main() {
 
     expect(
       target.url.toString(),
-      'https://vidsrc-embed.ru/embed/tv?tmdb=94997&season=2&episode=3&autoplay=1&autonext=1',
+      'https://vsembed.ru/embed/tv/94997/2/3',
     );
     expect(target.fallbackUrls, isEmpty);
     expect(target.forceEmbedded, isTrue);
@@ -60,7 +60,7 @@ void main() {
       const PlaybackRequest(item: _movie, server: PlaybackServer.two),
     )!;
 
-    expect(target.url.toString(), 'https://cinejoy.to/watch/movie/1284041');
+    expect(target.url.toString(), 'https://cinejoy.pk/watch/movie/1284041');
     expect(target.loadAsPage, isTrue);
     expect(target.externalOnWeb, isTrue);
     expect(target.fallbackUrls, isEmpty);

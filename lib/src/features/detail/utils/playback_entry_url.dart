@@ -18,11 +18,11 @@ Uri? cinejoyPlaybackUrl({
     final safeSeason = season < 1 ? 1 : season;
     final safeEpisode = episode < 1 ? 1 : episode;
     return Uri.https(
-      'cinejoy.to',
+      'cinejoy.pk',
       '/watch/tv/$tmdbId/$safeSeason/$safeEpisode',
     );
   }
-  return Uri.https('cinejoy.to', '/watch/movie/$tmdbId');
+  return Uri.https('cinejoy.pk', '/watch/movie/$tmdbId');
 }
 
 Uri cinesrcPlaybackUrl({
@@ -55,22 +55,18 @@ Uri? vidsrcPlaybackUrl({
   final hasTmdbId = tmdbId != null && tmdbId > 0;
   if (!hasTmdbId && cleanImdbId.isEmpty) return null;
 
-  final isTv = isTvPlaybackContent(contentType);
-  final queryParameters = <String, String>{
-    if (hasTmdbId) 'tmdb': '$tmdbId' else 'imdb': cleanImdbId,
-    if (isTv) ...{
-      'season': '${season < 1 ? 1 : season}',
-      'episode': '${episode < 1 ? 1 : episode}',
-    },
-    'autoplay': '1',
-    if (isTv) 'autonext': '1',
-  };
+  final playbackId = hasTmdbId ? '$tmdbId' : cleanImdbId;
 
-  return Uri.https(
-    'vidsrc-embed.ru',
-    isTv ? '/embed/tv' : '/embed/movie',
-    queryParameters,
-  );
+  if (isTvPlaybackContent(contentType)) {
+    final safeSeason = season < 1 ? 1 : season;
+    final safeEpisode = episode < 1 ? 1 : episode;
+    return Uri.https(
+      'vsembed.ru',
+      '/embed/tv/$playbackId/$safeSeason/$safeEpisode',
+    );
+  }
+
+  return Uri.https('vsembed.ru', '/embed/movie/$playbackId');
 }
 
 Uri? vidlinkPlaybackUrl({
