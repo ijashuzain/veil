@@ -13,10 +13,20 @@ class AdaptiveBannerAd extends ConsumerStatefulWidget {
 }
 
 class _AdaptiveBannerAdState extends ConsumerState<AdaptiveBannerAd> {
+  /// A no-fill on the first request is routine, so a failed slot re-arms
+  /// instead of staying blank until the layout width happens to change.
+  static const _retryDelays = [
+    Duration(seconds: 8),
+    Duration(seconds: 30),
+    Duration(seconds: 90),
+  ];
+
   LoadedAd? _ad;
   int? _attemptedWidth;
   var _loading = false;
   var _clearing = false;
+  var _retriesUsed = 0;
+  Timer? _retryTimer;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +84,30 @@ class _AdaptiveBannerAdState extends ConsumerState<AdaptiveBannerAd> {
       _loading = false;
     });
     await previous?.dispose();
+
+    if (loaded == null) {
+      _scheduleRetry(width);
+    } else {
+      _retriesUsed = 0;
+    }
+  }
+
+  void _scheduleRetry(int width) {
+    if (_retriesUsed >= _retryDelays.length) return;
+
+    final delay = _retryDelays[_retriesUsed];
+    _retriesUsed += 1;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(delay, () {
+      if (!mounted) return;
+      _loading = true;
+      unawaited(_load(width));
+    });
+  }
+
+  void _cancelRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
   }
 
   void _scheduleClear() {
@@ -88,6 +122,8 @@ class _AdaptiveBannerAdState extends ConsumerState<AdaptiveBannerAd> {
   }
 
   Future<void> _clear() async {
+    _cancelRetry();
+    _retriesUsed = 0;
     final previous = _ad;
     setState(() {
       _ad = null;
@@ -100,6 +136,7 @@ class _AdaptiveBannerAdState extends ConsumerState<AdaptiveBannerAd> {
 
   @override
   void dispose() {
+    _cancelRetry();
     unawaited(_ad?.dispose());
     super.dispose();
   }

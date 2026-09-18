@@ -94,7 +94,21 @@ class GoogleAdService implements AdService {
 
   @override
   Future<AdState> initialize() {
-    return _initializeFuture ??= _initialize();
+    return _initializeFuture ??= _initializeAndForgetFailures();
+  }
+
+  /// Keeps the memoized future only when it produced a servable state, so a
+  /// transient consent or network failure at cold start can be retried instead
+  /// of disabling ads for the rest of the session.
+  Future<AdState> _initializeAndForgetFailures() async {
+    try {
+      final state = await _initialize();
+      if (!state.canRequestAds) _initializeFuture = null;
+      return state;
+    } catch (error) {
+      _initializeFuture = null;
+      rethrow;
+    }
   }
 
   Future<AdState> _initialize() async {
@@ -107,6 +121,9 @@ class GoogleAdService implements AdService {
       debugPrint('[Ads] UMP consent unavailable: $error');
       debugPrintStack(stackTrace: stackTrace);
 
+      // UMP being unreachable says nothing about whether this device already
+      // has a usable consent decision, so fall back to the cached one rather
+      // than treating the outage as a refusal.
       try {
         final cachedState = await _readConsentState();
         if (cachedState.canRequestAds || kReleaseMode) return cachedState;
@@ -171,7 +188,7 @@ class GoogleAdService implements AdService {
           }
         },
         onAdFailedToLoad: (failedAd, error) async {
-          debugPrint('[Ads] Banner failed to load: $error');
+          debugPrint('[Ads] Banner failed to load: ${_describeLoadError(error)}');
           await failedAd.dispose();
           if (!completer.isCompleted) completer.complete(null);
         },
@@ -206,7 +223,7 @@ class GoogleAdService implements AdService {
           }
         },
         onAdFailedToLoad: (failedAd, error) async {
-          debugPrint('[Ads] Native ad failed to load: $error');
+          debugPrint('[Ads] Native ad failed to load: ${_describeLoadError(error)}');
           await failedAd.dispose();
           if (!completer.isCompleted) completer.complete(null);
         },
@@ -246,6 +263,12 @@ class GoogleAdService implements AdService {
       await ad.dispose();
       return null;
     }
+  }
+
+  static String _describeLoadError(LoadAdError error) {
+    return 'code=${error.code} domain=${error.domain} '
+        'message=${error.message} '
+        'response=${error.responseInfo?.responseId ?? '<none>'}';
   }
 
   Future<void> _requestConsentInfoUpdate() {

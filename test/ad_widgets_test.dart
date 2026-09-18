@@ -89,6 +89,78 @@ void main() {
     expect(service.nativeAd!.disposeCalls, 1);
   });
 
+  testWidgets('native ad retries after a no-fill and renders the later ad', (
+    tester,
+  ) async {
+    final service = _FakeAdService(
+      nativeAd: _FakeLoadedAd(const Size(450, 380), 'native-retry-content'),
+      failuresBeforeFill: 1,
+    );
+    final container = ProviderContainer(
+      overrides: [adServiceProvider.overrideWithValue(service)],
+    );
+    addTearDown(container.dispose);
+    await container.read(adControllerProvider.notifier).initialize();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Column(children: [NativeTemplateAd()])),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(service.nativeLoadCalls, 1);
+    expect(find.byKey(const ValueKey('native-retry-content')), findsNothing);
+
+    await tester.pump(const Duration(seconds: 9));
+    await tester.pump();
+
+    expect(service.nativeLoadCalls, 2);
+    expect(find.byKey(const ValueKey('native-retry-content')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('adaptive banner retries after a no-fill at the same width', (
+    tester,
+  ) async {
+    final service = _FakeAdService(
+      bannerAd: _FakeLoadedAd(const Size(320, 50), 'banner-retry-content'),
+      failuresBeforeFill: 1,
+    );
+    final container = ProviderContainer(
+      overrides: [adServiceProvider.overrideWithValue(service)],
+    );
+    addTearDown(container.dispose);
+    await container.read(adControllerProvider.notifier).initialize();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: SizedBox(width: 320, child: AdaptiveBannerAd()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(service.bannerLoadCalls, 1);
+    expect(find.byKey(const ValueKey('banner-retry-content')), findsNothing);
+
+    await tester.pump(const Duration(seconds: 9));
+    await tester.pump();
+
+    expect(service.bannerLoadCalls, 2);
+    expect(find.byKey(const ValueKey('banner-retry-content')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('linear list inserts native ads after 12 and 24 items', (
     tester,
   ) async {
@@ -193,10 +265,15 @@ Widget _numberItem(BuildContext context, int item, int index) {
 }
 
 class _FakeAdService implements AdService {
-  _FakeAdService({this.bannerAd, this.nativeAd});
+  _FakeAdService({this.bannerAd, this.nativeAd, this.failuresBeforeFill = 0});
 
   final _FakeLoadedAd? bannerAd;
   final _FakeLoadedAd? nativeAd;
+
+  /// Number of leading requests that answer with a no-fill.
+  final int failuresBeforeFill;
+  var bannerLoadCalls = 0;
+  var nativeLoadCalls = 0;
 
   @override
   Future<AdState> initialize() async {
@@ -204,10 +281,16 @@ class _FakeAdService implements AdService {
   }
 
   @override
-  Future<LoadedAd?> loadAdaptiveBanner(double width) async => bannerAd;
+  Future<LoadedAd?> loadAdaptiveBanner(double width) async {
+    bannerLoadCalls += 1;
+    return bannerLoadCalls > failuresBeforeFill ? bannerAd : null;
+  }
 
   @override
-  Future<LoadedAd?> loadNative() async => nativeAd;
+  Future<LoadedAd?> loadNative() async {
+    nativeLoadCalls += 1;
+    return nativeLoadCalls > failuresBeforeFill ? nativeAd : null;
+  }
 
   @override
   Future<AdState> showPrivacyOptions() async => initialize();

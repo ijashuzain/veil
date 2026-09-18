@@ -15,10 +15,20 @@ class NativeTemplateAd extends ConsumerStatefulWidget {
 }
 
 class _NativeTemplateAdState extends ConsumerState<NativeTemplateAd> {
+  /// A no-fill on the first request is routine, so a failed slot re-arms
+  /// instead of staying blank for the rest of the session.
+  static const _retryDelays = [
+    Duration(seconds: 8),
+    Duration(seconds: 30),
+    Duration(seconds: 90),
+  ];
+
   LoadedAd? _ad;
   var _attempted = false;
   var _loading = false;
   var _clearing = false;
+  var _retriesUsed = 0;
+  Timer? _retryTimer;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +84,30 @@ class _NativeTemplateAdState extends ConsumerState<NativeTemplateAd> {
       _ad = loaded;
       _loading = false;
     });
+
+    if (loaded == null) {
+      _scheduleRetry();
+    } else {
+      _retriesUsed = 0;
+    }
+  }
+
+  void _scheduleRetry() {
+    if (_retriesUsed >= _retryDelays.length) return;
+
+    final delay = _retryDelays[_retriesUsed];
+    _retriesUsed += 1;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(delay, () {
+      if (!mounted) return;
+      _loading = true;
+      unawaited(_load());
+    });
+  }
+
+  void _cancelRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
   }
 
   void _scheduleClear() {
@@ -86,6 +120,8 @@ class _NativeTemplateAdState extends ConsumerState<NativeTemplateAd> {
   }
 
   Future<void> _clear() async {
+    _cancelRetry();
+    _retriesUsed = 0;
     final previous = _ad;
     setState(() {
       _ad = null;
@@ -98,6 +134,7 @@ class _NativeTemplateAdState extends ConsumerState<NativeTemplateAd> {
 
   @override
   void dispose() {
+    _cancelRetry();
     unawaited(_ad?.dispose());
     super.dispose();
   }

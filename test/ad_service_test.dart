@@ -70,6 +70,57 @@ void main() {
     expect(service.privacyCalls, 1);
   });
 
+  testWidgets('ad controller retries until consent resolves', (tester) async {
+    final service = _FakeAdService(
+      initializeResults: const [
+        AdState.disabled,
+        AdState(canRequestAds: true, privacyOptionsRequired: false),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [adServiceProvider.overrideWithValue(service)],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(adControllerProvider.notifier).initialize();
+
+    expect(container.read(adControllerProvider), AdState.disabled);
+    expect(service.initializeCalls, 1);
+
+    await tester.pump(AdController.retryDelays.first);
+
+    expect(service.initializeCalls, 2);
+    expect(
+      container.read(adControllerProvider),
+      const AdState(canRequestAds: true, privacyOptionsRequired: false),
+    );
+
+    // Consent resolved, so no further retries are scheduled.
+    await tester.pump(AdController.retryDelays.last);
+    expect(service.initializeCalls, 2);
+  });
+
+  testWidgets('ad controller stops retrying after the backoff is exhausted', (
+    tester,
+  ) async {
+    final service = _FakeAdService();
+    final container = ProviderContainer(
+      overrides: [adServiceProvider.overrideWithValue(service)],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(adControllerProvider.notifier).initialize();
+
+    for (final delay in AdController.retryDelays) {
+      await tester.pump(delay);
+    }
+
+    expect(service.initializeCalls, AdController.retryDelays.length + 1);
+
+    await tester.pump(const Duration(minutes: 5));
+    expect(service.initializeCalls, AdController.retryDelays.length + 1);
+  });
+
   test('ad unit IDs use Google test inventory outside release', () {
     expect(
       AdUnitIds.banner(TargetPlatform.android, useTestIds: true),
@@ -97,11 +148,13 @@ class _FakeAdService implements AdService {
     this.initializeResult = AdState.disabled,
     this.privacyResult = AdState.disabled,
     this.initializeError,
+    this.initializeResults = const [],
   });
 
   final AdState initializeResult;
   final AdState privacyResult;
   final Object? initializeError;
+  final List<AdState> initializeResults;
   var initializeCalls = 0;
   var privacyCalls = 0;
 
@@ -109,7 +162,12 @@ class _FakeAdService implements AdService {
   Future<AdState> initialize() async {
     initializeCalls += 1;
     if (initializeError case final error?) throw error;
-    return initializeResult;
+    if (initializeResults.isEmpty) return initializeResult;
+
+    final index = initializeCalls - 1;
+    return index < initializeResults.length
+        ? initializeResults[index]
+        : initializeResults.last;
   }
 
   @override
