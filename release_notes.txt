@@ -1,2 +1,1 @@
 - Minor bug fixes and performance improvements.
-- Social features optimized.
