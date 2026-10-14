@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:adblocker_webview/adblocker_webview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import 'package:veil/src/features/embeded_player/utils/playback_webview_policy.dart';
+import 'package:veil/src/features/embeded_player/view/mobile_playback_webview.dart';
 
 class FullscreenLandscapeWebPlayer extends StatefulWidget {
   const FullscreenLandscapeWebPlayer({
@@ -30,466 +27,204 @@ class FullscreenLandscapeWebPlayer extends StatefulWidget {
 
 class _FullscreenLandscapeWebPlayerState
     extends State<FullscreenLandscapeWebPlayer> {
-  late final WebViewController _controller;
   late final List<String> _playerUrls;
-  bool _isDisposed = false;
-  bool _isAdBlockerReady = false;
-  bool _isPlayerPageLoading = true;
-  bool _hasStalled = false;
-  int? _lastLoggedProgressBucket;
   int _currentUrlIndex = 0;
+  int _loadGeneration = 0;
+  bool _isLoading = true;
+  bool _hasStalled = false;
+  bool _mediaReady = false;
+  bool _hasFailed = false;
   Timer? _loadWatchdog;
 
-  static const _wrapperBaseUrl = 'https://flutter-player.local/';
-  static const _iOSSafariUserAgent =
-      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) '
-      'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 '
-      'Mobile/15E148 Safari/604.1';
   static const _loadWatchdogTimeout = Duration(seconds: 25);
-  static final AdBlockerWebviewController _adBlocker =
-      AdBlockerWebviewController.instance;
-  static Future<void>? _adBlockerInitialization;
 
   @override
   void initState() {
     super.initState();
-
-    _log('init iframe=${_summarizeUrl(widget.url)}');
-    unawaited(_enterFullscreenLandscape());
-    _playerUrls = [
+    _playerUrls = {
       widget.url,
-      for (final fallbackUrl in widget.fallbackUrls) fallbackUrl.toString(),
-    ];
-
-    _controller = _createController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.black)
-      ..setNavigationDelegate(_buildNavigationDelegate());
-
-    unawaited(_prepareAndLoadPlayer());
-  }
-
-  Future<void> _prepareAndLoadPlayer() async {
-    await _configurePlatformWebView();
-    unawaited(_initializeAdBlocker());
-
-    if (_isDisposed) return;
-    _loadCurrentPlayer();
-    unawaited(_logInitialUserAgent());
-  }
-
-  Future<void> _initializeAdBlocker() async {
-    try {
-      await _ensureAdBlockerInitialized();
-      if (_isDisposed) return;
-
-      _isAdBlockerReady = true;
-      _adBlocker.resetStatistics();
-    } catch (error) {
-      _log('adblocker unavailable: $error');
-    }
-  }
-
-  /// Web players (JW/Plyr based embeds) call `video.play()` as soon as their
-  /// manifest resolves. WebKit blocks that by default and shows an endless
-  /// spinner, so inline playback without a user gesture has to be enabled at
-  /// controller-creation time.
-  static WebViewController _createController() {
-    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
-      return WebViewController.fromPlatformCreationParams(
-        WebKitWebViewControllerCreationParams(
-          allowsInlineMediaPlayback: true,
-          mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
-        ),
-      );
-    }
-
-    return WebViewController();
-  }
-
-  Future<void> _configurePlatformWebView() async {
-    final platformController = _controller.platform;
-
-    if (Platform.isAndroid) {
-      try {
-        await AndroidWebViewController.enableDebugging(false);
-      } catch (error) {
-        _log('android webview debugging unchanged: $error');
-      }
-
-      if (platformController is AndroidWebViewController) {
-        try {
-          // Same reason as the WebKit configuration above: without this the
-          // embed keeps buffering because autoplay never starts.
-          await platformController.setMediaPlaybackRequiresUserGesture(false);
-        } catch (error) {
-          _log('android autoplay gesture unchanged: $error');
-        }
-      }
-    }
-
-    if (platformController is WebKitWebViewController) {
-      try {
-        await platformController.setInspectable(false);
-      } catch (error) {
-        _log('ios webview inspectability unchanged: $error');
-      }
-
-      try {
-        await _controller.setUserAgent(_iOSSafariUserAgent);
-      } catch (error) {
-        _log('ios user agent unchanged: $error');
-      }
-    }
-  }
-
-  static Future<void> _ensureAdBlockerInitialized() {
-    return _adBlockerInitialization ??= _adBlocker.initialize(
-      FilterConfig(
-        filterTypes: const [FilterType.easyList, FilterType.adGuard],
-        blockedDomains: const ['theajack.github.io'],
-      ),
-    );
-  }
-
-  NavigationDelegate _buildNavigationDelegate() {
-    return NavigationDelegate(
-      onNavigationRequest: (request) {
-        // Block attempts to replace the wrapper page itself.
-        // Sub-frame navigations are allowed so the embedded player can load.
-        final isBlockedResource = _shouldBlockResource(request.url);
-        final isAllowed =
-            !isBlockedResource &&
-            (!request.isMainFrame || _isAllowedMainFrameUrl(request.url));
-        _log(
-          '${isAllowed ? 'allow' : 'block'} navigation '
-          '${isBlockedResource ? 'reason=adblock ' : ''}'
-          'frame=${request.isMainFrame ? 'main' : 'sub'} '
-          'url=${_summarizeUrl(request.url)}',
-        );
-        return isAllowed
-            ? NavigationDecision.navigate
-            : NavigationDecision.prevent;
-      },
-      onPageStarted: (url) => _log('page started ${_summarizeUrl(url)}'),
-      onPageFinished: (url) {
-        _log('page finished ${_summarizeUrl(url)}');
-        _markPlayerPageLoaded();
-      },
-      onProgress: (progress) {
-        final bucket = progress ~/ 25;
-        if (_lastLoggedProgressBucket == bucket && progress != 100) return;
-
-        _lastLoggedProgressBucket = bucket;
-        _log('load progress $progress%');
-      },
-      onWebResourceError: (error) {
-        _log(
-          'resource error code=${error.errorCode} '
-          'type=${error.errorType?.name ?? 'unknown'} '
-          'mainFrame=${error.isForMainFrame} '
-          'url=${_summarizeUrl(error.url)} '
-          'description=${_singleLine(error.description)}',
-        );
-      },
-      onUrlChange: (change) {
-        _log('url changed ${_summarizeUrl(change.url)}');
-      },
-      onHttpError: (error) {
-        _log(
-          'http error status=${error.response?.statusCode} '
-          'request=${_summarizeUrl(error.request?.uri.toString())} '
-          'response=${_summarizeUrl(error.response?.uri?.toString())}',
-        );
-        _handleHttpError(error);
-      },
-      onHttpAuthRequest: (request) {
-        _log(
-          'http auth requested host=${request.host} '
-          'realm=${request.realm ?? '<none>'}; cancelling',
-        );
-        request.onCancel();
-      },
-      onSslAuthError: (error) {
-        _log('ssl auth error; cancelling');
-        unawaited(error.cancel());
-      },
-    );
-  }
-
-  bool _shouldBlockResource(String url) {
-    if (!_isAdBlockerReady) return false;
-
-    // EasyList/AdGuard rules match on generic keywords ("player", "embed",
-    // "video-ads"), so they also match the provider's own scripts and frames.
-    // Blocking those is what leaves the player spinning forever, so first-party
-    // requests are always allowed and only third-party ads get filtered.
-    if (_isFirstPartyUrl(url)) return false;
-
-    try {
-      return _adBlocker.shouldBlockResource(url);
-    } catch (error) {
-      _log('adblock check failed for ${_summarizeUrl(url)}: $error');
-      return false;
-    }
-  }
-
-  void _handleHttpError(HttpResponseError error) {
-    if (error.response?.statusCode != 404) return;
-
-    final requestUrl = error.request?.uri.toString();
-    final responseUrl = error.response?.uri?.toString();
-    if (!_isCurrentPlayerUrl(requestUrl) && !_isCurrentPlayerUrl(responseUrl)) {
-      return;
-    }
-
-    _loadNextFallback();
-  }
-
-  bool _isCurrentPlayerUrl(String? url) => url == _currentPlayerUrl;
-
-  String get _currentPlayerUrl => _playerUrls[_currentUrlIndex];
-
-  void _loadNextFallback() {
-    if (_isDisposed || _currentUrlIndex >= _playerUrls.length - 1) return;
-
-    _currentUrlIndex += 1;
-    _log('load fallback iframe=${_summarizeUrl(_currentPlayerUrl)}');
-    _loadCurrentPlayer();
-  }
-
-  void _loadCurrentPlayer() {
-    _lastLoggedProgressBucket = null;
+      for (final url in widget.fallbackUrls) url.toString(),
+    }.toList();
+    unawaited(_setFullscreen(true));
     _startLoadWatchdog();
-
-    if (widget.loadAsPage) {
-      _log('load page=${_summarizeUrl(_currentPlayerUrl)}');
-      unawaited(_controller.loadRequest(Uri.parse(_currentPlayerUrl)));
-      return;
-    }
-
-    _log('load wrapper base=$_wrapperBaseUrl');
-    unawaited(
-      _controller.loadHtmlString(
-        _buildSandboxedPlayerHtml(_currentPlayerUrl),
-        baseUrl: _wrapperBaseUrl,
-      ),
-    );
   }
 
   void _startLoadWatchdog() {
     _loadWatchdog?.cancel();
-    if (_isDisposed) return;
-
-    _safeSetState(() {
-      _isPlayerPageLoading = true;
-      _hasStalled = false;
-    });
-
-    _loadWatchdog = Timer(_loadWatchdogTimeout, _handleLoadStalled);
-  }
-
-  void _markPlayerPageLoaded() {
-    _loadWatchdog?.cancel();
-    _loadWatchdog = null;
-    if (_isDisposed || !_isPlayerPageLoading) return;
-
-    _safeSetState(() {
-      _isPlayerPageLoading = false;
-      _hasStalled = false;
-    });
-  }
-
-  void _handleLoadStalled() {
-    if (_isDisposed) return;
-
-    _log('load stalled after ${_loadWatchdogTimeout.inSeconds}s');
-    if (_currentUrlIndex < _playerUrls.length - 1) {
-      _loadNextFallback();
-      return;
-    }
-
-    _safeSetState(() => _hasStalled = true);
-  }
-
-  void _safeSetState(VoidCallback update) {
-    if (_isDisposed || !mounted) {
-      update();
-      return;
-    }
-
-    setState(update);
-  }
-
-  void _reloadCurrentPlayer() {
-    if (_isDisposed) return;
-
-    _log('manual retry iframe=${_summarizeUrl(_currentPlayerUrl)}');
-    _loadCurrentPlayer();
-  }
-
-  Future<void> _logInitialUserAgent() async {
-    try {
-      final userAgent = await _controller.getUserAgent();
-      if (!_isDisposed) {
-        _log('userAgent=${_singleLine(userAgent ?? '<null>')}');
+    _loadWatchdog = Timer(_loadWatchdogTimeout, () {
+      if (!mounted || _mediaReady) return;
+      // Page completion is not proof that an embedded video started. Never
+      // auto-replace a loaded player the user may be interacting with.
+      if (_isLoading && _currentUrlIndex < _playerUrls.length - 1) {
+        _retry(nextFallback: true);
+      } else {
+        setState(() => _hasStalled = true);
       }
-    } catch (error) {
-      _log('userAgent unavailable: $error');
+    });
+  }
+
+  void _retry({bool nextFallback = false}) {
+    if (!mounted) return;
+    setState(() {
+      if (nextFallback) _currentUrlIndex += 1;
+      _loadGeneration += 1;
+      _isLoading = true;
+      _hasStalled = false;
+      _mediaReady = false;
+      _hasFailed = false;
+    });
+    _startLoadWatchdog();
+  }
+
+  void _handleFailure(int generation, {bool force = false}) {
+    if (!mounted || generation != _loadGeneration || (_mediaReady && !force)) {
+      return;
+    }
+    if (_currentUrlIndex < _playerUrls.length - 1) {
+      _retry(nextFallback: true);
+    } else {
+      _loadWatchdog?.cancel();
+      setState(() {
+        _mediaReady = false;
+        _hasStalled = true;
+        _hasFailed = true;
+      });
     }
   }
 
-  bool _isAllowedMainFrameUrl(String url) {
-    if (widget.loadAsPage) return _isAllowedPlayerPageUrl(url);
-
-    final uri = Uri.tryParse(url);
-    if (uri == null) return false;
-
-    return uri.scheme == 'about' ||
-        uri.scheme == 'data' ||
-        url.startsWith(_wrapperBaseUrl);
+  void _markReady(int generation, {bool media = false}) {
+    if (!mounted || generation != _loadGeneration) return;
+    if (media) _loadWatchdog?.cancel();
+    setState(() {
+      _isLoading = false;
+      if (media) {
+        _mediaReady = true;
+        _hasStalled = false;
+        _hasFailed = false;
+      }
+    });
   }
 
-  bool _isAllowedPlayerPageUrl(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return false;
-    if (uri.scheme == 'about' || uri.scheme == 'data') return true;
-    if (uri.scheme != 'https' && uri.scheme != 'http') return false;
-
-    // Providers route between their own paths (consent gates, locale
-    // redirects, /watch -> /embed hops) while the player boots. Pinning the
-    // allowlist to exact paths stalls those hops, so any page on the
-    // provider's own domain is allowed and everything off-domain - the ad
-    // redirects - stays blocked.
-    return _isFirstPartyUrl(url);
+  void _markAwaitingPlay(int generation) {
+    if (!mounted || generation != _loadGeneration || _mediaReady) return;
+    _loadWatchdog?.cancel();
+    setState(() {
+      _isLoading = false;
+      _hasStalled = false;
+      _hasFailed = false;
+    });
   }
 
-  /// True when [url] belongs to the current provider's registrable domain.
-  bool _isFirstPartyUrl(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.host.isEmpty) return false;
-
-    final playerHost = Uri.tryParse(_currentPlayerUrl)?.host ?? '';
-    if (playerHost.isEmpty) return false;
-
-    for (final allowedHost in {playerHost, ..._extraAllowedHosts}) {
-      if (_matchesHost(uri.host, allowedHost)) return true;
-    }
-    return false;
+  void _markPlayRequested(int generation) {
+    if (!mounted || generation != _loadGeneration || _mediaReady) return;
+    setState(() => _hasStalled = false);
+    _startLoadWatchdog();
   }
 
-  // Hosts the providers redirect to while resolving a stream.
-  static const _extraAllowedHosts = {'vsembed.ru'};
-
-  static bool _matchesHost(String host, String allowedHost) {
-    if (host == allowedHost) return true;
-
-    final root = _registrableDomain(allowedHost);
-    return host == root || host.endsWith('.$root');
-  }
-
-  static String _registrableDomain(String host) {
-    final labels = host.split('.');
-    if (labels.length <= 2) return host;
-
-    return labels.sublist(labels.length - 2).join('.');
-  }
-
-  static String _buildSandboxedPlayerHtml(String url) {
-    final escapedUrl = htmlEscape.convert(url);
-
-    return '''
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
-  >
-  <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: 0;
-      display: block;
-      background: #000;
-    }
-  </style>
-</head>
-<body>
-  <iframe
-    src="$escapedUrl"
-    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-popups-to-escape-sandbox"
-    allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-    referrerpolicy="origin">
-  </iframe>
-</body>
-</html>
-''';
-  }
-
-  Future<void> _enterFullscreenLandscape() async {
-    _log('enter fullscreen landscape');
-
+  Future<void> _setFullscreen(bool fullscreen) async {
     try {
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      _log('entered fullscreen landscape');
+      await SystemChrome.setPreferredOrientations(
+        fullscreen
+            ? [
+                DeviceOrientation.landscapeLeft,
+                DeviceOrientation.landscapeRight,
+              ]
+            : DeviceOrientation.values,
+      );
+      if (fullscreen && !mounted) return;
+      await SystemChrome.setEnabledSystemUIMode(
+        fullscreen ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+      );
     } catch (error) {
-      _log('enter fullscreen landscape failed: $error');
-    }
-  }
-
-  Future<void> _exitFullscreenLandscape() async {
-    _log('exit fullscreen landscape');
-
-    try {
-      await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      _log('exited fullscreen landscape');
-    } catch (error) {
-      _log('exit fullscreen landscape failed: $error');
+      debugPrint('[EmbedPlayer] fullscreen configuration failed: $error');
     }
   }
 
   @override
   void dispose() {
-    _isDisposed = true;
     _loadWatchdog?.cancel();
-    _loadWatchdog = null;
-    _log('dispose');
-    unawaited(_exitFullscreenLandscape());
+    unawaited(_setFullscreen(false));
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final generation = _loadGeneration;
+    final url = _playerUrls[_currentUrlIndex];
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(child: WebViewWidget(controller: _controller)),
-          if (_isPlayerPageLoading)
-            Positioned.fill(
-              child: ColoredBox(
-                color: Colors.black,
+          Positioned.fill(
+            child: MobilePlaybackWebView(
+              key: ValueKey('playback-webview-$generation'),
+              policy: PlaybackWebViewPolicy(
+                playerUrl: url,
+                loadAsPage: widget.loadAsPage,
+              ),
+              html: widget.loadAsPage ? null : _buildSandboxedPlayerHtml(url),
+              onPageReady: () => _markReady(generation),
+              onMediaReady: () => _markReady(generation, media: true),
+              onFailure: () => _handleFailure(generation),
+              onRendererFailure: () => _handleFailure(generation, force: true),
+              onAwaitingPlay: () => _markAwaitingPlay(generation),
+              onPlayRequested: () => _markPlayRequested(generation),
+              onMediaError: (_) => _handleFailure(generation, force: true),
+            ),
+          ),
+          // Page subresources can hang even after video starts. Never put an
+          // opaque, input-catching layer over the player while waiting for them.
+          if (_isLoading && !_hasStalled)
+            const Positioned(
+              top: 20,
+              right: 20,
+              child: SafeArea(
+                child: IgnorePointer(
+                  child: SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (_hasStalled)
+            Positioned(
+              bottom: 20,
+              left: 20,
+              right: 20,
+              child: SafeArea(
                 child: Center(
-                  child: _hasStalled
-                      ? _StalledPlayerMessage(onRetry: _reloadCurrentPlayer)
-                      : const CircularProgressIndicator(color: Colors.white),
+                  child: Material(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _hasFailed
+                                ? 'This server could not play this video.\n'
+                                      'Try another server or retry.'
+                                : 'Playback is taking longer than expected.\n'
+                                      'Tap play, retry, or choose another server.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            key: const ValueKey('embed-player-retry'),
+                            onPressed: _retry,
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -500,10 +235,7 @@ class _FullscreenLandscapeWebPlayerState
               child: SafeArea(
                 child: IconButton.filledTonal(
                   icon: const Icon(Icons.close),
-                  onPressed: () {
-                    _log('close button pressed');
-                    Navigator.of(context).maybePop();
-                  },
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
             ),
@@ -512,82 +244,24 @@ class _FullscreenLandscapeWebPlayerState
     );
   }
 
-  static void _log(String message) {
-    debugPrint('[EmbedPlayer] $message');
-  }
-
-  static String _summarizeUrl(String? url) {
-    if (url == null || url.isEmpty) return '<none>';
-
-    final uri = Uri.tryParse(url);
-    if (uri == null) return _singleLine(url);
-
-    if (uri.scheme == 'data') return 'data:length=${url.length}';
-    if (uri.scheme == 'about') return url;
-
-    if (uri.host.isEmpty) return _singleLine(url);
-
-    final buffer = StringBuffer()
-      ..write(uri.scheme)
-      ..write('://')
-      ..write(uri.host);
-
-    if (uri.hasPort) {
-      buffer
-        ..write(':')
-        ..write(uri.port);
-    }
-
-    buffer.write(uri.path.isEmpty ? '/' : uri.path);
-
-    if (uri.hasQuery) {
-      buffer.write('?queryLength=${uri.query.length}');
-    }
-
-    if (uri.hasFragment) {
-      buffer.write('#fragmentLength=${uri.fragment.length}');
-    }
-
-    return buffer.toString();
-  }
-
-  static String _singleLine(String value, {int maxLength = 300}) {
-    final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (compact.length <= maxLength) return compact;
-
-    return '${compact.substring(0, maxLength)}...';
-  }
-}
-
-class _StalledPlayerMessage extends StatelessWidget {
-  const _StalledPlayerMessage({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'This server is taking too long to respond.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white, fontSize: 15),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Retry, or close and pick another server.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white70, fontSize: 13),
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          key: const ValueKey('embed-player-retry'),
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Retry'),
-        ),
-      ],
-    );
-  }
+  static String _buildSandboxedPlayerHtml(String url) =>
+      '''
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    html, body, iframe { margin: 0; width: 100%; height: 100%; border: 0;
+      display: block; overflow: hidden; background: #000; }
+  </style>
+</head>
+<body>
+  <iframe src="${htmlEscape.convert(url)}"
+    sandbox="$playbackIframeSandbox"
+    allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+    referrerpolicy="origin"></iframe>
+</body>
+</html>
+''';
 }

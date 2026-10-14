@@ -6,6 +6,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
+import 'package:veil/src/features/embeded_player/utils/playback_webview_policy.dart';
 
 class FullscreenLandscapeWebPlayer extends StatefulWidget {
   const FullscreenLandscapeWebPlayer({
@@ -43,11 +44,7 @@ class _FullscreenLandscapeWebPlayerState
       final frame = html.IFrameElement()
         ..allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media'
         ..referrerPolicy = 'origin'
-        ..setAttribute(
-          'sandbox',
-          'allow-scripts allow-same-origin allow-forms allow-presentation '
-              'allow-popups allow-popups-to-escape-sandbox',
-        )
+        ..setAttribute('sandbox', playbackIframeSandbox)
         ..style.border = '0'
         ..style.width = '100%'
         ..style.height = '100%'

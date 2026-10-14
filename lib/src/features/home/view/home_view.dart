@@ -18,6 +18,7 @@ import 'package:veil/src/features/home/widgets/curated_collection_section.dart';
 import 'package:veil/src/features/home/widgets/home_cinematic_hero.dart';
 import 'package:veil/src/features/home/widgets/watch_provider_section.dart';
 import 'package:veil/src/features/playback_history/models/playback_history_entry.dart';
+import 'package:veil/src/features/playback_history/history_playback_launcher.dart';
 import 'package:veil/src/features/playback_history/view_model/playback_history_view_model.dart';
 import 'package:veil/src/features/social/repository/social_repository.dart';
 import 'package:veil/src/features/social/view_model/social_library_view_model/social_library_view_model.dart';
@@ -36,7 +37,7 @@ const _categoryHeight = 52.0;
 const _categoryHeroOverlap = 32.0;
 
 class HomeView extends ConsumerStatefulWidget {
-  const HomeView({super.key, this.playbackLauncher = launchPlaybackRequest});
+  const HomeView({super.key, this.playbackLauncher = launchHistoryPlayback});
 
   final PlaybackRequestLauncher playbackLauncher;
 
@@ -369,6 +370,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
   }
 
   Future<void> _playHistoryEntry(PlaybackHistoryEntry entry) async {
+    if (!entry.canResume) return;
     if (_isLaunchingHistory) return;
     _isLaunchingHistory = true;
     try {

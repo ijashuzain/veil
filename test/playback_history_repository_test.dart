@@ -33,7 +33,7 @@ void main() {
       startedAt,
     );
 
-    expect(entry.entryKey, 'tv:94997:four:1:1');
+    expect(entry.entryKey, 'tv:94997');
     expect(
       entry.toJson().values.every(
         (value) =>
@@ -82,6 +82,25 @@ void main() {
     expect(entry.episode, 1);
   });
 
+  test(
+    'server five history round trips without changing existing server names',
+    () {
+      final request = PlaybackRequest(
+        item: _tv,
+        server: PlaybackServer.five,
+        season: 2,
+        episode: 3,
+      );
+      final entry = PlaybackHistoryEntry.fromRequest(
+        request,
+        DateTime.utc(2026, 10, 13),
+      );
+      final restored = PlaybackHistoryEntry.fromJson(entry.toJson());
+      expect(restored.toRequest().server, PlaybackServer.five);
+      expect(restored.entryKey, 'tv:94997');
+    },
+  );
+
   test('record keeps newest first, deduplicates, and isolates users', () async {
     final times = [
       DateTime.utc(2026, 8, 8, 12),
@@ -111,6 +130,96 @@ void main() {
     );
   });
 
+  test(
+    'one series entry keeps latest native player, episode, and position',
+    () async {
+      var minute = 0;
+      final repository = PlaybackHistoryRepository(
+        now: () => DateTime.utc(2026, 10, 14, 12, minute++),
+      );
+      await repository.record(
+        'user-a',
+        const PlaybackRequest(
+          item: _tv,
+          server: PlaybackServer.five,
+          season: 1,
+          episode: 1,
+          startPosition: Duration(minutes: 3),
+        ),
+      );
+      await repository.record(
+        'user-a',
+        const PlaybackRequest(
+          item: _tv,
+          server: PlaybackServer.six,
+          season: 2,
+          episode: 4,
+          startPosition: Duration(minutes: 7, seconds: 30),
+        ),
+      );
+      final entries = repository.load('user-a');
+      expect(entries, hasLength(1));
+      expect(entries.single.server, PlaybackServer.six);
+      expect(entries.single.episode, 4);
+      expect(
+        entries.single.toRequest().startPosition,
+        const Duration(minutes: 7, seconds: 30),
+      );
+    },
+  );
+
+  test(
+    'existing duplicate rows normalize to content and drop legacy servers',
+    () async {
+      Map<String, dynamic> row(PlaybackServer server, int episode, int hour) =>
+          PlaybackHistoryEntry.fromRequest(
+            PlaybackRequest(
+              item: _tv,
+              server: server,
+              season: 1,
+              episode: episode,
+            ),
+            DateTime.utc(2026, 10, 14, hour),
+          ).toJson();
+      await LocalStorage.setString(
+        PlaybackHistoryRepository.storageKeyFor('user-a'),
+        jsonEncode([
+          row(PlaybackServer.four, 5, 15),
+          row(PlaybackServer.five, 1, 12),
+          row(PlaybackServer.six, 2, 14),
+          {
+            ...row(PlaybackServer.five, 3, 13),
+            'mediaType': '',
+            'type': 'Series',
+          },
+        ]),
+      );
+      final repository = PlaybackHistoryRepository();
+      final entries = repository.load('user-a');
+      expect(entries, hasLength(1));
+      expect(entries.single.episode, 2);
+      await repository.remove('user-a', entries.single.entryKey);
+      expect(repository.load('user-a'), isEmpty);
+    },
+  );
+
+  test(
+    'legacy plays are excluded and concurrent checkpoints keep both titles',
+    () async {
+      final repository = PlaybackHistoryRepository();
+      await repository.record(
+        'user-a',
+        const PlaybackRequest(item: _movie, server: PlaybackServer.one),
+      );
+      expect(repository.load('user-a'), isEmpty);
+      await Future.wait([
+        repository.record('user-a', _movieRequest),
+        repository.record('user-a', _tvRequest),
+      ]);
+      expect(repository.load('user-a'), hasLength(2));
+    },
+  );
+
   test('load sorts, deduplicates, and skips malformed rows', () async {
     final older = PlaybackHistoryEntry.fromRequest(
       _movieRequest,
@@ -130,7 +239,7 @@ void main() {
         older.toJson(),
         {...tv.toJson(), 'tmdbId': 0},
         {...tv.toJson(), 'title': ''},
-        {...tv.toJson(), 'server': 'five'},
+        {...tv.toJson(), 'server': 'unknown-server'},
         'not-an-object',
         tv.toJson(),
         newer.toJson(),
@@ -175,7 +284,7 @@ void main() {
         'user-a',
         PlaybackRequest(
           item: _movie.copyWith(id: 'movie-$id', remoteId: id),
-          server: PlaybackServer.two,
+          server: PlaybackServer.five,
         ),
       );
     }
@@ -341,11 +450,14 @@ const _tv = ContentItem(
   runtime: '45m',
 );
 
-const _movieRequest = PlaybackRequest(item: _movie, server: PlaybackServer.two);
+const _movieRequest = PlaybackRequest(
+  item: _movie,
+  server: PlaybackServer.five,
+);
 
 const _tvRequest = PlaybackRequest(
   item: _tv,
-  server: PlaybackServer.three,
+  server: PlaybackServer.six,
   season: 2,
   episode: 3,
 );

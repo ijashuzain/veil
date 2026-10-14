@@ -45,10 +45,7 @@ void main() {
       ),
     )!;
 
-    expect(
-      target.url.toString(),
-      'https://vsembed.ru/embed/tv/94997/2/3',
-    );
+    expect(target.url.toString(), 'https://vsembed.ru/embed/tv/94997/2/3');
     expect(target.fallbackUrls, isEmpty);
     expect(target.forceEmbedded, isTrue);
     expect(target.loadAsPage, isTrue);
@@ -67,7 +64,7 @@ void main() {
     expect(target.forceEmbedded, isFalse);
   });
 
-  test('server three keeps Cinesrc target policy and fixed first episode', () {
+  test('server three keeps Cinesrc policy and selected episode', () {
     final target = playbackTargetFor(
       const PlaybackRequest(
         item: _tv,
@@ -77,7 +74,7 @@ void main() {
       ),
     )!;
 
-    expect(target.url.toString(), 'https://cinesrc.st/embed/tv/94997?s=1&e=1');
+    expect(target.url.toString(), 'https://cinesrc.st/embed/tv/94997?s=2&e=3');
     expect(target.fallbackUrls, isEmpty);
     expect(target.forceEmbedded, isTrue);
     expect(target.loadAsPage, isFalse);
@@ -111,6 +108,53 @@ void main() {
         isNull,
       );
     }
+  });
+
+  test('server five is an isolated native target with selected episode', () {
+    final target = playbackTargetFor(
+      const PlaybackRequest(
+        item: _tv,
+        server: PlaybackServer.five,
+        season: 2,
+        episode: 3,
+      ),
+    )!;
+    expect(target.url.toString(), 'https://cinesrc.st/embed/tv/94997?s=2&e=3');
+    expect(target.nativePlayback, isTrue);
+    expect(target.loadAsPage, isTrue);
+    for (final server in [
+      PlaybackServer.one,
+      PlaybackServer.two,
+      PlaybackServer.three,
+      PlaybackServer.four,
+    ]) {
+      expect(
+        playbackTargetFor(
+          PlaybackRequest(item: _tv, server: server),
+        )!.nativePlayback,
+        isFalse,
+      );
+    }
+    expect(PlaybackServer.values.take(4).map((server) => server.name), [
+      'one',
+      'two',
+      'three',
+      'four',
+    ]);
+  });
+
+  test('server six is native without altering existing server identities', () {
+    final target = playbackTargetFor(
+      const PlaybackRequest(
+        item: _tv,
+        server: PlaybackServer.six,
+        season: 2,
+        episode: 3,
+      ),
+    )!;
+    expect(target.nativePlayback, isTrue);
+    expect(target.url.queryParameters, {'s': '2', 'e': '3'});
+    expect(PlaybackServer.six.name, 'six');
   });
 }
 

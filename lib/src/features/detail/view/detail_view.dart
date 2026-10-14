@@ -426,6 +426,14 @@ class _DetailViewState extends ConsumerState<DetailView> {
             Navigator.of(sheetContext).pop();
             _selectPlayback(detail, PlaybackServer.four, pickEpisode: true);
           },
+          onServerFive: () {
+            Navigator.of(sheetContext).pop();
+            _selectPlayback(detail, PlaybackServer.five, pickEpisode: true);
+          },
+          onServerSix: () {
+            Navigator.of(sheetContext).pop();
+            _selectPlayback(detail, PlaybackServer.six, pickEpisode: true);
+          },
         );
       },
     );

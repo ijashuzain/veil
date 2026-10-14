@@ -19,6 +19,16 @@ class AppEnvironment {
     defaultValue: 'ca-app-pub-9567183629579117/6978075494',
   );
 
+  static const admobAndroidInterstitialAdUnitId = String.fromEnvironment(
+    'ADMOB_ANDROID_INTERSTITIAL_AD_UNIT_ID',
+    defaultValue: 'ca-app-pub-9567183629579117/7093007985',
+  );
+
+  static const admobIosInterstitialAdUnitId = String.fromEnvironment(
+    'ADMOB_IOS_INTERSTITIAL_AD_UNIT_ID',
+    defaultValue: 'ca-app-pub-9567183629579117/4878917348',
+  );
+
   static const admobIosBannerAdUnitId = String.fromEnvironment(
     'ADMOB_IOS_BANNER_AD_UNIT_ID',
     defaultValue: 'ca-app-pub-9567183629579117/1861480181',

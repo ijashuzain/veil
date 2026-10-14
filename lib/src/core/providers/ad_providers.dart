@@ -3,6 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:veil/app/services/ad_services/ad_service.dart';
+import 'package:veil/app/services/ad_services/playback_interstitial.dart';
+
+final playbackInterstitialProvider = Provider<PlaybackInterstitial>((ref) {
+  final service = PlaybackInterstitial();
+  ref.onDispose(service.dispose);
+  return service;
+});
 
 final adServiceProvider = Provider<AdService>((ref) => GoogleAdService());
 
@@ -46,6 +53,7 @@ class AdController extends Notifier<AdState> {
     }
 
     if (!state.canRequestAds) _scheduleRetry();
+    ref.read(playbackInterstitialProvider).setEnabled(state.canRequestAds);
   }
 
   Future<void> showPrivacyOptions() async {
@@ -56,11 +64,14 @@ class AdController extends Notifier<AdState> {
       debugPrintStack(stackTrace: stackTrace);
       state = AdState.disabled;
     }
+    ref.read(playbackInterstitialProvider).setEnabled(state.canRequestAds);
   }
 
   void _scheduleRetry() {
     if (_retriesUsed >= retryDelays.length) {
-      debugPrint('[Ads] Consent unresolved after ${retryDelays.length} retries');
+      debugPrint(
+        '[Ads] Consent unresolved after ${retryDelays.length} retries',
+      );
       return;
     }
 

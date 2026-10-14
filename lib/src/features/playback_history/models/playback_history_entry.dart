@@ -21,6 +21,7 @@ class PlaybackHistoryEntry {
     this.imdbId,
     this.posterUrl,
     this.backdropUrl,
+    this.position = Duration.zero,
   }) : assert(tmdbId > 0);
 
   factory PlaybackHistoryEntry.fromRequest(
@@ -50,6 +51,9 @@ class PlaybackHistoryEntry {
       season: request.safeSeason,
       episode: request.safeEpisode,
       startedAt: startedAt,
+      position: request.startPosition.isNegative
+          ? Duration.zero
+          : request.startPosition,
     );
   }
 
@@ -88,6 +92,9 @@ class PlaybackHistoryEntry {
       season: parsedSeason < 1 ? 1 : parsedSeason,
       episode: parsedEpisode < 1 ? 1 : parsedEpisode,
       startedAt: startedAt,
+      position: Duration(
+        milliseconds: (_intValue(json['positionMs']) ?? 0).clamp(0, 86400000),
+      ),
     );
   }
 
@@ -108,10 +115,14 @@ class PlaybackHistoryEntry {
   final int season;
   final int episode;
   final DateTime startedAt;
+  final Duration position;
 
-  String get entryKey =>
-      '${mediaType.isEmpty ? type.toLowerCase() : mediaType}:'
-      '$tmdbId:${server.name}:$season:$episode';
+  bool get canResume =>
+      server == PlaybackServer.five || server == PlaybackServer.six;
+  String get contentKey =>
+      '${mediaType.toLowerCase() == 'tv' || type.toLowerCase().contains('tv') || type.toLowerCase().contains('series') ? 'tv' : 'movie'}:$tmdbId';
+
+  String get entryKey => contentKey;
 
   Map<String, dynamic> toJson() {
     return {
@@ -132,6 +143,7 @@ class PlaybackHistoryEntry {
       'season': season,
       'episode': episode,
       'startedAt': startedAt.toIso8601String(),
+      'positionMs': position.inMilliseconds,
     };
   }
 
@@ -169,6 +181,7 @@ class PlaybackHistoryEntry {
       server: server,
       season: season,
       episode: episode,
+      startPosition: position,
     );
   }
 }

@@ -20,6 +20,13 @@ class PlaybackHistoryRepository {
   static const _storagePrefix = 'veil.playback_history.v1.';
 
   final DateTime Function() _now;
+  Future<void> _writes = Future<void>.value();
+
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _writes.then((_) => operation());
+    _writes = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
 
   static String storageKeyFor(String userId) => '$_storagePrefix$userId';
 
@@ -56,7 +63,7 @@ class PlaybackHistoryRepository {
       final keys = <String>{};
       return [
         for (final row in parsed)
-          if (keys.add(row.entry.entryKey)) row.entry,
+          if (row.entry.canResume && keys.add(row.entry.contentKey)) row.entry,
       ].take(maxEntries).toList(growable: false);
     } on FormatException {
       return const [];
@@ -68,8 +75,12 @@ class PlaybackHistoryRepository {
   Future<List<PlaybackHistoryEntry>> record(
     String userId,
     PlaybackRequest request,
-  ) async {
+  ) => _serialize(() async {
     final tmdbId = request.item.remoteId;
+    if (request.server != PlaybackServer.five &&
+        request.server != PlaybackServer.six) {
+      return load(userId);
+    }
     if (tmdbId == null || tmdbId <= 0) return load(userId);
 
     final entry = PlaybackHistoryEntry.fromRequest(request, _now());
@@ -80,22 +91,20 @@ class PlaybackHistoryRepository {
     ].take(maxEntries).toList(growable: false);
     await _save(userId, entries);
     return entries;
-  }
+  });
 
-  Future<List<PlaybackHistoryEntry>> remove(
-    String userId,
-    String entryKey,
-  ) async {
-    final entries = load(
-      userId,
-    ).where((entry) => entry.entryKey != entryKey).toList(growable: false);
-    await _save(userId, entries);
-    return entries;
-  }
+  Future<List<PlaybackHistoryEntry>> remove(String userId, String entryKey) =>
+      _serialize(() async {
+        final entries = load(
+          userId,
+        ).where((entry) => entry.entryKey != entryKey).toList(growable: false);
+        await _save(userId, entries);
+        return entries;
+      });
 
-  Future<void> clear(String userId) async {
+  Future<void> clear(String userId) => _serialize(() async {
     await LocalStorage.remove(storageKeyFor(userId));
-  }
+  });
 
   Future<void> _save(String userId, List<PlaybackHistoryEntry> entries) async {
     await LocalStorage.setString(

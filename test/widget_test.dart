@@ -5,6 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart'
+    hide LocalStorage;
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide LocalStorage;
@@ -32,6 +34,7 @@ import 'package:veil/src/features/home/view_model/home_view_model/home_view_mode
 import 'package:veil/src/features/catalog/repository/tmdb_repository.dart';
 import 'package:veil/src/features/detail/utils/playback_entry_url.dart';
 import 'package:veil/src/features/detail/view/detail_view.dart';
+import 'package:veil/src/features/detail/widgets/detail_playback_server_sheet.dart';
 import 'package:veil/src/features/detail/view_model/detail_view_model/detail_view_model.dart';
 import 'package:veil/src/features/detail/widgets/detail_recommendation_rails.dart';
 import 'package:veil/src/features/detail/widgets/detail_review_sheet.dart';
@@ -64,7 +67,21 @@ import 'package:veil/src/shared/components/content_cards.dart';
 import 'package:veil/src/shared/components/poster_art.dart';
 import 'package:veil/src/shared/components/skeleton.dart';
 import 'package:veil/src/shared/components/veil_filter_chips.dart';
-import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
+import 'support/fake_playback_platform.dart';
+
+// Legacy routes remain for persisted history, but are hidden from the picker.
+// Exercise their retained callbacks without claiming the hidden buttons exist.
+void _invokeLegacyPlayer(WidgetTester tester, int server) {
+  final sheet = tester.widget<DetailPlaybackServerSheet>(
+    find.byType(DetailPlaybackServerSheet),
+  );
+  [
+    sheet.onServerOne,
+    sheet.onServerTwo,
+    sheet.onServerThree,
+    sheet.onServerFour,
+  ][server - 1]();
+}
 
 void main() {
   final emptyAlertsOverride = alertsViewModelProvider.overrideWithValue(
@@ -76,7 +93,7 @@ void main() {
   ];
 
   setUp(() {
-    WebViewPlatform.instance = _FakeWebViewPlatform();
+    InAppWebViewPlatform.instance = FakePlaybackPlatform();
   });
 
   testWidgets('onboarding describes a movie logging app', (tester) async {
@@ -796,9 +813,9 @@ void main() {
       find.byKey(const ValueKey('detail-playback-server-panel')),
       findsOneWidget,
     );
-    expect(find.text('Server 1'), findsOneWidget);
-    expect(find.text('Server 2'), findsOneWidget);
-    expect(find.text('Server 3'), findsOneWidget);
+    expect(find.text('Server 1'), findsNothing);
+    expect(find.text('Player 1'), findsOneWidget);
+    expect(find.text('Player 2'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('detail-playback-server-panel')),
@@ -809,7 +826,7 @@ void main() {
     expect(find.text('Current source'), findsNothing);
     expect(find.text('vidsrc.to'), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    _invokeLegacyPlayer(tester, 2);
     await tester.pump();
 
     expect(launched?.server, PlaybackServer.two);
@@ -848,7 +865,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    _invokeLegacyPlayer(tester, 2);
     await tester.pump();
 
     expect(historyRepository.requests, hasLength(1));
@@ -886,7 +903,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    _invokeLegacyPlayer(tester, 2);
     await tester.pump();
 
     expect(historyRepository.requests, isEmpty);
@@ -925,7 +942,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    _invokeLegacyPlayer(tester, 2);
     await tester.pump();
 
     expect(historyRepository.requests, isEmpty);
@@ -1213,7 +1230,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    _invokeLegacyPlayer(tester, 2);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1264,7 +1281,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    _invokeLegacyPlayer(tester, 2);
     await tester.pump();
 
     expect(_wakanda.imdbId, isNull);
@@ -1291,7 +1308,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-3')));
+    _invokeLegacyPlayer(tester, 3);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1302,7 +1319,7 @@ void main() {
     expect(player.fallbackUrls, isEmpty);
   });
 
-  testWidgets('detail server four appears in playback server sheet', (
+  testWidgets('playback server sheet only shows the two native players', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1322,10 +1339,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.byKey(const ValueKey('playback-server-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('playback-server-2')), findsOneWidget);
-    expect(find.byKey(const ValueKey('playback-server-3')), findsOneWidget);
-    expect(find.byKey(const ValueKey('playback-server-4')), findsOneWidget);
+    for (var server = 1; server <= 4; server++) {
+      expect(find.byKey(ValueKey('playback-server-$server')), findsNothing);
+    }
+    expect(find.text('Player 1'), findsOneWidget);
+    expect(find.text('Player 2'), findsOneWidget);
   });
 
   testWidgets('detail server four opens movie VidLink in web player', (
@@ -1347,7 +1365,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-4')));
+    _invokeLegacyPlayer(tester, 4);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1384,7 +1402,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-4')));
+    _invokeLegacyPlayer(tester, 4);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1441,7 +1459,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-4')));
+    _invokeLegacyPlayer(tester, 4);
     await tester.pump();
 
     expect(
@@ -1473,7 +1491,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    _invokeLegacyPlayer(tester, 1);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1501,10 +1519,7 @@ void main() {
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
       find.byType(FullscreenLandscapeWebPlayer),
     );
-    expect(
-      player.url,
-      'https://vsembed.ru/embed/tv/94605/2/3',
-    );
+    expect(player.url, 'https://vsembed.ru/embed/tv/94605/2/3');
     expect(player.fallbackUrls, isEmpty);
     expect(player.loadAsPage, isTrue);
   });
@@ -1531,7 +1546,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    _invokeLegacyPlayer(tester, 1);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1550,10 +1565,7 @@ void main() {
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
       find.byType(FullscreenLandscapeWebPlayer),
     );
-    expect(
-      player.url,
-      'https://vsembed.ru/embed/tv/tt0944947/2/3',
-    );
+    expect(player.url, 'https://vsembed.ru/embed/tv/tt0944947/2/3');
     expect(player.fallbackUrls, isEmpty);
     expect(player.loadAsPage, isTrue);
   });
@@ -1577,7 +1589,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-1')));
+    _invokeLegacyPlayer(tester, 1);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1585,10 +1597,7 @@ void main() {
     final player = tester.widget<FullscreenLandscapeWebPlayer>(
       find.byType(FullscreenLandscapeWebPlayer),
     );
-    expect(
-      player.url,
-      'https://vsembed.ru/embed/movie/505642',
-    );
+    expect(player.url, 'https://vsembed.ru/embed/movie/505642');
     expect(player.fallbackUrls, isEmpty);
     expect(player.loadAsPage, isTrue);
   });
@@ -1646,7 +1655,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-3')));
+    _invokeLegacyPlayer(tester, 3);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -1687,7 +1696,7 @@ void main() {
     await tester.tap(find.text('Play'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    await tester.tap(find.byKey(const ValueKey('playback-server-2')));
+    _invokeLegacyPlayer(tester, 2);
     await tester.pump();
 
     expect(launcherCalls, 1);
@@ -1833,8 +1842,8 @@ void main() {
   testWidgets('mobile player loads vsembed fallback after current url 404', (
     tester,
   ) async {
-    final platform = _FakeWebViewPlatform();
-    WebViewPlatform.instance = platform;
+    final platform = FakePlaybackPlatform();
+    InAppWebViewPlatform.instance = platform;
     final primaryUrl = Uri.parse('https://streamimdb.ru/embed/movie/tt9114286');
     final fallbackUrl = Uri.parse(
       'https://vsembed.ru/embed/movie?imdb=tt9114286',
@@ -1858,15 +1867,10 @@ void main() {
     );
     expect(
       platform.controller.htmlLoads.single,
-      contains('allow-popups allow-popups-to-escape-sandbox'),
+      isNot(contains('allow-popups')),
     );
 
-    platform.navigationDelegate.onHttpError?.call(
-      HttpResponseError(
-        request: WebResourceRequest(uri: primaryUrl),
-        response: WebResourceResponse(uri: primaryUrl, statusCode: 404),
-      ),
-    );
+    platform.httpError(primaryUrl);
     await tester.pump();
 
     expect(platform.controller.htmlLoads, hasLength(2));
@@ -1879,11 +1883,9 @@ void main() {
   testWidgets('mobile player can load Vidsrc as a top-level page', (
     tester,
   ) async {
-    final platform = _FakeWebViewPlatform();
-    WebViewPlatform.instance = platform;
-    final vidsrcUrl = Uri.parse(
-      'https://vsembed.ru/embed/movie/505642',
-    );
+    final platform = FakePlaybackPlatform();
+    InAppWebViewPlatform.instance = platform;
+    final vidsrcUrl = Uri.parse('https://vsembed.ru/embed/movie/505642');
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1899,45 +1901,33 @@ void main() {
     expect(platform.controller.htmlLoads, isEmpty);
     expect(platform.controller.requestLoads, [vidsrcUrl]);
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        NavigationRequest(url: vidsrcUrl.toString(), isMainFrame: true),
-      ),
-      NavigationDecision.navigate,
+      await platform.navigate(vidsrcUrl.toString()),
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://vsembed.ru/embed/movie?tmdb=505642&autoplay=1',
-          isMainFrame: true,
-        ),
+      await platform.navigate(
+        'https://vsembed.ru/embed/movie?tmdb=505642&autoplay=1',
       ),
-      NavigationDecision.navigate,
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://ads.example.com/landing',
-          isMainFrame: true,
-        ),
-      ),
-      NavigationDecision.prevent,
+      await platform.navigate('https://ads.example.com/landing'),
+      NavigationActionPolicy.CANCEL,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://cloudorchestranova.com/rcp/player',
-          isMainFrame: false,
-        ),
+      await platform.navigate(
+        'https://cloudorchestranova.com/rcp/player',
+        isMainFrame: false,
       ),
-      NavigationDecision.navigate,
+      NavigationActionPolicy.ALLOW,
     );
   });
 
   testWidgets('server two mobile player allows Cinejoy watch paths', (
     tester,
   ) async {
-    final platform = _FakeWebViewPlatform();
-    WebViewPlatform.instance = platform;
+    final platform = FakePlaybackPlatform();
+    InAppWebViewPlatform.instance = platform;
     final cinejoyUrl = Uri.parse('https://cinejoy.pk/watch/movie/1284041');
 
     await tester.pumpWidget(
@@ -1954,42 +1944,28 @@ void main() {
     expect(platform.controller.htmlLoads, isEmpty);
     expect(platform.controller.requestLoads, [cinejoyUrl]);
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        NavigationRequest(url: cinejoyUrl.toString(), isMainFrame: true),
-      ),
-      NavigationDecision.navigate,
+      await platform.navigate(cinejoyUrl.toString()),
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://cinejoy.pk/watch/tv/94997/2/2',
-          isMainFrame: true,
-        ),
-      ),
-      NavigationDecision.navigate,
+      await platform.navigate('https://cinejoy.pk/watch/tv/94997/2/2'),
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://cinejoy.pk/browse',
-          isMainFrame: true,
-        ),
-      ),
-      NavigationDecision.navigate,
+      await platform.navigate('https://cinejoy.pk/browse'),
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(url: 'https://ad.example/', isMainFrame: true),
-      ),
-      NavigationDecision.prevent,
+      await platform.navigate('https://ad.example/'),
+      NavigationActionPolicy.CANCEL,
     );
   });
 
   testWidgets('server four mobile player can load VidLink as a top-level page', (
     tester,
   ) async {
-    final platform = _FakeWebViewPlatform();
-    WebViewPlatform.instance = platform;
+    final platform = FakePlaybackPlatform();
+    InAppWebViewPlatform.instance = platform;
     final vidlinkUrl = Uri.parse(
       'https://vidlink.pro/movie/505642?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
     );
@@ -2008,64 +1984,41 @@ void main() {
     expect(platform.controller.htmlLoads, isEmpty);
     expect(platform.controller.requestLoads, [vidlinkUrl]);
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        NavigationRequest(url: vidlinkUrl.toString(), isMainFrame: true),
-      ),
-      NavigationDecision.navigate,
+      await platform.navigate(vidlinkUrl.toString()),
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url:
-              'https://vidlink.pro/tv/94605/2/3?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
-          isMainFrame: true,
-        ),
+      await platform.navigate(
+        'https://vidlink.pro/tv/94605/2/3?player=jw&primaryColor=FFFFFF&secondaryColor=253034&iconColor=FFFFFF',
       ),
-      NavigationDecision.navigate,
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://vidlink.pro/anime/5/1/sub',
-          isMainFrame: true,
-        ),
-      ),
-      NavigationDecision.navigate,
+      await platform.navigate('https://vidlink.pro/anime/5/1/sub'),
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://cdn.vidlink.pro/player.js',
-          isMainFrame: true,
-        ),
-      ),
-      NavigationDecision.navigate,
+      await platform.navigate('https://cdn.vidlink.pro/player.js'),
+      NavigationActionPolicy.ALLOW,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://ads.example.com/landing',
-          isMainFrame: true,
-        ),
-      ),
-      NavigationDecision.prevent,
+      await platform.navigate('https://ads.example.com/landing'),
+      NavigationActionPolicy.CANCEL,
     );
     expect(
-      await platform.navigationDelegate.onNavigationRequest?.call(
-        const NavigationRequest(
-          url: 'https://cloudorchestranova.com/rcp/player',
-          isMainFrame: false,
-        ),
+      await platform.navigate(
+        'https://cloudorchestranova.com/rcp/player',
+        isMainFrame: false,
       ),
-      NavigationDecision.navigate,
+      NavigationActionPolicy.ALLOW,
     );
   });
 
   testWidgets('mobile player offers a retry when the embed never finishes', (
     tester,
   ) async {
-    final platform = _FakeWebViewPlatform();
-    WebViewPlatform.instance = platform;
+    final platform = FakePlaybackPlatform();
+    InAppWebViewPlatform.instance = platform;
     final vidlinkUrl = Uri.parse('https://vidlink.pro/movie/505642?player=jw');
 
     await tester.pumpWidget(
@@ -2096,8 +2049,8 @@ void main() {
   testWidgets('mobile player hides the loading overlay once the page loads', (
     tester,
   ) async {
-    final platform = _FakeWebViewPlatform();
-    WebViewPlatform.instance = platform;
+    final platform = FakePlaybackPlatform();
+    InAppWebViewPlatform.instance = platform;
     final vidlinkUrl = Uri.parse('https://vidlink.pro/movie/505642?player=jw');
 
     await tester.pumpWidget(
@@ -2111,21 +2064,24 @@ void main() {
     );
     await tester.pump();
 
-    platform.navigationDelegate.onPageFinished?.call(vidlinkUrl.toString());
+    platform.pageFinished(vidlinkUrl.toString());
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
     await tester.pump(const Duration(seconds: 25));
 
+    expect(find.byKey(const ValueKey('embed-player-retry')), findsOneWidget);
+    platform.mediaReady();
+    await tester.pump();
     expect(find.byKey(const ValueKey('embed-player-retry')), findsNothing);
   });
 
   testWidgets('direct mobile player renders video html without an iframe', (
     tester,
   ) async {
-    final platform = _FakeWebViewPlatform();
-    WebViewPlatform.instance = platform;
+    final platform = FakePlaybackPlatform();
+    InAppWebViewPlatform.instance = platform;
     final streamUrl = Uri.parse(
       'https://cine.su/v1/stream/master/tv/94605/1/1.m3u8',
     );
@@ -2145,13 +2101,7 @@ void main() {
     expect(platform.controller.htmlLoads.single, isNot(contains('<iframe')));
     expect(
       platform.controller.htmlLoads.single,
-      contains('https://cdn.jsdelivr.net/npm/hls.js@latest'),
-    );
-    expect(
-      platform.controller.htmlLoads.single.indexOf('window.Hls.isSupported()'),
-      lessThan(
-        platform.controller.htmlLoads.single.indexOf('const nativeSupport'),
-      ),
+      contains('https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js'),
     );
     expect(
       platform.controller.htmlLoads.single,
@@ -5224,7 +5174,9 @@ void main() {
 
     expect(find.text('Continue Watching'), findsOneWidget);
     expect(find.text('Recently started'), findsOneWidget);
-    expect(find.text('S2 · E3'), findsOneWidget);
+    expect(find.text('Player 1'), findsNothing);
+    expect(find.text('Player 2'), findsNothing);
+    expect(find.text('S02 · E03 · 5m'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
     expect(find.textContaining('left'), findsNothing);
 
@@ -5302,7 +5254,8 @@ void main() {
 
       expect(launched?.item.remoteId, _historyTv.remoteId);
       expect(launched?.item.mediaType, 'tv');
-      expect(launched?.server, PlaybackServer.two);
+      expect(launched?.server, PlaybackServer.six);
+      expect(launched?.startPosition, const Duration(minutes: 5));
       expect(launched?.season, 2);
       expect(launched?.episode, 3);
       final container = ProviderScope.containerOf(
@@ -5666,15 +5619,16 @@ Future<void> _pumpHomeHeroQuickAdd(
 
 Future<PlaybackHistoryRepository> _seedPlaybackHistory() async {
   final movieEntry = PlaybackHistoryEntry.fromRequest(
-    const PlaybackRequest(item: _historyMovie, server: PlaybackServer.four),
+    const PlaybackRequest(item: _historyMovie, server: PlaybackServer.five),
     DateTime.utc(2026, 8, 8, 13),
   );
   final tvEntry = PlaybackHistoryEntry.fromRequest(
     const PlaybackRequest(
       item: _historyTv,
-      server: PlaybackServer.two,
+      server: PlaybackServer.six,
       season: 2,
       episode: 3,
+      startPosition: Duration(minutes: 5),
     ),
     DateTime.utc(2026, 8, 8, 12),
   );
@@ -5690,7 +5644,7 @@ Future<PlaybackHistoryRepository> _seedPlaybackHistory() async {
 
 String _historyMovieKey() {
   return PlaybackHistoryEntry.fromRequest(
-    const PlaybackRequest(item: _historyMovie, server: PlaybackServer.four),
+    const PlaybackRequest(item: _historyMovie, server: PlaybackServer.five),
     DateTime.utc(2026),
   ).entryKey;
 }
@@ -5699,7 +5653,7 @@ String _historyTvKey() {
   return PlaybackHistoryEntry.fromRequest(
     const PlaybackRequest(
       item: _historyTv,
-      server: PlaybackServer.two,
+      server: PlaybackServer.six,
       season: 2,
       episode: 3,
     ),
@@ -5967,125 +5921,5 @@ class _PrivacyAdService implements AdService {
   Future<AdState> showPrivacyOptions() async {
     privacyCalls += 1;
     return initialize();
-  }
-}
-
-class _FakeWebViewPlatform extends WebViewPlatform {
-  late final _FakeWebViewController controller;
-  late final _FakeNavigationDelegate navigationDelegate;
-
-  @override
-  PlatformWebViewController createPlatformWebViewController(
-    PlatformWebViewControllerCreationParams params,
-  ) {
-    controller = _FakeWebViewController(params);
-    return controller;
-  }
-
-  @override
-  PlatformNavigationDelegate createPlatformNavigationDelegate(
-    PlatformNavigationDelegateCreationParams params,
-  ) {
-    navigationDelegate = _FakeNavigationDelegate(params);
-    return navigationDelegate;
-  }
-
-  @override
-  PlatformWebViewWidget createPlatformWebViewWidget(
-    PlatformWebViewWidgetCreationParams params,
-  ) {
-    return _FakeWebViewWidget(params);
-  }
-}
-
-class _FakeWebViewController extends PlatformWebViewController {
-  _FakeWebViewController(super.params) : super.implementation();
-
-  final List<String> htmlLoads = [];
-  final List<Uri> requestLoads = [];
-
-  @override
-  Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
-
-  @override
-  Future<void> setBackgroundColor(Color color) async {}
-
-  @override
-  Future<void> setPlatformNavigationDelegate(
-    PlatformNavigationDelegate handler,
-  ) async {}
-
-  @override
-  Future<void> setOnConsoleMessage(
-    void Function(JavaScriptConsoleMessage message) onConsoleMessage,
-  ) async {}
-
-  @override
-  Future<String?> getUserAgent() async => 'FakeWebView/1.0';
-
-  @override
-  Future<void> loadHtmlString(String html, {String? baseUrl}) async {
-    htmlLoads.add(html);
-  }
-
-  @override
-  Future<void> loadRequest(LoadRequestParams params) async {
-    requestLoads.add(params.uri);
-  }
-}
-
-class _FakeNavigationDelegate extends PlatformNavigationDelegate {
-  _FakeNavigationDelegate(super.params) : super.implementation();
-
-  NavigationRequestCallback? onNavigationRequest;
-  HttpResponseErrorCallback? onHttpError;
-  PageEventCallback? onPageFinished;
-
-  @override
-  Future<void> setOnNavigationRequest(
-    NavigationRequestCallback onNavigationRequest,
-  ) async {
-    this.onNavigationRequest = onNavigationRequest;
-  }
-
-  @override
-  Future<void> setOnPageStarted(PageEventCallback onPageStarted) async {}
-
-  @override
-  Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {
-    this.onPageFinished = onPageFinished;
-  }
-
-  @override
-  Future<void> setOnHttpError(HttpResponseErrorCallback onHttpError) async {
-    this.onHttpError = onHttpError;
-  }
-
-  @override
-  Future<void> setOnProgress(ProgressCallback onProgress) async {}
-
-  @override
-  Future<void> setOnWebResourceError(
-    WebResourceErrorCallback onWebResourceError,
-  ) async {}
-
-  @override
-  Future<void> setOnUrlChange(UrlChangeCallback onUrlChange) async {}
-
-  @override
-  Future<void> setOnHttpAuthRequest(
-    HttpAuthRequestCallback onHttpAuthRequest,
-  ) async {}
-
-  @override
-  Future<void> setOnSSlAuthError(SslAuthErrorCallback onSslAuthError) async {}
-}
-
-class _FakeWebViewWidget extends PlatformWebViewWidget {
-  _FakeWebViewWidget(super.params) : super.implementation();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox.expand();
   }
 }

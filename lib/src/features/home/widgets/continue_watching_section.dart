@@ -22,7 +22,14 @@ class ContinueWatchingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (entries.isEmpty) return const SizedBox.shrink();
+    final sorted = entries.where((entry) => entry.canResume).toList()
+      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    final seen = <String>{};
+    final visible = [
+      for (final entry in sorted)
+        if (seen.add(entry.contentKey)) entry,
+    ];
+    if (visible.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,26 +56,36 @@ class ContinueWatchingSection extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 168,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(
-              horizontal: VeilLayout.pageGutter(context),
-            ),
-            itemCount: entries.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return _HistoryCard(
-                entry: entry,
-                editing: editing,
-                onPlay: () => onPlay(entry),
-                onRemove: () => onRemove(entry.entryKey),
-              );
-            },
-          ),
+        const SizedBox(height: 4),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final gutter = VeilLayout.pageGutter(context);
+            final width = ((constraints.maxWidth - 2 * gutter - 16) / 3).clamp(
+              72.0,
+              204.0,
+            );
+            return SizedBox(
+              height: width * 9 / 16 + 48,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(
+                  horizontal: VeilLayout.pageGutter(context),
+                ),
+                itemCount: visible.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final entry = visible[index];
+                  return _HistoryCard(
+                    entry: entry,
+                    width: width,
+                    editing: editing,
+                    onPlay: () => onPlay(entry),
+                    onRemove: () => onRemove(entry.entryKey),
+                  );
+                },
+              ),
+            );
+          },
         ),
       ],
     );
@@ -78,12 +95,14 @@ class ContinueWatchingSection extends StatelessWidget {
 class _HistoryCard extends StatelessWidget {
   const _HistoryCard({
     required this.entry,
+    required this.width,
     required this.editing,
     required this.onPlay,
     required this.onRemove,
   });
 
   final PlaybackHistoryEntry entry;
+  final double width;
   final bool editing;
   final VoidCallback onPlay;
   final VoidCallback onRemove;
@@ -97,7 +116,7 @@ class _HistoryCard extends StatelessWidget {
         mediaType == 'tv' || type.contains('tv') || type.contains('series');
 
     return SizedBox(
-      width: 204,
+      width: width,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -111,8 +130,8 @@ class _HistoryCard extends StatelessWidget {
                 children: [
                   BackdropArt(
                     item: item,
-                    width: 204,
-                    height: 116,
+                    width: width,
+                    height: width * 9 / 16,
                     radius: 12,
                     child: editing
                         ? null
@@ -124,11 +143,11 @@ class _HistoryCard extends StatelessWidget {
                                 border: Border.all(color: Colors.white24),
                               ),
                               child: const SizedBox.square(
-                                dimension: 38,
+                                dimension: 28,
                                 child: Icon(
                                   Icons.play_arrow_rounded,
                                   color: Colors.white,
-                                  size: 21,
+                                  size: 18,
                                 ),
                               ),
                             ),
@@ -158,21 +177,27 @@ class _HistoryCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Text(
             entry.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 3),
           Text(
-            isTv ? 'S${entry.season} · E${entry.episode}' : 'Recently started',
-            style: const TextStyle(color: VeilColors.text3, fontSize: 11),
+            isTv
+                ? 'S${entry.season.toString().padLeft(2, '0')} · E${entry.episode.toString().padLeft(2, '0')}${entry.position.inMinutes > 0 ? ' · ${entry.position.inMinutes}m' : ''}'
+                : entry.position.inSeconds > 0
+                ? '${entry.position.inMinutes}:${(entry.position.inSeconds % 60).toString().padLeft(2, '0')}'
+                : 'Recently started',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: VeilColors.text3, fontSize: 10),
           ),
         ],
       ),

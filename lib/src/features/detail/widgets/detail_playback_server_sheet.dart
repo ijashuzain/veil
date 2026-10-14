@@ -10,6 +10,8 @@ class DetailPlaybackServerSheet extends StatelessWidget {
     required this.onServerTwo,
     required this.onServerThree,
     required this.onServerFour,
+    this.onServerFive,
+    this.onServerSix,
   });
 
   final String title;
@@ -18,6 +20,8 @@ class DetailPlaybackServerSheet extends StatelessWidget {
   final VoidCallback onServerTwo;
   final VoidCallback onServerThree;
   final VoidCallback onServerFour;
+  final VoidCallback? onServerFive;
+  final VoidCallback? onServerSix;
 
   @override
   Widget build(BuildContext context) {
@@ -87,33 +91,24 @@ class DetailPlaybackServerSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _ServerButton(
-                  key: const ValueKey('playback-server-1'),
-                  icon: Icons.play_circle_fill_rounded,
-                  title: 'Server 1',
-                  onTap: onServerOne,
-                ),
-                const SizedBox(height: 10),
-                _ServerButton(
-                  key: const ValueKey('playback-server-2'),
-                  icon: Icons.connected_tv_rounded,
-                  title: 'Server 2',
-                  onTap: onServerTwo,
-                ),
-                const SizedBox(height: 10),
-                _ServerButton(
-                  key: const ValueKey('playback-server-3'),
-                  icon: Icons.video_file_rounded,
-                  title: 'Server 3',
-                  onTap: onServerThree,
-                ),
-                const SizedBox(height: 10),
-                _ServerButton(
-                  key: const ValueKey('playback-server-4'),
-                  icon: Icons.web_asset_rounded,
-                  title: 'Server 4',
-                  onTap: onServerFour,
-                ),
+                if (onServerFive != null) ...[
+                  const SizedBox(height: 10),
+                  _ServerButton(
+                    key: const ValueKey('playback-server-5'),
+                    icon: Icons.play_arrow_rounded,
+                    title: 'Player 1',
+                    onTap: onServerFive!,
+                  ),
+                ],
+                if (onServerSix != null) ...[
+                  const SizedBox(height: 10),
+                  _ServerButton(
+                    key: const ValueKey('playback-server-6'),
+                    icon: Icons.play_arrow_rounded,
+                    title: 'Player 2',
+                    onTap: onServerSix!,
+                  ),
+                ],
               ],
             ),
           ),

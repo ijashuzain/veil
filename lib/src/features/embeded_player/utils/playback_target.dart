@@ -8,6 +8,7 @@ class PlaybackTarget {
     this.forceEmbedded = false,
     this.loadAsPage = false,
     this.externalOnWeb = false,
+    this.nativePlayback = false,
   });
 
   final Uri url;
@@ -15,6 +16,7 @@ class PlaybackTarget {
   final bool forceEmbedded;
   final bool loadAsPage;
   final bool externalOnWeb;
+  final bool nativePlayback;
 }
 
 PlaybackTarget? playbackTargetFor(PlaybackRequest request) {
@@ -44,7 +46,12 @@ PlaybackTarget? playbackTargetFor(PlaybackRequest request) {
       final tmdbId = item.remoteId;
       if (tmdbId == null || tmdbId <= 0) return null;
       return PlaybackTarget(
-        url: cinesrcPlaybackUrl(tmdbId: tmdbId, contentType: item.type),
+        url: cinesrcPlaybackUrl(
+          tmdbId: tmdbId,
+          contentType: item.type,
+          season: request.safeSeason,
+          episode: request.safeEpisode,
+        ),
         forceEmbedded: true,
       );
     case PlaybackServer.four:
@@ -56,5 +63,20 @@ PlaybackTarget? playbackTargetFor(PlaybackRequest request) {
       );
       if (url == null) return null;
       return PlaybackTarget(url: url, forceEmbedded: true, loadAsPage: true);
+    case PlaybackServer.five:
+    case PlaybackServer.six:
+      final tmdbId = item.remoteId;
+      if (tmdbId == null || tmdbId <= 0) return null;
+      return PlaybackTarget(
+        url: cinesrcPlaybackUrl(
+          tmdbId: tmdbId,
+          contentType: item.type,
+          season: request.safeSeason,
+          episode: request.safeEpisode,
+        ),
+        forceEmbedded: true,
+        loadAsPage: true,
+        nativePlayback: true,
+      );
   }
 }

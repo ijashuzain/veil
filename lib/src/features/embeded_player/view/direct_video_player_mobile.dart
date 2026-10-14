@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:veil/src/features/embeded_player/utils/playback_webview_policy.dart';
 import 'package:veil/src/features/embeded_player/view/direct_video_player_script.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:veil/src/features/embeded_player/view/mobile_playback_webview.dart';
 
 class FullscreenLandscapeDirectVideoPlayer extends StatefulWidget {
   const FullscreenLandscapeDirectVideoPlayer({
@@ -24,9 +25,7 @@ class FullscreenLandscapeDirectVideoPlayer extends StatefulWidget {
 
 class _FullscreenLandscapeDirectVideoPlayerState
     extends State<FullscreenLandscapeDirectVideoPlayer> {
-  late final WebViewController _controller;
   bool _isDisposed = false;
-  int? _lastLoggedProgressBucket;
 
   static const _wrapperBaseUrl = 'https://cine.su/';
 
@@ -36,106 +35,6 @@ class _FullscreenLandscapeDirectVideoPlayerState
 
     _log('init direct=${_summarizeUrl(widget.url)}');
     unawaited(_enterFullscreenLandscape());
-
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.black)
-      ..setOnConsoleMessage(
-        (message) => _log(
-          'console level=${message.level.name} message='
-          '${_singleLine(message.message)}',
-        ),
-      )
-      ..setNavigationDelegate(_buildNavigationDelegate());
-
-    _loadPlayerHtml();
-    unawaited(_logInitialUserAgent());
-  }
-
-  NavigationDelegate _buildNavigationDelegate() {
-    return NavigationDelegate(
-      onNavigationRequest: (request) {
-        final isAllowed =
-            !request.isMainFrame || _isAllowedMainFrameUrl(request.url);
-        _log(
-          '${isAllowed ? 'allow' : 'block'} navigation '
-          'frame=${request.isMainFrame ? 'main' : 'sub'} '
-          'url=${_summarizeUrl(request.url)}',
-        );
-        return isAllowed
-            ? NavigationDecision.navigate
-            : NavigationDecision.prevent;
-      },
-      onPageStarted: (url) => _log('page started ${_summarizeUrl(url)}'),
-      onPageFinished: (url) => _log('page finished ${_summarizeUrl(url)}'),
-      onProgress: (progress) {
-        final bucket = progress ~/ 25;
-        if (_lastLoggedProgressBucket == bucket && progress != 100) return;
-
-        _lastLoggedProgressBucket = bucket;
-        _log('load progress $progress%');
-      },
-      onWebResourceError: (error) {
-        _log(
-          'resource error code=${error.errorCode} '
-          'type=${error.errorType?.name ?? 'unknown'} '
-          'mainFrame=${error.isForMainFrame} '
-          'url=${_summarizeUrl(error.url)} '
-          'description=${_singleLine(error.description)}',
-        );
-      },
-      onUrlChange: (change) {
-        _log('url changed ${_summarizeUrl(change.url)}');
-      },
-      onHttpError: (error) {
-        _log(
-          'http error status=${error.response?.statusCode} '
-          'request=${_summarizeUrl(error.request?.uri.toString())} '
-          'response=${_summarizeUrl(error.response?.uri?.toString())}',
-        );
-      },
-      onHttpAuthRequest: (request) {
-        _log(
-          'http auth requested host=${request.host} '
-          'realm=${request.realm ?? '<none>'}; cancelling',
-        );
-        request.onCancel();
-      },
-      onSslAuthError: (error) {
-        _log('ssl auth error; cancelling');
-        unawaited(error.cancel());
-      },
-    );
-  }
-
-  void _loadPlayerHtml() {
-    _log('load direct wrapper base=$_wrapperBaseUrl');
-    unawaited(
-      _controller.loadHtmlString(
-        _buildDirectPlayerHtml(widget.url),
-        baseUrl: _wrapperBaseUrl,
-      ),
-    );
-  }
-
-  Future<void> _logInitialUserAgent() async {
-    try {
-      final userAgent = await _controller.getUserAgent();
-      if (!_isDisposed) {
-        _log('userAgent=${_singleLine(userAgent ?? '<null>')}');
-      }
-    } catch (error) {
-      _log('userAgent unavailable: $error');
-    }
-  }
-
-  static bool _isAllowedMainFrameUrl(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return false;
-
-    return uri.scheme == 'about' ||
-        uri.scheme == 'data' ||
-        url.startsWith(_wrapperBaseUrl);
   }
 
   static String _buildDirectPlayerHtml(String url) {
@@ -212,9 +111,8 @@ class _FullscreenLandscapeDirectVideoPlayerState
     autoplay
     playsinline
     webkit-playsinline
-    preload="metadata"></video>
+    preload="auto"></video>
   <div id="status" class="status">Loading stream...</div>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script>
     $bootstrapScript
   </script>
@@ -231,7 +129,7 @@ class _FullscreenLandscapeDirectVideoPlayerState
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
-
+      if (_isDisposed) return;
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       _log('entered fullscreen landscape');
     } catch (error) {
@@ -265,7 +163,15 @@ class _FullscreenLandscapeDirectVideoPlayerState
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(child: WebViewWidget(controller: _controller)),
+          Positioned.fill(
+            child: MobilePlaybackWebView(
+              policy: PlaybackWebViewPolicy(
+                playerUrl: widget.url,
+                wrapperBaseUrl: _wrapperBaseUrl,
+              ),
+              html: _buildDirectPlayerHtml(widget.url),
+            ),
+          ),
           if (widget.showCloseButton)
             Positioned(
               top: 12,

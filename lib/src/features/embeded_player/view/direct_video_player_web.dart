@@ -1,6 +1,5 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
 
@@ -28,7 +27,6 @@ class _FullscreenLandscapeDirectVideoPlayerState
     extends State<FullscreenLandscapeDirectVideoPlayer> {
   html.DivElement? _overlay;
   html.VideoElement? _videoElement;
-  html.ScriptElement? _hlsScriptElement;
   String? _videoElementId;
 
   @override
@@ -63,7 +61,7 @@ class _FullscreenLandscapeDirectVideoPlayerState
       ..id = videoId
       ..controls = true
       ..autoplay = true
-      ..preload = 'metadata'
+      ..preload = 'auto'
       ..setAttribute('playsinline', 'true')
       ..setAttribute('webkit-playsinline', 'true')
       ..style.width = '100%'
@@ -128,34 +126,14 @@ class _FullscreenLandscapeDirectVideoPlayerState
     required String videoId,
     required String statusId,
   }) {
-    final hlsScript = html.ScriptElement()
-      ..async = true
-      ..src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
-    _hlsScriptElement = hlsScript;
-
-    void bootstrap() {
-      if (!mounted) return;
-      final script = html.ScriptElement()
-        ..text = buildDirectPlayerBootstrapScript(
-          url: url,
-          videoId: videoId,
-          statusId: statusId,
-        );
-      html.document.body?.append(script);
-      script.remove();
-    }
-
-    hlsScript.onLoad.first.then((_) => bootstrap());
-    hlsScript.onError.first.then((_) {
-      if (!mounted) return;
-      final video = _videoElement;
-      if (video == null) return;
-      video.src = url;
-      video.load();
-      unawaited(video.play());
-    });
-    html.document.head?.append(hlsScript);
-    Timer.run(bootstrap);
+    final script = html.ScriptElement()
+      ..text = buildDirectPlayerBootstrapScript(
+        url: url,
+        videoId: videoId,
+        statusId: statusId,
+      );
+    html.document.body?.append(script);
+    script.remove();
   }
 
   @override
@@ -167,6 +145,7 @@ class _FullscreenLandscapeDirectVideoPlayerState
             '''
 (function () {
   const video = document.getElementById(${jsonEncode(videoId)});
+  if (video) video.__veilDisposed = true;
   if (video && video.__veilHls) {
     video.__veilHls.destroy();
     video.__veilHls = null;
@@ -181,7 +160,6 @@ class _FullscreenLandscapeDirectVideoPlayerState
       ?..pause()
       ..src = ''
       ..load();
-    _hlsScriptElement?.remove();
     _overlay?.remove();
     super.dispose();
   }
