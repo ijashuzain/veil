@@ -20,6 +20,16 @@ Future<bool> launchPlaybackRequest(
   BuildContext context,
   PlaybackRequest request,
 ) async {
+  if (kIsWeb && request.server == PlaybackServer.six) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Player 2 is unavailable on web. Please select Player 1.',
+        ),
+      ),
+    );
+    return false;
+  }
   final native = playbackTargetFor(request)?.nativePlayback ?? false;
   if (!native) return _launchPlaybackRequest(context, request);
   if (_launchingNative) return false;

@@ -7,15 +7,18 @@ import 'package:veil/src/features/embeded_player/view/player.dart';
 import 'package:veil/src/features/native_player/models/resolved_stream.dart';
 import 'package:veil/src/features/native_player/repository/cinesrc_stream_resolver.dart';
 import 'package:veil/src/features/native_player/repository/provider_stream_resolver.dart';
+import 'package:veil/src/features/native_player/repository/web_stream_resolver.dart';
 import 'package:video_player/video_player.dart';
 import 'package:veil/src/features/native_player/utils/playback_intent.dart';
 import 'package:veil/src/features/native_player/repository/subtitle_repository.dart';
 import 'package:veil/src/features/native_player/view/episode_panel.dart';
 import 'package:veil/src/features/native_player/view/player_controls.dart';
+import 'package:veil/src/features/native_player/view/player_control_glyph.dart';
 import 'package:veil/src/features/native_player/repository/episode_repository.dart';
 import 'package:veil/src/features/native_player/utils/language_labels.dart';
 import 'package:veil/src/features/native_player/utils/caption_text.dart';
 import 'package:veil/src/features/native_player/utils/player_platform.dart';
+import 'package:veil/src/features/native_player/utils/browser_fullscreen.dart';
 import 'package:veil/src/shared/models/playback_request.dart';
 import 'package:veil/src/features/detail/utils/playback_entry_url.dart';
 
@@ -102,6 +105,15 @@ class _NativePlayerViewState extends State<NativePlayerView>
   int _subtitleGeneration = 0;
   String _qualityLabel = 'Auto';
   bool _switchingQuality = false;
+  double _volume = 1;
+  double _volumeBeforeMute = 1;
+  bool _browserFullscreen = false;
+  bool _ownsBrowserFullscreen = false;
+  StreamSubscription<bool>? _fullscreenSubscription;
+  // Keep mobile video in Flutter's compositor: Android platform views can
+  // misapply FittedBox transforms/clipping during the first fullscreen rotation.
+  VideoViewType get _videoViewType =>
+      kIsWeb ? VideoViewType.platformView : VideoViewType.textureView;
   NativeProvider get _provider => _request?.server == PlaybackServer.six
       ? NativeProvider.vidsrc
       : NativeProvider.cinesrc;
@@ -111,6 +123,14 @@ class _NativePlayerViewState extends State<NativePlayerView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (kIsWeb) {
+      _browserFullscreen = browserIsFullscreen;
+      _fullscreenSubscription = browserFullscreenChanges().listen((active) {
+        if (!mounted) return;
+        setState(() => _browserFullscreen = active);
+        if (!active) _ownsBrowserFullscreen = false;
+      });
+    }
     unawaited(_fullscreen(true));
     unawaited(_start(position: widget.request?.startPosition ?? Duration.zero));
     unawaited(_loadEpisodeName());
@@ -150,30 +170,37 @@ class _NativePlayerViewState extends State<NativePlayerView>
     previousController?.removeListener(_onVideoChanged);
     await previousController?.dispose();
     if (!mounted || generation != _generation) return;
-    if (kIsWeb ||
-        (defaultTargetPlatform != TargetPlatform.android &&
+    if ((kIsWeb && _provider != NativeProvider.cinesrc) ||
+        (!kIsWeb &&
+            defaultTargetPlatform != TargetPlatform.android &&
             defaultTargetPlatform != TargetPlatform.iOS)) {
       setState(() {
         _loading = false;
-        _error =
-            'Native playback is available on Android and iOS. Use the embedded player on this platform.';
+        _error = kIsWeb
+            ? 'Player 2 is currently unavailable on web. Please select Player 1.'
+            : 'Native playback is available on Android and iOS. Use the embedded player on this platform.';
       });
       return;
     }
     final resolver = _resolver =
         widget.resolverFactory?.call() ??
-        ProviderStreamResolver(
-          providers: [_provider],
-          onAttempt: (provider) {
-            if (mounted) setState(() => _stage = 'Resolving stream…');
-          },
-        );
+        (kIsWeb
+            ? WebStreamResolver()
+            : ProviderStreamResolver(
+                providers: [_provider],
+                onAttempt: (provider) {
+                  if (mounted) setState(() => _stage = 'Resolving stream…');
+                },
+              ));
     VideoPlayerController? controller;
     try {
       final stream = await resolver.resolve(_entryUrl);
       // Even injected resolvers must obey the browser-free handoff contract.
       await resolver.dispose();
       if (!mounted || generation != _generation) return;
+      if (kIsWeb && _stream?.url != stream.url) {
+        unawaited(WebStreamResolver.release(_stream));
+      }
       _stream = stream;
       _subtitleTracks = stream.subtitles;
       _qualityLabel = stream.url == stream.masterUrl
@@ -193,16 +220,14 @@ class _NativePlayerViewState extends State<NativePlayerView>
         'subtitles': stream.subtitles.length,
       });
       if (!mounted || generation != _generation) return;
-      setState(() => _stage = 'Starting native player…');
+      setState(() => _stage = 'Starting player…');
       controller = VideoPlayerController.networkUrl(
         stream.url,
         httpHeaders: stream.headers,
         formatHint: stream.format == NativeStreamFormat.hls
             ? VideoFormat.hls
             : VideoFormat.other,
-        viewType: defaultTargetPlatform == TargetPlatform.android
-            ? VideoViewType.platformView
-            : VideoViewType.textureView,
+        viewType: _videoViewType,
       );
       _controller = controller;
       _intent = _createIntent(controller);
@@ -210,10 +235,17 @@ class _NativePlayerViewState extends State<NativePlayerView>
       setState(() {});
       await controller.initialize().timeout(const Duration(seconds: 25));
       if (!mounted || generation != _generation) return;
+      await controller.setVolume(_volume);
       if (position > Duration.zero) {
         await controller.seekTo(position).timeout(const Duration(seconds: 15));
       }
-      await controller.play();
+      try {
+        await controller.play();
+      } catch (_) {
+        if (!kIsWeb) rethrow;
+        _intent?.setPlaying(false);
+        _notice('Tap Play to start playback.');
+      }
       if (!mounted || generation != _generation) return;
       setState(() => _loading = false);
       _scheduleHide();
@@ -448,9 +480,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
       selected.$2,
       httpHeaders: stream.headers,
       formatHint: VideoFormat.hls,
-      viewType: defaultTargetPlatform == TargetPlatform.android
-          ? VideoViewType.platformView
-          : VideoViewType.textureView,
+      viewType: _videoViewType,
     );
     if (!mounted || generation != _generation) {
       await next.dispose();
@@ -463,6 +493,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
     });
     try {
       await next.initialize().timeout(const Duration(seconds: 20));
+      await next.setVolume(_volume);
       await next.seekTo(position).timeout(const Duration(seconds: 15));
       if (!mounted || generation != _generation) {
         await next.dispose();
@@ -620,6 +651,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
   }
 
   Future<void> _fullscreen(bool enter) async {
+    if (kIsWeb) return;
     await SystemChrome.setPreferredOrientations(
       enter
           ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
@@ -629,6 +661,41 @@ class _NativePlayerViewState extends State<NativePlayerView>
     await SystemChrome.setEnabledSystemUIMode(
       enter ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
     );
+  }
+
+  Future<void> _toggleBrowserFullscreen() async {
+    final wasFullscreen = browserIsFullscreen;
+    try {
+      await toggleBrowserFullscreen();
+      if (!mounted) {
+        if (!wasFullscreen) await exitBrowserFullscreen();
+        return;
+      }
+      _ownsBrowserFullscreen = !wasFullscreen;
+      setState(() => _browserFullscreen = browserIsFullscreen);
+      _scheduleHide();
+    } catch (_) {
+      if (mounted) _notice('Fullscreen is unavailable in this browser.');
+    }
+  }
+
+  Future<void> _toggleMute() async {
+    final controller = _controller;
+    if (controller == null) return;
+    final previous = controller.value.volume;
+    if (previous > 0) {
+      _volumeBeforeMute = previous;
+      _volume = 0;
+    } else {
+      _volume = _volumeBeforeMute;
+    }
+    try {
+      await controller.setVolume(_volume);
+      if (mounted && controller == _controller) _scheduleHide();
+    } catch (_) {
+      _volume = previous;
+      if (mounted) _notice('Could not change volume. Please try again.');
+    }
   }
 
   Future<void> _loadEpisodeName() async {
@@ -672,6 +739,10 @@ class _NativePlayerViewState extends State<NativePlayerView>
   }
 
   Future<void> _readBrightness() async {
+    if (kIsWeb) {
+      _brightness = 1;
+      return;
+    }
     try {
       final value = await PlayerPlatform.brightness();
       if (mounted) _brightness = value;
@@ -714,8 +785,13 @@ class _NativePlayerViewState extends State<NativePlayerView>
     if (_gestureLeft) {
       _brightness = value;
       _brightnessChanged = true;
-      unawaited(PlayerPlatform.setBrightness(value).catchError((Object _) {}));
+      if (!kIsWeb) {
+        unawaited(
+          PlayerPlatform.setBrightness(value).catchError((Object _) {}),
+        );
+      }
     } else {
+      _volume = value;
       unawaited(_controller!.setVolume(value));
     }
     _showFeedback(
@@ -942,6 +1018,11 @@ class _NativePlayerViewState extends State<NativePlayerView>
 
   @override
   void dispose() {
+    unawaited(_fullscreenSubscription?.cancel());
+    if (kIsWeb && _ownsBrowserFullscreen) {
+      unawaited(exitBrowserFullscreen().catchError((Object _) {}));
+    }
+    if (kIsWeb) unawaited(WebStreamResolver.release(_stream));
     _subtitleScrollController.dispose();
     _qualityScrollController.dispose();
     _emit({'kind': 'nativeDisposed', 'hasController': _controller != null});
@@ -950,7 +1031,9 @@ class _NativePlayerViewState extends State<NativePlayerView>
     _subtitleRepository.dispose();
     if (widget.episodeRepository == null) _episodeRepository.dispose();
     _feedbackTimer?.cancel();
-    if (_brightnessChanged) unawaited(PlayerPlatform.restoreBrightness());
+    if (_brightnessChanged && !kIsWeb) {
+      unawaited(PlayerPlatform.restoreBrightness());
+    }
     unawaited(_release());
     unawaited(_fullscreen(false));
     super.dispose();
@@ -969,6 +1052,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
         child: LayoutBuilder(
           builder: (context, constraints) {
             final playbackWidth = constraints.maxWidth;
+            final actionSize = playbackWidth < 600 ? 32.0 : 44.0;
             _playerSize = Size(playbackWidth, constraints.maxHeight);
             // Controls follow the safe viewport, independent of video aspect
             // ratio. Only the video below is aspect-fitted.
@@ -994,6 +1078,16 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                     : 9,
                                 child: VideoPlayer(controller),
                               ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (kIsWeb && _brightnessChanged)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: ColoredBox(
+                            color: Colors.black.withValues(
+                              alpha: 1 - _brightness,
                             ),
                           ),
                         ),
@@ -1077,13 +1171,15 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                     icon: Icons.refresh,
                                     label: 'Retry',
                                   ),
-                                  PlayerAction(
-                                    key: const ValueKey(
-                                      'native-player-embedded-fallback',
+                                  if (!kIsWeb)
+                                    PlayerAction(
+                                      key: const ValueKey(
+                                        'native-player-embedded-fallback',
+                                      ),
+                                      onTap: () =>
+                                          unawaited(_embeddedFallback()),
+                                      label: 'Open embedded player',
                                     ),
-                                    onTap: () => unawaited(_embeddedFallback()),
-                                    label: 'Open embedded player',
-                                  ),
                                 ],
                               ),
                             ],
@@ -1168,6 +1264,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                         key: const ValueKey(
                                           'native-player-play-pause',
                                         ),
+                                        size: actionSize,
                                         label: (_intent?.wantsPlay ?? false)
                                             ? 'Pause'
                                             : 'Play',
@@ -1182,6 +1279,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                         key: const ValueKey(
                                           'native-player-rewind',
                                         ),
+                                        size: actionSize,
                                         label: 'Rewind 10 seconds',
                                         onTap: () {
                                           _intent?.skip(
@@ -1195,6 +1293,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                         key: const ValueKey(
                                           'native-player-forward',
                                         ),
+                                        size: actionSize,
                                         label: 'Forward 10 seconds',
                                         onTap: () {
                                           _intent?.skip(
@@ -1218,6 +1317,7 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                         key: const ValueKey(
                                           'native-player-subtitles',
                                         ),
+                                        size: actionSize,
                                         label: 'Subtitles',
                                         onTap: _chooseSubtitles,
                                         icon: _subtitle == null
@@ -1226,11 +1326,30 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                       ),
                                       PlayerAction(
                                         key: const ValueKey(
+                                          'native-player-mute',
+                                        ),
+                                        size: actionSize,
+                                        label: value.volume == 0
+                                            ? 'Unmute'
+                                            : 'Mute',
+                                        child: PlayerControlIcon(
+                                          value.volume == 0
+                                              ? PlayerControlGlyph.muted
+                                              : PlayerControlGlyph.sound,
+                                        ),
+                                        onTap: () => unawaited(_toggleMute()),
+                                      ),
+                                      PlayerAction(
+                                        key: const ValueKey(
                                           'native-player-quality',
                                         ),
+                                        size: actionSize,
                                         onTap: () =>
                                             _openPanel('tracks', tab: 1),
                                         label: 'Quality',
+                                        icon: playbackWidth < 600
+                                            ? Icons.high_quality
+                                            : null,
                                         text: _qualityLabel,
                                         selected: true,
                                       ),
@@ -1238,7 +1357,11 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                         key: const ValueKey(
                                           'native-player-fit',
                                         ),
+                                        size: actionSize,
                                         label: 'Video sizing',
+                                        icon: playbackWidth < 600
+                                            ? Icons.aspect_ratio
+                                            : null,
                                         text: switch (_videoFit) {
                                           BoxFit.cover => 'Fill',
                                           BoxFit.fill => 'Stretch',
@@ -1254,9 +1377,35 @@ class _NativePlayerViewState extends State<NativePlayerView>
                                                   _ => BoxFit.contain,
                                                 },
                                           );
+                                          if (playbackWidth < 600) {
+                                            _showFeedback(switch (_videoFit) {
+                                              BoxFit.cover => 'Fill',
+                                              BoxFit.fill => 'Stretch',
+                                              _ => 'Fit',
+                                            });
+                                          }
                                           _scheduleHide();
                                         },
                                       ),
+                                      if (kIsWeb)
+                                        PlayerAction(
+                                          key: const ValueKey(
+                                            'web-player-fullscreen',
+                                          ),
+                                          size: actionSize,
+                                          label: _browserFullscreen
+                                              ? 'Exit fullscreen'
+                                              : 'Enter fullscreen',
+                                          child: PlayerControlIcon(
+                                            _browserFullscreen
+                                                ? PlayerControlGlyph
+                                                      .exitFullscreen
+                                                : PlayerControlGlyph.fullscreen,
+                                          ),
+                                          onTap: () => unawaited(
+                                            _toggleBrowserFullscreen(),
+                                          ),
+                                        ),
                                       if (value.isBuffering &&
                                           (_intent?.wantsPlay ?? false))
                                         const Padding(

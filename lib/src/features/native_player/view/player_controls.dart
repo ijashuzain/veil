@@ -14,6 +14,7 @@ class PlayerAction extends StatelessWidget {
     this.color,
     this.size = 44,
     this.iconSize = 23,
+    this.child,
   });
   final IconData? icon;
   final String? text;
@@ -23,6 +24,7 @@ class PlayerAction extends StatelessWidget {
   final Color? color;
   final double size;
   final double iconSize;
+  final Widget? child;
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
@@ -39,26 +41,28 @@ class PlayerAction extends StatelessWidget {
           constraints: BoxConstraints(minWidth: size, minHeight: size),
           padding: EdgeInsets.symmetric(horizontal: size < 44 ? 6 : 10),
           alignment: Alignment.center,
-          child: icon != null
-              ? Icon(
-                  icon,
-                  size: iconSize,
-                  color:
-                      color ??
-                      (onTap == null
-                          ? Colors.white30
-                          : selected
-                          ? playerAccent
-                          : Colors.white),
-                )
-              : Text(
-                  text ?? label,
-                  style: TextStyle(
-                    color: selected ? playerAccent : Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+          child:
+              child ??
+              (icon != null
+                  ? Icon(
+                      icon,
+                      size: iconSize,
+                      color:
+                          color ??
+                          (onTap == null
+                              ? Colors.white30
+                              : selected
+                              ? playerAccent
+                              : Colors.white),
+                    )
+                  : Text(
+                      text ?? label,
+                      style: TextStyle(
+                        color: selected ? playerAccent : Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )),
         ),
       ),
     ),

@@ -15,6 +15,90 @@ import 'package:video_player/video_player.dart' show VideoPlayer;
 import 'package:flutter/services.dart';
 
 void main() {
+  for (final rotateBeforeReady in [true, false]) {
+    testWidgets('first-open rotation keeps video and controls aligned '
+        '(rotate before ready: $rotateBeforeReady)', (tester) async {
+      tester.view.devicePixelRatio = 3;
+      tester.view.physicalSize = const Size(1080, 2340);
+      addTearDown(tester.view.reset);
+      final platform = _VideoPlatform();
+      VideoPlayerPlatform.instance = platform;
+      final resolver = _Resolver(pending: true);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NativePlayerView(
+            entryUrl: Uri.parse('https://cinesrc.st/embed/movie/123'),
+            title: 'Movie',
+            resolverFactory: () => resolver,
+          ),
+        ),
+      );
+      if (!rotateBeforeReady) {
+        resolver.complete();
+        await tester.pumpAndSettle();
+      }
+      tester.view.physicalSize = const Size(2340, 1080);
+      tester.view.padding = const FakeViewPadding(left: 90, right: 30);
+      await tester.pump();
+      if (rotateBeforeReady) resolver.complete();
+      await tester.pumpAndSettle();
+
+      expect(platform.viewType, VideoViewType.textureView);
+      final video = tester.getRect(find.byType(VideoPlayer));
+      expect(video.width, closeTo(640, .01));
+      expect(video.height, closeTo(360, .01));
+      expect(video.center, const Offset(400, 180));
+      final toolbar = tester.getRect(
+        find.byKey(const ValueKey('native-player-toolbar')),
+      );
+      expect(toolbar.left, 46);
+      expect(toolbar.right, 754);
+      final fitButton = tester.getRect(
+        find.byKey(const ValueKey('native-player-fit')),
+      );
+      expect(toolbar.contains(fitButton.center), isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
+  testWidgets('mute restores previous volume and fits a narrow mobile screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final platform = _VideoPlatform();
+    VideoPlayerPlatform.instance = platform;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NativePlayerView(
+          entryUrl: Uri.parse('https://cinesrc.st/embed/movie/123'),
+          title: 'Movie',
+          resolverFactory: () => _Resolver(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final controller = tester
+        .widget<VideoPlayer>(find.byType(VideoPlayer))
+        .controller;
+    await controller.setVolume(.35);
+    await tester.pump();
+    final mute = find.byKey(const ValueKey('native-player-mute'));
+    await tester.tap(mute);
+    await tester.pump();
+    expect(platform.volume, 0);
+    expect(tester.widget<PlayerAction>(mute).label, 'Unmute');
+    await tester.tap(mute);
+    await tester.pump();
+    expect(platform.volume, .35);
+    expect(tester.widget<PlayerAction>(mute).label, 'Mute');
+    expect(find.byKey(const ValueKey('web-player-fullscreen')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -667,6 +751,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
   final VoidCallback? onCreate;
   final events = StreamController<VideoEvent>.broadcast();
   DataSource? source;
+  VideoViewType? viewType;
   Duration position = Duration.zero;
   bool disposed = false;
   double volume = 1;
@@ -676,6 +761,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
   Future<int?> createWithOptions(VideoCreationOptions options) async {
     onCreate?.call();
     source = options.dataSource;
+    viewType = options.viewType;
     return 1;
   }
 

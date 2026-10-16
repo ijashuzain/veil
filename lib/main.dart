@@ -9,9 +9,12 @@ import 'package:veil/app/services/supabase_services/supabase_service.dart';
 import 'package:veil/src/core/providers/ad_providers.dart';
 import 'package:veil/src/core/router/app_router.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
+import 'package:veil/src/core/app_access/app_access_gate.dart';
+import 'package:veil/src/features/native_player/utils/web_video_setup.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureWebVideo();
   final initialUri = Uri.base;
   await LocalStorage.init();
   await SupabaseService.init();
@@ -43,16 +46,6 @@ class _VeilAppState extends State<VeilApp> {
   );
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final container = ProviderScope.containerOf(context, listen: false);
-      unawaited(container.read(adControllerProvider.notifier).initialize());
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return TheResponsiveBuilder(
       baselineWidth: 390,
@@ -63,6 +56,18 @@ class _VeilAppState extends State<VeilApp> {
           debugShowCheckedModeBanner: false,
           theme: VeilTheme.dark(),
           routerConfig: _router,
+          builder: (context, child) => AppAccessGate(
+            onAllowed: () {
+              final container = ProviderScope.containerOf(
+                context,
+                listen: false,
+              );
+              unawaited(
+                container.read(adControllerProvider.notifier).initialize(),
+              );
+            },
+            child: child ?? const SizedBox.shrink(),
+          ),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,

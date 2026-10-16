@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'veil-pwa-v20260509-viewport';
+const CACHE_NAME = 'veil-pwa-v20261015-player-controls';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -48,7 +48,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (isAppShellUrl(url)) {
+  if (isAppShellUrl(url) || isRuntimeFontOrManifest(url)) {
     event.respondWith(networkFirst(request));
     return;
   }
@@ -78,10 +78,19 @@ function isStaticAssetUrl(url) {
   );
 }
 
+// Flutter tree-shakes icon fonts for each build. Serving an older font beside
+// newer Dart code produces invisible icons even though their buttons work.
+function isRuntimeFontOrManifest(url) {
+  return url.pathname.startsWith('/assets/') && (
+    /\.(?:otf|ttf|woff2?)$/i.test(url.pathname) ||
+    /\/(?:FontManifest\.json|AssetManifest\.(?:json|bin|bin\.json))$/.test(url.pathname)
+  );
+}
+
 async function networkFirst(request, fallbackUrl) {
   const cache = await caches.open(CACHE_NAME);
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: 'no-cache' });
     if (response && response.ok) {
       await cache.put(request, response.clone());
       if (fallbackUrl) {

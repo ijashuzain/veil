@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:veil/src/core/theme/veil_theme.dart';
 
 class DetailPlaybackServerSheet extends StatelessWidget {
@@ -105,8 +106,10 @@ class DetailPlaybackServerSheet extends StatelessWidget {
                   _ServerButton(
                     key: const ValueKey('playback-server-6'),
                     icon: Icons.play_arrow_rounded,
-                    title: 'Player 2',
-                    onTap: onServerSix!,
+                    title: kIsWeb
+                        ? 'Player 2 · Unavailable on web'
+                        : 'Player 2',
+                    onTap: kIsWeb ? null : onServerSix!,
                   ),
                 ],
               ],
@@ -325,7 +328,7 @@ class _ServerButton extends StatelessWidget {
 
   final IconData icon;
   final String title;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

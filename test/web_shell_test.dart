@@ -24,7 +24,7 @@ void main() {
     expect(manifest['background_color'], '#050507');
     expect(
       serviceWorker,
-      contains("const CACHE_NAME = 'veil-pwa-v20260509-viewport';"),
+      contains("const CACHE_NAME = 'veil-pwa-v20261015-player-controls';"),
     );
     expect(_hasNoCacheHeader(firebase, '/'), isTrue);
   });

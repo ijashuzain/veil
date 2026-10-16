@@ -107,6 +107,7 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
     expect(find.text('VEIL'), findsWidgets);
     expect(find.textContaining('Discover movies'), findsOneWidget);
     expect(find.textContaining('streaming'), findsNothing);
@@ -123,6 +124,7 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
     await tester.tap(find.text('New here? Create account'));
     await tester.pump();
 
@@ -143,6 +145,7 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
     await tester.tap(find.text('New here? Create account'));
     await tester.pump();
 
@@ -206,6 +209,7 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
     await tester.tap(find.text('New here? Create account'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
@@ -228,7 +232,19 @@ void main() {
         child: const VeilApp(),
       ),
     );
+    for (
+      var i = 0;
+      i < 30 &&
+          find
+              .byKey(const ValueKey('app-access-blocker'))
+              .evaluate()
+              .isNotEmpty;
+      i++
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.byKey(const ValueKey('home-cinematic-hero')), findsOneWidget);
@@ -249,6 +265,7 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Email'), 'a@b.com');
     await tester.enterText(find.widgetWithText(TextField, 'Password'), 'wrong');
     await tester.tap(find.text('Sign in'));
@@ -271,6 +288,7 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
     final passwordField = find.widgetWithText(TextField, 'Password');
     expect(tester.widget<TextField>(passwordField).obscureText, isTrue);
     expect(find.byTooltip('Show password'), findsOneWidget);
